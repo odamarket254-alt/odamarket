@@ -21,20 +21,18 @@ interface MarketplaceProduct {
 
 export default function ProductsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const [search, setSearch] = useState(
-    searchParams.get("category") || searchParams.get("q") || "",
-  );
-  const [products, setProducts] = useState<MarketplaceProduct[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const search = searchParams.get("q") || searchParams.get("category") || "";
 
-  // Update search params when search changes, or clear it if empty
-  useEffect(() => {
-    if (search) {
-      setSearchParams({ q: search }, { replace: true });
+  const setSearch = (newSearch: string) => {
+    if (newSearch) {
+      setSearchParams({ q: newSearch }, { replace: true });
     } else {
       setSearchParams({}, { replace: true });
     }
-  }, [search, setSearchParams]);
+  };
+
+  const [products, setProducts] = useState<MarketplaceProduct[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     fetchActiveProducts();
@@ -102,15 +100,19 @@ export default function ProductsPage() {
           </div>
 
           <div className="flex w-full md:w-auto gap-2">
-            <div className="relative flex-1 md:w-80">
+            <form 
+              className="relative flex-1 md:w-80"
+              onSubmit={(e) => e.preventDefault()}
+            >
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
+                type="search"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search products, categories..."
                 className="pl-9 bg-muted/50 text-foreground border-border text-foreground placeholder:text-zinc-600 focus-visible:ring-emerald-500"
               />
-            </div>
+            </form>
             <Button
               variant="outline"
               className="shrink-0 bg-muted/50 text-foreground border-border hover:bg-white/10 text-foreground"

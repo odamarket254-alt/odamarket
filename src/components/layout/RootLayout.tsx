@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Outlet, Link, useLocation } from "react-router-dom";
+import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import { Menu, Search, X, ChevronRight, LogIn, UserPlus } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "../ui/Button";
@@ -18,11 +18,31 @@ import { ThemeToggle } from "../theme-toggle";
 export default function RootLayout() {
   const { user, profile } = useAuthStore();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     setIsMobileMenuOpen(false);
   }, [location.pathname]);
+
+  // Optionally clear search query when navigating away from products page
+  useEffect(() => {
+    if (!location.pathname.includes("/products")) {
+      setSearchQuery("");
+    }
+  }, [location.pathname]);
+
+  const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setSearchQuery(value);
+    
+    if (value.trim()) {
+      navigate(`/products?q=${encodeURIComponent(value)}`, { replace: true });
+    } else if (location.pathname === "/products") {
+      navigate(`/products`, { replace: true });
+    }
+  };
 
   useEffect(() => {
     if (isMobileMenuOpen) {
@@ -74,16 +94,21 @@ export default function RootLayout() {
           </div>
 
           <div className="flex-1 max-w-2xl hidden md:flex">
-            <div className="relative w-full group">
+            <form 
+              className="relative w-full group"
+              onSubmit={(e) => e.preventDefault()}
+            >
               <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground group-focus-within:text-emerald-500 transition-colors">
                 <Search className="h-4 w-4" />
               </div>
               <Input
                 type="search"
+                value={searchQuery}
+                onChange={handleSearch}
                 placeholder="Search products, suppliers..."
                 className="w-full pl-10 bg-muted/50 text-foreground border-border text-foreground placeholder:text-zinc-600 focus-visible:ring-emerald-500 rounded-full h-10 shadow-sm"
               />
-            </div>
+            </form>
           </div>
 
           <div className="flex items-center gap-2 sm:gap-4">
@@ -229,16 +254,27 @@ export default function RootLayout() {
               </div>
 
               <div className="p-4 border-b border-border">
-                <div className="relative w-full group">
+                <form 
+                  className="relative w-full group"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    setIsMobileMenuOpen(false);
+                  }}
+                >
                   <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground group-focus-within:text-emerald-500 transition-colors">
                     <Search className="h-4 w-4" />
                   </div>
                   <Input
                     type="search"
+                    value={searchQuery}
+                    onChange={(e) => {
+                      handleSearch(e);
+                      // Don't close menu immediately to let them see results, but they are on mobile so we could.
+                    }}
                     placeholder="Search products..."
                     className="w-full pl-10 bg-muted/50 text-foreground border-border text-foreground placeholder:text-zinc-600 focus-visible:ring-emerald-500 rounded-full h-12"
                   />
-                </div>
+                </form>
               </div>
 
               <div className="flex-1 overflow-y-auto py-4">

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type FormEvent, type ChangeEvent } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '../../components/ui/card';
 import { Button } from '../../components/ui/button';
 import { Input } from '../../components/ui/input';
@@ -87,7 +87,7 @@ export default function DashboardProductsPage() {
     product.category.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  const handleAddProduct = async (e: React.FormEvent<HTMLFormElement>) => {
+  const handleAddProduct = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     if (!user) return;
     setIsSubmitting(true);
@@ -122,7 +122,7 @@ export default function DashboardProductsPage() {
     }
   };
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleImageChange = (e: ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       if (file.size > 5 * 1024 * 1024) { // 5MB limit

@@ -1,22 +1,29 @@
-import { useState } from 'react';
-import { useForm, useWatch } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { Link, useNavigate } from 'react-router-dom';
-import { ShoppingBag, Package, Building2, User } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
-import { supabase } from '../lib/supabase';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/card';
-import { toast } from 'sonner';
+import { useState } from "react";
+import { useForm, useWatch } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Link, useNavigate } from "react-router-dom";
+import { ShoppingBag, Package, Building2, User } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import { supabase } from "../lib/supabase";
+import { Button } from "../components/ui/Button";
+import { Input } from "../components/ui/Input";
+import { Label } from "../components/ui/Label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/Card";
+import { toast } from "sonner";
 
 const registerSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
   business_name: z.string().min(2, "This field is required"),
-  role: z.enum(['buyer', 'seller']),
+  role: z.enum(["buyer", "seller"]),
 });
 
 type RegisterFormValues = z.infer<typeof registerSchema>;
@@ -25,16 +32,21 @@ export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
 
-  const { register, handleSubmit, formState: { errors }, control } = useForm<RegisterFormValues>({
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+    control,
+  } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
     defaultValues: {
-      role: 'buyer'
-    }
+      role: "buyer",
+    },
   });
 
   const selectedRole = useWatch({
     control,
-    name: 'role',
+    name: "role",
   });
 
   const onSubmit = async (data: RegisterFormValues) => {
@@ -47,14 +59,16 @@ export default function RegisterPage() {
           data: {
             business_name: data.business_name,
             role: data.role,
-          }
-        }
+          },
+        },
       });
 
       if (error) {
         toast.error("Registration failed", { description: error.message });
       } else {
-        toast.success("Account created!", { description: "You are now signed in." });
+        toast.success("Account created!", {
+          description: "You are now signed in.",
+        });
         navigate(`/${data.role}/dashboard`);
       }
     } catch (err) {
@@ -78,25 +92,29 @@ export default function RegisterPage() {
       >
         <Card className="border-border bg-muted/50 text-foreground backdrop-blur-2xl shadow-2xl relative overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-emerald-500 to-emerald-400" />
-          
+
           <CardHeader className="space-y-2 text-center pb-6 pt-8">
-            <CardTitle className="text-3xl font-bold tracking-tight text-foreground">Join ODA Market</CardTitle>
+            <CardTitle className="text-3xl font-bold tracking-tight text-foreground">
+              Join ODA Market
+            </CardTitle>
             <CardDescription className="text-sm text-muted-foreground">
               Create an account to start your journey
             </CardDescription>
           </CardHeader>
-          
+
           <CardContent className="px-8 pb-8">
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
               <div className="space-y-4">
-                <Label className="text-sm font-medium text-foreground/80">Choose your account type</Label>
+                <Label className="text-sm font-medium text-foreground/80">
+                  Choose your account type
+                </Label>
                 <div className="grid grid-cols-2 gap-3">
                   <Label className="cursor-pointer relative block">
                     <input
                       type="radio"
                       value="buyer"
                       className="peer sr-only"
-                      {...register('role')}
+                      {...register("role")}
                     />
                     <motion.div
                       whileHover={{ y: -2 }}
@@ -107,18 +125,22 @@ export default function RegisterPage() {
                         <ShoppingBag className="h-6 w-6" />
                       </div>
                       <div>
-                        <span className="block font-semibold text-foreground transition-colors duration-300 peer-checked:text-emerald-400">Buyer</span>
-                        <span className="mt-1 block text-xs text-muted-foreground transition-colors duration-300 peer-checked:text-emerald-400/80">Source products</span>
+                        <span className="block font-semibold text-foreground transition-colors duration-300 peer-checked:text-emerald-400">
+                          Buyer
+                        </span>
+                        <span className="mt-1 block text-xs text-muted-foreground transition-colors duration-300 peer-checked:text-emerald-400/80">
+                          Source products
+                        </span>
                       </div>
                     </motion.div>
                   </Label>
-                  
+
                   <Label className="cursor-pointer relative block">
                     <input
                       type="radio"
                       value="seller"
                       className="peer sr-only"
-                      {...register('role')}
+                      {...register("role")}
                     />
                     <motion.div
                       whileHover={{ y: -2 }}
@@ -129,13 +151,19 @@ export default function RegisterPage() {
                         <Package className="h-6 w-6" />
                       </div>
                       <div>
-                        <span className="block font-semibold text-foreground transition-colors duration-300 peer-checked:text-blue-400">Seller</span>
-                        <span className="mt-1 block text-xs text-muted-foreground transition-colors duration-300 peer-checked:text-blue-400/80">List & sell</span>
+                        <span className="block font-semibold text-foreground transition-colors duration-300 peer-checked:text-blue-400">
+                          Seller
+                        </span>
+                        <span className="mt-1 block text-xs text-muted-foreground transition-colors duration-300 peer-checked:text-blue-400/80">
+                          List & sell
+                        </span>
                       </div>
                     </motion.div>
                   </Label>
                 </div>
-                {errors.role && <p className="text-xs text-red-500">{errors.role.message}</p>}
+                {errors.role && (
+                  <p className="text-xs text-red-500">{errors.role.message}</p>
+                )}
               </div>
 
               <AnimatePresence mode="wait">
@@ -148,69 +176,105 @@ export default function RegisterPage() {
                   className="space-y-4"
                 >
                   <div className="space-y-2 relative">
-                    <Label htmlFor="business_name" className="text-sm font-medium text-foreground/80">
-                      {selectedRole === 'seller' ? 'Company Name' : 'Full Name or Company'}
+                    <Label
+                      htmlFor="business_name"
+                      className="text-sm font-medium text-foreground/80"
+                    >
+                      {selectedRole === "seller"
+                        ? "Company Name"
+                        : "Full Name or Company"}
                     </Label>
                     <div className="relative">
-                      {selectedRole === 'seller' ? (
+                      {selectedRole === "seller" ? (
                         <Building2 className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       ) : (
                         <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
                       )}
-                      <Input 
-                        id="business_name" 
-                        placeholder={selectedRole === 'seller' ? "e.g. Acme Corp" : "e.g. John Doe"} 
-                        {...register('business_name')} 
-                        className={`pl-10 h-11 bg-black/40 border-border text-foreground placeholder:text-zinc-600 focus-visible:ring-emerald-500 focus-visible:border-emerald-500 ${errors.business_name ? "border-red-500 focus-visible:ring-red-500" : ""}`} 
+                      <Input
+                        id="business_name"
+                        placeholder={
+                          selectedRole === "seller"
+                            ? "e.g. Acme Corp"
+                            : "e.g. John Doe"
+                        }
+                        {...register("business_name")}
+                        className={`pl-10 h-11 bg-black/40 border-border text-foreground placeholder:text-zinc-600 focus-visible:ring-emerald-500 focus-visible:border-emerald-500 ${errors.business_name ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                       />
                     </div>
-                    {errors.business_name && <p className="text-xs text-red-500 mt-1">{errors.business_name.message}</p>}
+                    {errors.business_name && (
+                      <p className="text-xs text-red-500 mt-1">
+                        {errors.business_name.message}
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="email" className="text-sm font-medium text-foreground/80">Email Address</Label>
-                    <Input 
-                      id="email" 
-                      type="email" 
-                      placeholder="you@example.com" 
-                      {...register('email')} 
-                      className={`h-11 bg-black/40 border-border text-foreground placeholder:text-zinc-600 focus-visible:ring-emerald-500 focus-visible:border-emerald-500 ${errors.email ? "border-red-500 focus-visible:ring-red-500" : ""}`} 
+                    <Label
+                      htmlFor="email"
+                      className="text-sm font-medium text-foreground/80"
+                    >
+                      Email Address
+                    </Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder="you@example.com"
+                      {...register("email")}
+                      className={`h-11 bg-black/40 border-border text-foreground placeholder:text-zinc-600 focus-visible:ring-emerald-500 focus-visible:border-emerald-500 ${errors.email ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                     />
-                    {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email.message}</p>}
+                    {errors.email && (
+                      <p className="text-xs text-red-500 mt-1">
+                        {errors.email.message}
+                      </p>
+                    )}
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="password" className="text-sm font-medium text-foreground/80">Password</Label>
-                    <Input 
-                      id="password" 
-                      type="password" 
+                    <Label
+                      htmlFor="password"
+                      className="text-sm font-medium text-foreground/80"
+                    >
+                      Password
+                    </Label>
+                    <Input
+                      id="password"
+                      type="password"
                       placeholder="••••••••"
-                      {...register('password')} 
-                      className={`h-11 bg-black/40 border-border text-foreground placeholder:text-zinc-600 focus-visible:ring-emerald-500 focus-visible:border-emerald-500 ${errors.password ? "border-red-500 focus-visible:ring-red-500" : ""}`} 
+                      {...register("password")}
+                      className={`h-11 bg-black/40 border-border text-foreground placeholder:text-zinc-600 focus-visible:ring-emerald-500 focus-visible:border-emerald-500 ${errors.password ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                     />
-                    {errors.password && <p className="text-xs text-red-500 mt-1">{errors.password.message}</p>}
+                    {errors.password && (
+                      <p className="text-xs text-red-500 mt-1">
+                        {errors.password.message}
+                      </p>
+                    )}
                   </div>
                 </motion.div>
               </AnimatePresence>
 
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 className={`w-full h-11 font-medium text-foreground shadow-lg transition-all ${
-                  selectedRole === 'seller' 
-                    ? 'bg-blue-600 hover:bg-blue-500 shadow-blue-500/25' 
-                    : 'bg-emerald-600 hover:bg-emerald-500 shadow-emerald-500/25'
+                  selectedRole === "seller"
+                    ? "bg-blue-600 hover:bg-blue-500 shadow-blue-500/25"
+                    : "bg-emerald-600 hover:bg-emerald-500 shadow-emerald-500/25"
                 }`}
                 disabled={isLoading}
               >
-                {isLoading ? 'Creating account...' : `Create ${selectedRole === 'seller' ? 'Seller' : 'Buyer'} Account`}
+                {isLoading
+                  ? "Creating account..."
+                  : `Create ${selectedRole === "seller" ? "Seller" : "Buyer"} Account`}
               </Button>
             </form>
           </CardContent>
-          
+
           <CardFooter className="flex flex-col items-center justify-center gap-2 border-t border-border bg-black/20 p-6">
             <div className="text-sm text-muted-foreground">
-              Already have an account?{' '}
-              <Link to="/login" className="font-semibold text-emerald-400 hover:text-emerald-300 transition-colors">
+              Already have an account?{" "}
+              <Link
+                to="/login"
+                className="font-semibold text-emerald-400 hover:text-emerald-300 transition-colors"
+              >
                 Sign in
               </Link>
             </div>

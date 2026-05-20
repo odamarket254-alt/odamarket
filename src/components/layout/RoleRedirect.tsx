@@ -1,6 +1,6 @@
-import { Navigate } from 'react-router-dom';
-import { useAuthStore } from '../../store/useAuthStore';
-import { Loader2 } from 'lucide-react';
+import { Navigate } from "react-router-dom";
+import { useAuthStore } from "../../store/useAuthStore";
+import { Loader2 } from "lucide-react";
 
 export default function RoleRedirect() {
   const { user, profile, isLoading } = useAuthStore();

@@ -1,9 +1,9 @@
-import { Navigate, Outlet } from 'react-router-dom';
-import { useAuthStore } from '../../store/useAuthStore';
-import { Loader2 } from 'lucide-react';
+import { Navigate, Outlet } from "react-router-dom";
+import { useAuthStore } from "../../store/useAuthStore";
+import { Loader2 } from "lucide-react";
 
 interface ProtectedRouteProps {
-  allowedRoles: Array<'buyer' | 'seller' | 'admin'>;
+  allowedRoles: Array<"buyer" | "seller" | "admin">;
 }
 
 export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {

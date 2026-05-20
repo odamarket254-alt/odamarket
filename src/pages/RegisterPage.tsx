@@ -7,7 +7,7 @@ import { ShoppingBag, Package, Building2, User } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { supabase } from '../lib/supabase';
 import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
+import { Input } from '../components/ui/Input';
 import { Label } from '../components/ui/label';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/card';
 import { toast } from 'sonner';

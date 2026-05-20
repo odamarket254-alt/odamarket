@@ -1,14 +1,21 @@
-import { useState } from 'react';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
-import { Button } from '../components/ui/button';
-import { Input } from '../components/ui/input';
-import { Label } from '../components/ui/label';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '../components/ui/card';
-import { toast } from 'sonner';
+import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { Link, useNavigate, useLocation } from "react-router-dom";
+import { supabase } from "../lib/supabase";
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/Input";
+import { Label } from "../components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "../components/ui/card";
+import { toast } from "sonner";
 
 const loginSchema = z.object({
   email: z.string().email(),
@@ -21,10 +28,14 @@ export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
-  const from = location.state?.from?.pathname || '/dashboard';
+  const from = location.state?.from?.pathname || "/dashboard";
 
-  const { register, handleSubmit, formState: { errors } } = useForm<LoginFormValues>({
-    resolver: zodResolver(loginSchema)
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginFormValues>({
+    resolver: zodResolver(loginSchema),
   });
 
   const onSubmit = async (data: LoginFormValues) => {
@@ -51,12 +62,13 @@ export default function LoginPage() {
   const handleGoogleSignIn = async () => {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
+        provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/dashboard`
-        }
+          redirectTo: `${window.location.origin}/dashboard`,
+        },
       });
-      if (error) toast.error("Google sign in failed", { description: error.message });
+      if (error)
+        toast.error("Google sign in failed", { description: error.message });
     } catch (err) {
       toast.error("An unexpected error occurred");
     }
@@ -66,14 +78,20 @@ export default function LoginPage() {
     <div className="flex-1 flex items-center justify-center p-4 bg-background min-h-[calc(100vh-4rem)]">
       <Card className="w-full max-w-md border-border bg-muted/50 text-foreground backdrop-blur-xl shadow-2xl">
         <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-2xl font-bold tracking-tight text-foreground">Sign in to your account</CardTitle>
+          <CardTitle className="text-2xl font-bold tracking-tight text-foreground">
+            Sign in to your account
+          </CardTitle>
           <CardDescription className="text-muted-foreground">
             Enter your email and password to access your dashboard
           </CardDescription>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4">
-            <Button variant="outline" onClick={handleGoogleSignIn} className="border-border bg-black/40 hover:bg-white/10 text-foreground">
+            <Button
+              variant="outline"
+              onClick={handleGoogleSignIn}
+              className="border-border bg-black/40 hover:bg-white/10 text-foreground"
+            >
               <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
                 <path
                   d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -99,35 +117,68 @@ export default function LoginPage() {
                 <span className="w-full border-t border-border" />
               </div>
               <div className="relative flex justify-center text-xs uppercase tracking-wider">
-                <span className="bg-[#0f0f0f] px-2 text-muted-foreground rounded">Or continue with</span>
+                <span className="bg-[#0f0f0f] px-2 text-muted-foreground rounded">
+                  Or continue with
+                </span>
               </div>
             </div>
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-foreground/80">Email</Label>
-                <Input id="email" type="email" placeholder="m@example.com" {...register('email')} className={`bg-black/40 border-border text-foreground placeholder:text-zinc-600 focus-visible:ring-emerald-500 ${errors.email ? "border-red-500" : ""}`} />
-                {errors.email && <p className="text-xs text-red-500">{errors.email.message}</p>}
+                <Label htmlFor="email" className="text-foreground/80">
+                  Email
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="m@example.com"
+                  {...register("email")}
+                  className={`bg-black/40 border-border text-foreground placeholder:text-zinc-600 focus-visible:ring-emerald-500 ${errors.email ? "border-red-500" : ""}`}
+                />
+                {errors.email && (
+                  <p className="text-xs text-red-500">{errors.email.message}</p>
+                )}
               </div>
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="password" className="text-foreground/80">Password</Label>
-                  <Link to="#" className="text-sm font-medium text-emerald-500 hover:text-emerald-400">
+                  <Label htmlFor="password" className="text-foreground/80">
+                    Password
+                  </Label>
+                  <Link
+                    to="#"
+                    className="text-sm font-medium text-emerald-500 hover:text-emerald-400"
+                  >
                     Forgot password?
                   </Link>
                 </div>
-                <Input id="password" type="password" {...register('password')} className={`bg-black/40 border-border text-foreground placeholder:text-zinc-600 focus-visible:ring-emerald-500 ${errors.password ? "border-red-500" : ""}`} />
-                {errors.password && <p className="text-xs text-red-500">{errors.password.message}</p>}
+                <Input
+                  id="password"
+                  type="password"
+                  {...register("password")}
+                  className={`bg-black/40 border-border text-foreground placeholder:text-zinc-600 focus-visible:ring-emerald-500 ${errors.password ? "border-red-500" : ""}`}
+                />
+                {errors.password && (
+                  <p className="text-xs text-red-500">
+                    {errors.password.message}
+                  </p>
+                )}
               </div>
-              <Button type="submit" className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold disabled:opacity-50" disabled={isLoading}>
-                {isLoading ? 'Signing in...' : 'Sign In'}
+              <Button
+                type="submit"
+                className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold disabled:opacity-50"
+                disabled={isLoading}
+              >
+                {isLoading ? "Signing in..." : "Sign In"}
               </Button>
             </form>
           </div>
         </CardContent>
         <CardFooter className="flex flex-wrap items-center justify-center gap-2 border-t border-border pt-4 pb-6 px-6 bg-black/20">
           <div className="text-sm text-muted-foreground">
-            Don't have an account?{' '}
-            <Link to="/register" className="font-semibold text-emerald-500 hover:text-emerald-400">
+            Don't have an account?{" "}
+            <Link
+              to="/register"
+              className="font-semibold text-emerald-500 hover:text-emerald-400"
+            >
               Sign up
             </Link>
           </div>

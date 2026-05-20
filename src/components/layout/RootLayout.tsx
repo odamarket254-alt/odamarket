@@ -3,7 +3,7 @@ import { Outlet, Link, useLocation } from 'react-router-dom';
 import { Menu, Search, X, ChevronRight, LogIn, UserPlus } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Button } from '../ui/button';
-import { Input } from '../ui/input';
+import { Input } from '../ui/Input';
 import { useAuthStore } from '../../store/useAuthStore';
 import {
   DropdownMenu,

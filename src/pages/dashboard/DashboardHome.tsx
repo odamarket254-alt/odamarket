@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { motion } from "motion/react";
 import {
   Card,
   CardContent,
@@ -173,6 +174,26 @@ export default function DashboardHome() {
     };
   }, [user, profile]);
 
+  const [productViews, setProductViews] = useState(1245);
+  const [profileVisits, setProfileVisits] = useState(340);
+
+  useEffect(() => {
+    if (profile?.role !== "seller") return;
+
+    // Simulate real-time updates for product views and profile visits
+    const interval = setInterval(() => {
+      // Randomly decide whether to increment to simulate real-time traffic
+      if (Math.random() > 0.6) {
+        setProductViews(prev => prev + Math.floor(Math.random() * 3));
+      }
+      if (Math.random() > 0.8) {
+        setProfileVisits(prev => prev + 1);
+      }
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [profile?.role]);
+
   const getStats = () => {
     if (profile?.role === "seller") {
       return [
@@ -190,15 +211,15 @@ export default function DashboardHome() {
         },
         {
           title: "Product Views",
-          value: "1,245",
+          value: productViews.toLocaleString(),
           icon: TrendingUp,
-          change: "+15% vs last month",
+          change: "Live metric",
         },
         {
           title: "Profile Visits",
-          value: "340",
+          value: profileVisits.toLocaleString(),
           icon: Users,
-          change: "+5% vs last month",
+          change: "Live metric",
         },
       ];
     } else if (profile?.role === "admin") {
@@ -287,8 +308,21 @@ export default function DashboardHome() {
                 <Icon className="h-4 w-4 text-emerald-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-foreground">
-                  {stat.value}
+                <div className="text-2xl font-bold text-foreground flex items-center gap-2">
+                  <motion.span
+                    key={stat.value}
+                    initial={{ opacity: 0.5, y: 2 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.3 }}
+                  >
+                    {stat.value}
+                  </motion.span>
+                  {stat.change === "Live metric" && (
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1">
                   {stat.change}

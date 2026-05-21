@@ -53,7 +53,7 @@ interface Product {
   price: string;
   stock: string | number;
   status: "active" | "draft";
-  image_url: string;
+  image_url: string | null;
   seller_id?: string;
   description?: string;
 }
@@ -136,7 +136,7 @@ export default function DashboardProductsPage() {
       stock: formData.get("stock") as string,
       status: formData.get("status") as "active" | "draft",
       description: formData.get("description") as string,
-      image_url: imagePreview || "",
+      image_url: imagePreview || null,
     };
 
     try {

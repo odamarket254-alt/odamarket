@@ -13,6 +13,21 @@ async function startServer() {
       appType: "spa", // Handles SPA frontend routing fallback automatically in dev
     });
     app.use(vite.middlewares);
+
+    // Explicit fallback for deep links in development just in case
+    app.use("*", async (req, res, next) => {
+      if (req.originalUrl.startsWith("/api")) return next();
+      
+      try {
+        const fs = await import("fs/promises");
+        let template = await fs.readFile(path.join(process.cwd(), "index.html"), "utf-8");
+        template = await vite.transformIndexHtml(req.originalUrl, template);
+        res.status(200).set({ "Content-Type": "text/html" }).end(template);
+      } catch (e) {
+        vite.ssrFixStacktrace(e as Error);
+        next(e);
+      }
+    });
   } else {
     // Production frontend serving
     const distPath = path.join(process.cwd(), "dist");

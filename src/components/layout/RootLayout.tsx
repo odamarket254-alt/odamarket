@@ -461,8 +461,8 @@ export default function RootLayout() {
           <div>
             <h4 className="text-foreground font-medium mb-4">Contact</h4>
             <ul className="space-y-2 text-sm">
-              <li>support@odamarket.com</li>
-              <li>+254 700 000 000</li>
+              <li>odamarket254@gmail.com</li>
+              <li>0792867386</li>
               <li>Nairobi, Kenya</li>
             </ul>
           </div>

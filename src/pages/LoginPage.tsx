@@ -33,10 +33,10 @@ export default function LoginPage() {
   const { user, profile } = useAuthStore();
 
   useEffect(() => {
-    if (user && profile && !isLoading) {
+    if (user && profile) {
       navigate(from, { replace: true });
     }
-  }, [user, profile, isLoading, navigate, from]);
+  }, [user, profile, navigate, from]);
 
   const {
     register,

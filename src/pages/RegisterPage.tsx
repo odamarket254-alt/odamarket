@@ -35,7 +35,7 @@ export default function RegisterPage() {
   const { user, profile } = useAuthStore();
 
   useEffect(() => {
-    if (user && profile && !isLoading) {
+    if (user && profile) {
       if (profile.role === "admin") {
         navigate("/admin/dashboard", { replace: true });
       } else if (profile.role === "seller") {
@@ -44,7 +44,7 @@ export default function RegisterPage() {
         navigate("/buyer/dashboard", { replace: true });
       }
     }
-  }, [user, profile, isLoading, navigate]);
+  }, [user, profile, navigate]);
 
   const {
     register,

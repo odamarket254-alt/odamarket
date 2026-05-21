@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -6,6 +6,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { ShoppingBag, Package, Building2, User } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { supabase } from "../lib/supabase";
+import { useAuthStore } from "../store/useAuthStore";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { Label } from "../components/ui/Label";
@@ -31,6 +32,19 @@ type RegisterFormValues = z.infer<typeof registerSchema>;
 export default function RegisterPage() {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { user, profile } = useAuthStore();
+
+  useEffect(() => {
+    if (user && profile && !isLoading) {
+      if (profile.role === "admin") {
+        navigate("/admin/dashboard", { replace: true });
+      } else if (profile.role === "seller") {
+        navigate("/seller/dashboard", { replace: true });
+      } else {
+        navigate("/buyer/dashboard", { replace: true });
+      }
+    }
+  }, [user, profile, isLoading, navigate]);
 
   const {
     register,
@@ -65,15 +79,15 @@ export default function RegisterPage() {
 
       if (error) {
         toast.error("Registration failed", { description: error.message });
+        setIsLoading(false);
       } else {
         toast.success("Account created!", {
           description: "You are now signed in.",
         });
-        navigate(`/${data.role}/dashboard`);
+        // Navigation will be handled by useEffect when profile loads
       }
     } catch (err) {
       toast.error("An unexpected error occurred");
-    } finally {
       setIsLoading(false);
     }
   };

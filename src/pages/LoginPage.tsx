@@ -1,9 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { useAuthStore } from "../store/useAuthStore";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
 import { Label } from "../components/ui/Label";
@@ -29,6 +30,13 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from?.pathname || "/dashboard";
+  const { user, profile } = useAuthStore();
+
+  useEffect(() => {
+    if (user && profile && !isLoading) {
+      navigate(from, { replace: true });
+    }
+  }, [user, profile, isLoading, navigate, from]);
 
   const {
     register,
@@ -48,13 +56,13 @@ export default function LoginPage() {
 
       if (error) {
         toast.error("Login failed", { description: error.message });
+        setIsLoading(false);
       } else {
         toast.success("Welcome back!");
-        navigate(from, { replace: true });
+        // Navigation will be handled by useEffect when profile loads
       }
     } catch (err) {
       toast.error("An unexpected error occurred");
-    } finally {
       setIsLoading(false);
     }
   };

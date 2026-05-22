@@ -23,6 +23,7 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { toast } from "sonner";
 import { supabase } from "../lib/supabase";
+import { cn } from "../lib/utils";
 import { useAuthStore } from "../store/useAuthStore";
 
 const inquirySchema = z.object({
@@ -342,15 +343,26 @@ export default function ProductDetailsPage() {
             </div>
 
             {/* Supplier Info Snippet */}
-            <Card className="border-border bg-muted/50 text-foreground backdrop-blur-sm">
+            <Card className={cn(
+              "border-border bg-muted/50 text-foreground backdrop-blur-sm",
+              product.isVerified && "border-amber-500/20 bg-amber-500/5 shadow-[0_0_15px_rgba(245,158,11,0.05)]"
+            )}>
               <CardContent className="p-6">
                 <h3 className="text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
                   <Factory className="h-5 w-5 text-muted-foreground" />
                   Supplier Information
                 </h3>
                 <div className="flex flex-col sm:flex-row gap-6 items-start">
-                  <div className="w-16 h-16 rounded-xl bg-emerald-500/10 flex items-center justify-center shrink-0 border border-emerald-500/20">
-                    <span className="text-2xl font-bold text-emerald-500">
+                  <div className={cn(
+                    "w-16 h-16 rounded-xl flex items-center justify-center shrink-0 border",
+                    product.isVerified 
+                      ? "bg-amber-500/10 border-amber-500/20" 
+                      : "bg-emerald-500/10 border-emerald-500/20"
+                  )}>
+                    <span className={cn(
+                      "text-2xl font-bold",
+                      product.isVerified ? "text-amber-500" : "text-emerald-500"
+                    )}>
                       {product.supplier.charAt(0)}
                     </span>
                   </div>
@@ -360,11 +372,21 @@ export default function ProductDetailsPage() {
                         {product.supplier}
                       </h4>
                       {product.isVerified && (
-                        <ShieldCheck className="h-5 w-5 text-emerald-500" />
+                        <ShieldCheck className="h-5 w-5 text-amber-500" />
                       )}
                     </div>
-                    <p className="text-muted-foreground text-sm flex items-center gap-1.5 mb-4">
-                      <MapPin className="h-4 w-4" /> {product.location}
+                    <p className={cn(
+                      "text-sm flex items-center gap-1.5 mb-4",
+                      product.isVerified ? "text-amber-500/80 font-medium" : "text-muted-foreground"
+                    )}>
+                      {product.isVerified ? "Premium Verified Supplier" : `${product.location}`}
+                      {product.isVerified && (
+                        <>
+                          <span className="text-muted-foreground mx-1">•</span>
+                          <MapPin className="h-4 w-4" /> <span className="text-muted-foreground font-normal">{product.location}</span>
+                        </>
+                      )}
+                      {!product.isVerified && <MapPin className="h-4 w-4" />}
                     </p>
                     <div className="flex flex-wrap gap-4 text-sm">
                       <div className="bg-black/40 px-3 py-1.5 rounded-md border border-border/50 text-muted-foreground">

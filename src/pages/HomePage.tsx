@@ -23,6 +23,11 @@ interface MarketplaceProduct {
   image_url: string;
   seller_id?: string;
   created_at: string;
+  profiles?: {
+    verified: boolean;
+    business_name: string;
+    location: string;
+  };
 }
 
 const categories = [
@@ -162,7 +167,7 @@ export default function HomePage() {
       setIsLoading(true);
       const { data, error } = await supabase
         .from("products")
-        .select("*")
+        .select("*, profiles(verified, business_name, location)")
         .eq("status", "active")
         .order("created_at", { ascending: false })
         .limit(4);
@@ -386,13 +391,15 @@ export default function HomePage() {
                         <div className="space-y-2 mt-4">
                           <p className="text-sm text-muted-foreground flex items-center gap-1.5">
                             <span className="font-medium truncate">
-                              Supplier {product.seller_id?.slice(0, 5)}
+                              {product.profiles?.business_name || `Supplier ${product.seller_id?.slice(0, 5)}`}
                             </span>
-                            <ShieldCheck className="h-4 w-4 text-emerald-500 shrink-0" />
+                            {product.profiles?.verified && (
+                              <ShieldCheck className="h-4 w-4 text-emerald-500 shrink-0" />
+                            )}
                           </p>
                           <p className="text-xs text-muted-foreground flex items-center gap-1.5">
                             <MapPin className="h-3.5 w-3.5" />
-                            Global Market
+                            {product.profiles?.location || "Global Market"}
                           </p>
                         </div>
                       </CardContent>

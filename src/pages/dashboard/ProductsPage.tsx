@@ -59,7 +59,7 @@ interface Product {
 }
 
 export default function DashboardProductsPage() {
-  const { user } = useAuthStore();
+  const { user, profile } = useAuthStore();
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -202,7 +202,14 @@ export default function DashboardProductsPage() {
         >
           <DialogTrigger
             render={
-              <Button className="bg-emerald-600 hover:bg-emerald-500 text-foreground gap-2 h-10 px-4" onClick={() => setEditingProduct(null)} />
+              <Button 
+                className={
+                  profile?.role === "seller" && profile?.verified
+                    ? "bg-amber-600 hover:bg-amber-500 text-foreground gap-2 h-10 px-4 shadow-[0_0_15px_rgba(245,158,11,0.2)]"
+                    : "bg-emerald-600 hover:bg-emerald-500 text-foreground gap-2 h-10 px-4"
+                } 
+                onClick={() => setEditingProduct(null)} 
+              />
             }
           >
             <Plus className="h-4 w-4" />
@@ -280,14 +287,14 @@ export default function DashboardProductsPage() {
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="price" className="text-foreground/80">
-                    Price (USD)
+                    Price (KES)
                   </Label>
                   <Input
                     id="price"
                     name="price"
                     required
                     defaultValue={editingProduct?.price || ""}
-                    placeholder="e.g. $450/mt"
+                    placeholder="e.g. Ksh 45,000/mt"
                     className="bg-black/40 border-border"
                   />
                 </div>

@@ -11,6 +11,7 @@ import {
   Menu,
   X,
   Users,
+  ShieldCheck,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { supabase } from "../../lib/supabase";
@@ -138,31 +139,55 @@ export default function DashboardLayout() {
       <aside className="w-64 bg-card border-r border-border hidden md:flex flex-col sticky top-0 h-screen">
         <div className="p-6 flex justify-between items-center">
           <Link to="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.4)]">
+            <div className={cn(
+              "w-8 h-8 rounded-lg flex items-center justify-center",
+              profile?.role === "seller" && profile?.verified 
+                ? "bg-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.4)]"
+                : "bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.4)]"
+            )}>
               <span className="text-[#050505] font-bold text-lg leading-none">
-                O
+                {profile?.role === "seller" && profile?.verified ? "✧" : "O"}
               </span>
             </div>
             <span className="text-xl font-bold tracking-tight text-foreground">
-              ODA Market
+              {profile?.role === "seller" && profile?.verified ? "Premium" : "ODA Market"}
             </span>
           </Link>
           <ThemeToggle />
         </div>
 
-        <div className="px-6 py-4 border-b border-border">
-          <p className="text-sm font-medium text-foreground truncate">
-            {profile?.business_name || "My Business"}
-          </p>
-          <p className="text-xs text-muted-foreground capitalize">
-            {profile?.role || "User"} Profile
-          </p>
+        <div className={cn(
+          "px-6 py-4 border-b",
+          profile?.role === "seller" && profile?.verified 
+            ? "border-amber-500/20 bg-amber-500/5" 
+            : "border-border"
+        )}>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-foreground truncate flex items-center gap-1.5">
+                {profile?.business_name || "My Business"}
+                {profile?.role === "seller" && profile?.verified && (
+                  <ShieldCheck className="h-4 w-4 text-amber-500 shrink-0" />
+                )}
+              </p>
+              <p className={cn(
+                "text-xs capitalize",
+                profile?.role === "seller" && profile?.verified 
+                  ? "text-amber-500/80 font-medium" 
+                  : "text-muted-foreground"
+              )}>
+                {profile?.role === "seller" && profile?.verified ? "Premium Seller" : `${profile?.role || "User"} Profile`}
+              </p>
+            </div>
+          </div>
         </div>
 
         <nav className="flex-1 px-4 py-6 space-y-1 overflow-y-auto">
           {navItems.map((item) => {
             const isActive = location.pathname === item.path;
             const Icon = item.icon;
+            
+            const isPremium = profile?.role === "seller" && profile?.verified;
 
             return (
               <Link
@@ -171,14 +196,14 @@ export default function DashboardLayout() {
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
                   isActive
-                    ? "bg-emerald-500/10 text-emerald-400"
-                    : "text-muted-foreground hover:bg-muted/50 text-foreground hover:text-foreground",
+                    ? (isPremium ? "bg-amber-500/10 text-amber-500" : "bg-emerald-500/10 text-emerald-400")
+                    : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
                 )}
               >
                 <Icon
                   className={cn(
                     "h-5 w-5",
-                    isActive ? "text-emerald-500" : "text-muted-foreground",
+                    isActive ? (isPremium ? "text-amber-500" : "text-emerald-500") : "text-muted-foreground",
                   )}
                 />
                 {item.label}
@@ -204,13 +229,18 @@ export default function DashboardLayout() {
         {/* Mobile Header */}
         <header className="md:hidden flex items-center justify-between p-4 border-b border-border bg-card">
           <Link to="/" className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.4)]">
+            <div className={cn(
+              "w-8 h-8 rounded-lg flex items-center justify-center",
+              profile?.role === "seller" && profile?.verified 
+                ? "bg-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.4)]"
+                : "bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.4)]"
+            )}>
               <span className="text-[#050505] font-bold text-lg leading-none">
-                O
+                {profile?.role === "seller" && profile?.verified ? "✧" : "O"}
               </span>
             </div>
             <span className="text-xl font-bold tracking-tight text-foreground">
-              ODA Market
+              {profile?.role === "seller" && profile?.verified ? "Premium" : "ODA Market"}
             </span>
           </Link>
           <div className="flex items-center gap-2">
@@ -253,13 +283,22 @@ export default function DashboardLayout() {
                 aria-modal="true"
                 aria-label="Mobile navigation"
               >
-                <div className="flex items-center justify-between p-4 border-b border-border">
+                <div className={cn(
+                  "flex items-center justify-between p-4 border-b",
+                  profile?.role === "seller" && profile?.verified ? "border-amber-500/20 bg-amber-500/5" : "border-border"
+                )}>
                   <div className="flex flex-col">
-                    <span className="text-sm font-medium text-foreground truncate">
+                    <span className="text-sm font-medium text-foreground truncate flex items-center gap-1.5">
                       {profile?.business_name || "My Business"}
+                      {profile?.role === "seller" && profile?.verified && (
+                        <ShieldCheck className="h-4 w-4 text-amber-500 shrink-0" />
+                      )}
                     </span>
-                    <span className="text-xs text-muted-foreground capitalize">
-                      {profile?.role || "User"} Profile
+                    <span className={cn(
+                      "text-xs capitalize",
+                      profile?.role === "seller" && profile?.verified ? "text-amber-500/80 font-medium" : "text-muted-foreground"
+                    )}>
+                      {profile?.role === "seller" && profile?.verified ? "Premium Seller" : `${profile?.role || "User"} Profile`}
                     </span>
                   </div>
                   <Button
@@ -277,23 +316,24 @@ export default function DashboardLayout() {
                   {navItems.map((item) => {
                     const isActive = location.pathname === item.path;
                     const Icon = item.icon;
+                    const isPremium = profile?.role === "seller" && profile?.verified;
                     return (
                       <Link
                         key={item.path}
                         to={item.path}
                         onClick={() => setIsMobileMenuOpen(false)}
                         className={cn(
-                          "flex items-center gap-4 px-4 py-3.5 rounded-xl text-base font-medium transition-all focus:outline-none focus:ring-2 focus:ring-emerald-500",
+                          "flex items-center gap-4 px-4 py-3.5 rounded-xl text-base font-medium transition-all focus:outline-none",
                           isActive
-                            ? "bg-emerald-500/10 text-emerald-400"
-                            : "text-muted-foreground hover:bg-muted/50 text-foreground hover:text-foreground",
+                            ? (isPremium ? "bg-amber-500/10 text-amber-500 focus:ring-2 focus:ring-amber-500" : "bg-emerald-500/10 text-emerald-400 focus:ring-2 focus:ring-emerald-500")
+                            : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
                         )}
                       >
                         <Icon
                           className={cn(
                             "h-6 w-6",
                             isActive
-                              ? "text-emerald-500"
+                              ? (isPremium ? "text-amber-500" : "text-emerald-500")
                               : "text-muted-foreground",
                           )}
                         />

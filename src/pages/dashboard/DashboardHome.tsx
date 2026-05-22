@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { useAuthStore } from "../../store/useAuthStore";
 import { supabase } from "../../lib/supabase";
+import { cn } from "../../lib/utils";
 
 export default function DashboardHome() {
   const { profile, user } = useAuthStore();
@@ -104,17 +105,18 @@ export default function DashboardHome() {
           { count: uCount },
           { count: pCount },
           { count: iCount },
-          { count: vCount }
         ] = await Promise.all([
           supabase.from("profiles").select("*", { count: "exact", head: true }),
           supabase.from("products").select("*", { count: "exact", head: true }),
           supabase.from("inquiries").select("*", { count: "exact", head: true }),
-          supabase.from("profiles").select("*", { count: "exact", head: true }).eq("verified", false),
         ]);
         setAdminUsers(uCount || 0);
         setAdminProducts(pCount || 0);
         setAdminInquiries(iCount || 0);
-        setAdminVerifications(vCount || 0);
+        
+        // Read pending verification requests
+        const requests = JSON.parse(localStorage.getItem("verification_requests") || "[]");
+        setAdminVerifications(requests.length);
       }
     };
 
@@ -331,16 +333,20 @@ export default function DashboardHome() {
       >
         {stats.map((stat, i) => {
           const Icon = stat.icon;
+          const isPremium = profile?.role === "seller" && profile?.verified;
           return (
             <Card
               key={i}
-              className="border-border bg-muted/50 text-foreground backdrop-blur-sm"
+              className={cn(
+                "border-border bg-muted/50 text-foreground backdrop-blur-sm",
+                isPremium && "border-amber-500/20 shadow-[0_0_15px_rgba(245,158,11,0.05)]"
+              )}
             >
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   {stat.title}
                 </CardTitle>
-                <Icon className="h-4 w-4 text-emerald-500" />
+                <Icon className={cn("h-4 w-4", isPremium ? "text-amber-500" : "text-emerald-500")} />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-foreground flex items-center gap-2">
@@ -354,8 +360,8 @@ export default function DashboardHome() {
                   </motion.span>
                   {stat.change === "Live metric" && (
                     <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+                      <span className={cn("animate-ping absolute inline-flex h-full w-full rounded-full opacity-75", isPremium ? "bg-amber-400" : "bg-emerald-400")}></span>
+                      <span className={cn("relative inline-flex rounded-full h-2 w-2", isPremium ? "bg-amber-500" : "bg-emerald-500")}></span>
                     </span>
                   )}
                 </div>
@@ -377,24 +383,34 @@ export default function DashboardHome() {
           </CardHeader>
           <CardContent>
             <div className="space-y-8">
-              {recentActivities.map((activity, i) => (
-                <div key={activity.id || i} className="flex items-center">
-                  <span className="relative flex h-2 w-2 rounded-full bg-emerald-500 mr-4 shadow-[0_0_8px_rgba(16,185,129,0.5)] animate-pulse"></span>
-                  <div className="space-y-1">
-                    <p className="text-sm font-medium leading-none text-foreground">
-                      {profile?.role === "buyer"
-                        ? `Inquiry sent for product`
-                        : `Received inquiry from ${activity.name || "buyer"}`}
-                    </p>
-                    <p className="text-sm text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis max-w-xs">
-                      {activity.message || "Details"}
-                    </p>
+              {recentActivities.map((activity, i) => {
+                const isPremium = profile?.role === "seller" && profile?.verified;
+                return (
+                  <div key={activity.id || i} className="flex items-center">
+                    <span 
+                      className={cn(
+                        "relative flex h-2 w-2 rounded-full mr-4 animate-pulse",
+                        isPremium 
+                          ? "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]" 
+                          : "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"
+                      )}
+                    ></span>
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium leading-none text-foreground">
+                        {profile?.role === "buyer"
+                          ? `Inquiry sent for product`
+                          : `Received inquiry from ${activity.name || "buyer"}`}
+                      </p>
+                      <p className="text-sm text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis max-w-xs">
+                        {activity.message || "Details"}
+                      </p>
+                    </div>
+                    <div className="ml-auto font-medium text-xs text-muted-foreground">
+                      {new Date(activity.created_at).toLocaleDateString()}
+                    </div>
                   </div>
-                  <div className="ml-auto font-medium text-xs text-muted-foreground">
-                    {new Date(activity.created_at).toLocaleDateString()}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
               {recentActivities.length === 0 && (
                 <p className="text-muted-foreground text-sm">
                   No recent activity.

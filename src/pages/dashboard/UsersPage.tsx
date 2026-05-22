@@ -22,6 +22,8 @@ export default function UsersPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
 
+  const [pendingRequests, setPendingRequests] = useState<string[]>([]);
+
   const fetchUsers = async () => {
     try {
       setIsLoading(true);
@@ -35,6 +37,9 @@ export default function UsersPage() {
 
       // In a real scenario we might need to join auth.users to get email, but supabase client doesn't allow joining auth.users easily unless we have rpc or edge function, or we store email in profiles table. For now we just use profile fields.
       setUsers(profiles || []);
+
+      const requests = JSON.parse(localStorage.getItem("verification_requests") || "[]");
+      setPendingRequests(requests);
     } catch (err: any) {
       toast.error(err.message || "Failed to load users");
     } finally {
@@ -44,6 +49,14 @@ export default function UsersPage() {
 
   useEffect(() => {
     fetchUsers();
+    
+    // Periodically check for new requests since we are simulating real-time requests via localstorage
+    const interval = setInterval(() => {
+      const requests = JSON.parse(localStorage.getItem("verification_requests") || "[]");
+      setPendingRequests(requests);
+    }, 5000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   const handleVerify = async (userId: string, currentStatus: boolean) => {
@@ -54,6 +67,14 @@ export default function UsersPage() {
         .eq("id", userId);
 
       if (error) throw error;
+
+      if (!currentStatus) {
+        // If we are verifying, remove from pending requests
+        const requests = JSON.parse(localStorage.getItem("verification_requests") || "[]");
+        const newRequests = requests.filter((id: string) => id !== userId);
+        localStorage.setItem("verification_requests", JSON.stringify(newRequests));
+        setPendingRequests(newRequests);
+      }
 
       toast.success(
         currentStatus ? "User verification revoked" : "User verified successfully"
@@ -74,6 +95,13 @@ export default function UsersPage() {
       u.role?.toLowerCase().includes(q) ||
       u.id.toLowerCase().includes(q)
     );
+  }).sort((a, b) => {
+    // Sort pending requests to the top
+    const aPending = pendingRequests.includes(a.id);
+    const bPending = pendingRequests.includes(b.id);
+    if (aPending && !bPending) return -1;
+    if (!aPending && bPending) return 1;
+    return 0;
   });
 
   return (
@@ -163,6 +191,10 @@ export default function UsersPage() {
                             <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 gap-1.5 focus:bg-emerald-500/20 pointer-events-none">
                               <ShieldCheck className="h-3.5 w-3.5" /> Verified
                             </Badge>
+                          ) : pendingRequests.includes(user.id) ? (
+                            <Badge variant="outline" className="text-amber-500/80 border-amber-500/30 gap-1.5 pointer-events-none bg-amber-500/10">
+                              <ShieldAlert className="h-3.5 w-3.5" /> Pending Request
+                            </Badge>
                           ) : (
                             <Badge variant="outline" className="text-yellow-500/80 border-yellow-500/30 gap-1.5 pointer-events-none">
                               <ShieldAlert className="h-3.5 w-3.5" /> Unverified
@@ -177,10 +209,12 @@ export default function UsersPage() {
                             className={
                               user.verified
                                 ? "border-red-500/30 text-red-500 hover:bg-red-500/10 hover:text-red-400"
-                                : "border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-400"
+                                : pendingRequests.includes(user.id)
+                                  ? "border-amber-500/30 text-amber-500 hover:bg-amber-500/10 hover:text-amber-400"
+                                  : "border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-400"
                             }
                           >
-                            {user.verified ? "Revoke" : "Verify Badge"}
+                            {user.verified ? "Revoke" : pendingRequests.includes(user.id) ? "Approve Request" : "Verify Badge"}
                           </Button>
                         </td>
                       </tr>

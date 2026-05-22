@@ -13,6 +13,7 @@ import {
   DropdownMenuTrigger,
 } from "../ui/DropdownMenu";
 import { supabase } from "../../lib/supabase";
+import { cn } from "../../lib/utils";
 import { ThemeToggle } from "../theme-toggle";
 
 export default function RootLayout() {
@@ -82,13 +83,20 @@ export default function RootLayout() {
               <Menu className="h-5 w-5" />
             </Button>
             <Link to="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.4)]">
+              <div className={cn(
+                "w-8 h-8 rounded-lg flex items-center justify-center",
+                profile?.role === "seller" && profile?.verified 
+                  ? "bg-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.4)]"
+                  : "bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.4)]"
+              )}>
                 <span className="text-[#050505] font-bold text-lg leading-none">
-                  O
+                  {profile?.role === "seller" && profile?.verified ? "✧" : "O"}
                 </span>
               </div>
               <span className="text-xl font-bold tracking-tight text-foreground hidden sm:inline-block">
-                ODA <span className="text-emerald-500">MARKET</span>
+                ODA <span className={cn(
+                  profile?.role === "seller" && profile?.verified ? "text-amber-500" : "text-emerald-500"
+                )}>MARKET</span>
               </span>
             </Link>
           </div>
@@ -131,11 +139,19 @@ export default function RootLayout() {
                   render={
                     <Button
                       variant="ghost"
-                      className="relative h-9 w-9 rounded-full bg-emerald-500/20 flex items-center justify-center hover:bg-emerald-500/30 border border-emerald-500/30"
+                      className={cn(
+                        "relative h-9 w-9 rounded-full flex items-center justify-center border",
+                        profile?.role === "seller" && profile?.verified
+                          ? "bg-amber-500/20 hover:bg-amber-500/30 border-amber-500/30"
+                          : "bg-emerald-500/20 hover:bg-emerald-500/30 border-emerald-500/30"
+                      )}
                     />
                   }
                 >
-                  <span className="font-medium text-emerald-400 text-sm">
+                  <span className={cn(
+                    "font-medium text-sm",
+                    profile?.role === "seller" && profile?.verified ? "text-amber-400" : "text-emerald-400"
+                  )}>
                     {profile?.business_name
                       ? profile.business_name.charAt(0).toUpperCase()
                       : user.email?.charAt(0).toUpperCase()}
@@ -233,13 +249,20 @@ export default function RootLayout() {
                   className="flex items-center gap-2"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
-                  <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.4)]">
+                  <div className={cn(
+                    "w-8 h-8 rounded-lg flex items-center justify-center",
+                    profile?.role === "seller" && profile?.verified
+                      ? "bg-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.4)]"
+                      : "bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.4)]"
+                  )}>
                     <span className="text-[#050505] font-bold text-lg leading-none">
-                      O
+                      {profile?.role === "seller" && profile?.verified ? "✧" : "O"}
                     </span>
                   </div>
                   <span className="text-xl font-bold tracking-tight text-foreground">
-                    ODA <span className="text-emerald-500">MARKET</span>
+                    ODA <span className={cn(
+                      profile?.role === "seller" && profile?.verified ? "text-amber-500" : "text-emerald-500"
+                    )}>MARKET</span>
                   </span>
                 </Link>
                 <Button

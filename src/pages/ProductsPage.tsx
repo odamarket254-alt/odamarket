@@ -63,7 +63,7 @@ export default function ProductsPage() {
       setIsLoading(true);
       const { data, error } = await supabase
         .from("products")
-        .select("*")
+        .select("*, profiles!inner(verified)")
         .eq("status", "active")
         .order("created_at", { ascending: false });
 
@@ -225,13 +225,15 @@ export default function ProductsPage() {
                       <div className="space-y-1.5">
                         <p className="text-sm text-muted-foreground flex items-center gap-1.5">
                           <span className="truncate group-hover:text-foreground/80 transition-colors">
-                            Supplier {product.seller_id?.slice(0, 5)}
+                            {product.profiles?.business_name || `Supplier ${product.seller_id?.slice(0, 5)}`}
                           </span>
-                          <ShieldCheck className="h-4 w-4 text-emerald-500 shrink-0" />
+                          {product.profiles?.verified && (
+                            <ShieldCheck className="h-4 w-4 text-emerald-500 shrink-0" />
+                          )}
                         </p>
                         <p className="text-xs text-muted-foreground flex items-center gap-1.5">
                           <MapPin className="h-3.5 w-3.5 shrink-0" />
-                          Global Market
+                          {product.profiles?.location || "Global Market"}
                         </p>
                       </div>
                     </div>

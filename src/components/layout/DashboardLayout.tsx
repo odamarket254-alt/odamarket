@@ -10,6 +10,7 @@ import {
   Loader2,
   Menu,
   X,
+  Users,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { supabase } from "../../lib/supabase";
@@ -90,6 +91,11 @@ export default function DashboardLayout() {
             icon: LayoutDashboard,
             label: "Admin Overview",
             path: "/admin/dashboard",
+          },
+          {
+            icon: Users,
+            label: "User Verification",
+            path: "/admin/dashboard/users",
           },
           {
             icon: Package,

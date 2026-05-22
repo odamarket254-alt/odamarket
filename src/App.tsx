@@ -28,6 +28,8 @@ import InquiriesPage from "./pages/dashboard/InquiriesPage";
 import DashboardProductsPage from "./pages/dashboard/ProductsPage";
 import SettingsPage from "./pages/dashboard/SettingsPage";
 
+import UsersPage from "./pages/dashboard/UsersPage";
+
 export default function App() {
   const { setUser, setProfile, setLoading } = useAuthStore();
 
@@ -123,6 +125,7 @@ export default function App() {
         <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
           <Route path="/admin/dashboard" element={<DashboardLayout />}>
             <Route index element={<DashboardHome />} />
+            <Route path="users" element={<UsersPage />} />
             <Route path="products" element={<DashboardProductsPage />} />
             <Route path="settings" element={<SettingsPage />} />
           </Route>

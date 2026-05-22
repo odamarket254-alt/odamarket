@@ -34,26 +34,41 @@ export default function DashboardHome() {
 
     const fetchStats = async () => {
       if (profile?.role === "seller") {
-        const [{ count: pCount }, { count: iCount }, { data: recent }] =
-          await Promise.all([
-            supabase
-              .from("products")
-              .select("*", { count: "exact", head: true })
-              .eq("seller_id", user.id),
-            supabase
-              .from("inquiries")
-              .select("*", { count: "exact", head: true })
-              .eq("seller_id", user.id),
-            supabase
-              .from("inquiries")
-              .select("*")
-              .eq("seller_id", user.id)
-              .order("created_at", { ascending: false })
-              .limit(3),
-          ]);
+        const [
+          { count: pCount },
+          { count: iCount },
+          { data: recent },
+          { count: viewsCount },
+          { count: favCount },
+        ] = await Promise.all([
+          supabase
+            .from("products")
+            .select("*", { count: "exact", head: true })
+            .eq("seller_id", user.id),
+          supabase
+            .from("inquiries")
+            .select("*", { count: "exact", head: true })
+            .eq("seller_id", user.id),
+          supabase
+            .from("inquiries")
+            .select("*")
+            .eq("seller_id", user.id)
+            .order("created_at", { ascending: false })
+            .limit(3),
+          supabase
+            .from("recent_views")
+            .select("id, products!inner(seller_id)", { count: "exact", head: true })
+            .eq("products.seller_id", user.id),
+          supabase
+            .from("favorites")
+            .select("id, products!inner(seller_id)", { count: "exact", head: true })
+            .eq("products.seller_id", user.id)
+        ]);
         setProductCount(pCount || 0);
         setInquiryCount(iCount || 0);
         setRecentActivities(recent || []);
+        setProductViews(viewsCount || 0);
+        setProfileVisits(favCount || 0);
       } else if (profile?.role === "buyer") {
         const [
           { count },
@@ -84,6 +99,22 @@ export default function DashboardHome() {
         setSavedProductCount(savedCount || 0);
         setRecentViewsCount(viewsCount || 0);
         setRecentActivities(recent || []);
+      } else if (profile?.role === "admin") {
+        const [
+          { count: uCount },
+          { count: pCount },
+          { count: iCount },
+          { count: vCount }
+        ] = await Promise.all([
+          supabase.from("profiles").select("*", { count: "exact", head: true }),
+          supabase.from("products").select("*", { count: "exact", head: true }),
+          supabase.from("inquiries").select("*", { count: "exact", head: true }),
+          supabase.from("profiles").select("*", { count: "exact", head: true }).eq("verified", false),
+        ]);
+        setAdminUsers(uCount || 0);
+        setAdminProducts(pCount || 0);
+        setAdminInquiries(iCount || 0);
+        setAdminVerifications(vCount || 0);
       }
     };
 
@@ -164,6 +195,21 @@ export default function DashboardHome() {
           fetchStats,
         )
         .subscribe();
+    } else if (profile?.role === "admin") {
+      pChannel = supabase
+        .channel("home-admin-products")
+        .on("postgres_changes", { event: "*", schema: "public", table: "products" }, fetchStats)
+        .subscribe();
+
+      iChannel = supabase
+        .channel("home-admin-inquiries")
+        .on("postgres_changes", { event: "*", schema: "public", table: "inquiries" }, fetchStats)
+        .subscribe();
+
+      viewsChannel = supabase
+        .channel("home-admin-profiles")
+        .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, fetchStats)
+        .subscribe();
     }
 
     return () => {
@@ -174,25 +220,14 @@ export default function DashboardHome() {
     };
   }, [user, profile]);
 
-  const [productViews, setProductViews] = useState(1245);
-  const [profileVisits, setProfileVisits] = useState(340);
+  const [productViews, setProductViews] = useState(0);
+  const [profileVisits, setProfileVisits] = useState(0);
 
-  useEffect(() => {
-    if (profile?.role !== "seller") return;
-
-    // Simulate real-time updates for product views and profile visits
-    const interval = setInterval(() => {
-      // Randomly decide whether to increment to simulate real-time traffic
-      if (Math.random() > 0.6) {
-        setProductViews(prev => prev + Math.floor(Math.random() * 3));
-      }
-      if (Math.random() > 0.8) {
-        setProfileVisits(prev => prev + 1);
-      }
-    }, 5000);
-
-    return () => clearInterval(interval);
-  }, [profile?.role]);
+  // Admin stats
+  const [adminUsers, setAdminUsers] = useState(0);
+  const [adminProducts, setAdminProducts] = useState(0);
+  const [adminInquiries, setAdminInquiries] = useState(0);
+  const [adminVerifications, setAdminVerifications] = useState(0);
 
   const getStats = () => {
     if (profile?.role === "seller") {
@@ -216,7 +251,7 @@ export default function DashboardHome() {
           change: "Live metric",
         },
         {
-          title: "Profile Visits",
+          title: "Saved by Buyers",
           value: profileVisits.toLocaleString(),
           icon: Users,
           change: "Live metric",
@@ -226,27 +261,27 @@ export default function DashboardHome() {
       return [
         {
           title: "Total Users",
-          value: "1,204",
+          value: adminUsers.toLocaleString(),
           icon: Users,
-          change: "+50 this week",
+          change: "Live metric",
         },
         {
           title: "Total Products",
-          value: "3,420",
+          value: adminProducts.toLocaleString(),
           icon: Package,
-          change: "+120 this week",
+          change: "Live metric",
         },
         {
           title: "Active Inquiries",
-          value: "450",
+          value: adminInquiries.toLocaleString(),
           icon: Inbox,
-          change: "12 needs attention",
+          change: "Live metric",
         },
         {
           title: "Pending Verifications",
-          value: "15",
+          value: adminVerifications.toString(),
           icon: AlertCircle,
-          change: "Waitlist",
+          change: "Live metric",
         },
       ];
     } else {

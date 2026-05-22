@@ -66,6 +66,9 @@ export default function DashboardProductsPage() {
   const [isAddOpen, setIsAddOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [productToDelete, setProductToDelete] = useState<Product | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -140,17 +143,20 @@ export default function DashboardProductsPage() {
     };
 
     try {
-      const { error } = await supabase.from("products").insert([newProduct]);
-
-      if (error) {
-        throw error;
+      if (editingProduct) {
+        const { error } = await supabase.from("products").update(newProduct).eq("id", editingProduct.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("products").insert([newProduct]);
+        if (error) throw error;
       }
 
-      toast.success("Product added successfully!");
+      toast.success(editingProduct ? "Product updated successfully!" : "Product added successfully!");
       setIsAddOpen(false);
       setImagePreview(null);
+      setEditingProduct(null);
     } catch (error: any) {
-      toast.error(error.message || "Failed to add product");
+      toast.error(error.message || "Failed to save product");
     } finally {
       setIsSubmitting(false);
     }
@@ -188,12 +194,15 @@ export default function DashboardProductsPage() {
           open={isAddOpen}
           onOpenChange={(open) => {
             setIsAddOpen(open);
-            if (!open) setImagePreview(null);
+            if (!open) {
+              setImagePreview(null);
+              setEditingProduct(null);
+            }
           }}
         >
           <DialogTrigger
             render={
-              <Button className="bg-emerald-600 hover:bg-emerald-500 text-foreground gap-2 h-10 px-4" />
+              <Button className="bg-emerald-600 hover:bg-emerald-500 text-foreground gap-2 h-10 px-4" onClick={() => setEditingProduct(null)} />
             }
           >
             <Plus className="h-4 w-4" />
@@ -201,12 +210,12 @@ export default function DashboardProductsPage() {
           </DialogTrigger>
           <DialogContent className="sm:max-w-[500px] w-[95vw] max-h-[90vh] overflow-y-auto bg-[#0a0a0a] border-border text-foreground p-4 sm:p-6 rounded-2xl sm:rounded-xl">
             <DialogHeader>
-              <DialogTitle>Add New Product</DialogTitle>
+              <DialogTitle>{editingProduct ? "Edit Product" : "Add New Product"}</DialogTitle>
               <DialogDescription className="text-muted-foreground">
-                Create a new product listing for your buyers.
+                {editingProduct ? "Update your product details." : "Create a new product listing for your buyers."}
               </DialogDescription>
             </DialogHeader>
-            <form onSubmit={handleAddProduct} className="space-y-4 py-4">
+            <form key={editingProduct?.id || "new"} onSubmit={handleAddProduct} className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label className="text-foreground/80">Product Image</Label>
                 <div className="flex items-center gap-4">
@@ -250,6 +259,7 @@ export default function DashboardProductsPage() {
                   id="name"
                   name="name"
                   required
+                  defaultValue={editingProduct?.name || ""}
                   placeholder="e.g. Premium Arabica Coffee Beans"
                   className="bg-black/40 border-border"
                 />
@@ -263,6 +273,7 @@ export default function DashboardProductsPage() {
                     id="category"
                     name="category"
                     required
+                    defaultValue={editingProduct?.category || ""}
                     placeholder="e.g. Agriculture"
                     className="bg-black/40 border-border"
                   />
@@ -275,6 +286,7 @@ export default function DashboardProductsPage() {
                     id="price"
                     name="price"
                     required
+                    defaultValue={editingProduct?.price || ""}
                     placeholder="e.g. $450/mt"
                     className="bg-black/40 border-border"
                   />
@@ -289,6 +301,7 @@ export default function DashboardProductsPage() {
                     id="stock"
                     name="stock"
                     required
+                    defaultValue={editingProduct?.stock || ""}
                     placeholder="e.g. 500 mt"
                     className="bg-black/40 border-border"
                   />
@@ -297,7 +310,7 @@ export default function DashboardProductsPage() {
                   <Label htmlFor="status" className="text-foreground/80">
                     Status
                   </Label>
-                  <Select name="status" defaultValue="active">
+                  <Select name="status" defaultValue={editingProduct?.status || "active"}>
                     <SelectTrigger className="bg-black/40 border-border">
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
@@ -315,6 +328,7 @@ export default function DashboardProductsPage() {
                 <Textarea
                   id="description"
                   name="description"
+                  defaultValue={editingProduct?.description || ""}
                   placeholder="Product details..."
                   className="bg-black/40 border-border resize-none"
                   rows={3}
@@ -324,7 +338,10 @@ export default function DashboardProductsPage() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setIsAddOpen(false)}
+                  onClick={() => {
+                    setIsAddOpen(false);
+                    setEditingProduct(null);
+                  }}
                   className="border-border hover:bg-muted/50 text-foreground text-foreground/80"
                 >
                   Cancel
@@ -334,7 +351,7 @@ export default function DashboardProductsPage() {
                   disabled={isSubmitting}
                   className="bg-emerald-600 hover:bg-emerald-500 text-foreground"
                 >
-                  {isSubmitting ? "Adding..." : "Save Product"}
+                  {isSubmitting ? "Saving..." : "Save Product"}
                 </Button>
               </DialogFooter>
             </form>
@@ -439,11 +456,24 @@ export default function DashboardProductsPage() {
                         align="end"
                         className="w-40 bg-[#0a0a0a] border-border text-foreground"
                       >
-                        <DropdownMenuItem className="focus:bg-white/10 focus:text-foreground cursor-pointer gap-2">
+                        <DropdownMenuItem 
+                          className="focus:bg-white/10 focus:text-foreground cursor-pointer gap-2"
+                          onClick={() => {
+                            setEditingProduct(product);
+                            setImagePreview(product.image_url || null);
+                            setIsAddOpen(true);
+                          }}
+                        >
                           <Edit className="h-4 w-4 text-muted-foreground" />
                           Edit
                         </DropdownMenuItem>
-                        <DropdownMenuItem className="focus:bg-red-500/10 focus:text-red-400 text-red-500 cursor-pointer gap-2">
+                        <DropdownMenuItem 
+                          className="focus:bg-red-500/10 focus:text-red-400 text-red-500 cursor-pointer gap-2"
+                          onClick={() => {
+                            setProductToDelete(product);
+                            setIsDeleteOpen(true);
+                          }}
+                        >
                           <Trash2 className="h-4 w-4" />
                           Delete
                         </DropdownMenuItem>
@@ -479,6 +509,51 @@ export default function DashboardProductsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+        <DialogContent className="sm:max-w-[400px] bg-[#0a0a0a] border-border text-foreground p-6 rounded-xl">
+          <DialogHeader>
+            <DialogTitle>Delete Product</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Are you sure you want to delete {productToDelete?.name}? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="mt-6 flex gap-3 sm:justify-end">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setIsDeleteOpen(false);
+                setProductToDelete(null);
+              }}
+              className="border-border hover:bg-muted/50 text-foreground"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={async () => {
+                if (!productToDelete) return;
+                setIsSubmitting(true);
+                try {
+                  const { error } = await supabase.from("products").delete().eq("id", productToDelete.id);
+                  if (error) throw error;
+                  toast.success("Product deleted successfully");
+                  setIsDeleteOpen(false);
+                } catch (err: any) {
+                  toast.error(err.message || "Failed to delete product");
+                } finally {
+                  setIsSubmitting(false);
+                  setProductToDelete(null);
+                }
+              }}
+              disabled={isSubmitting}
+              className="bg-red-600 hover:bg-red-500 text-white"
+            >
+              {isSubmitting ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

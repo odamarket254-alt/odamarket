@@ -160,7 +160,7 @@ export default function ProductDetailsPage() {
       setIsLoading(true);
       const { data, error } = await supabase
         .from("products")
-        .select("*")
+        .select("*, profiles!inner(*)")
         .eq("id", id)
         .single();
       if (error) throw error;
@@ -174,11 +174,11 @@ export default function ProductDetailsPage() {
           "https://images.unsplash.com/photo-1559525839-b184a4d698c7?w=800&auto=format&fit=crop&q=80",
         moq: data.stock,
         unit: "units",
-        location: "Global Market",
-        supplier: "Supplier " + (data.seller_id?.slice(0, 5) || ""),
-        isVerified: true,
+        location: data.profiles?.location || "Global Market",
+        supplier: data.profiles?.business_name || "Supplier " + (data.seller_id?.slice(0, 5) || ""),
+        isVerified: data.profiles?.verified || false,
         supplierInfo: {
-          type: "Direct Seller",
+          type: data.profiles?.company_type || "Direct Seller",
           established: "2026",
           rating: "5.0/5",
         },

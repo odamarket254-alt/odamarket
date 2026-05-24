@@ -225,7 +225,7 @@ export default function ProductDetailsPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background text-foreground py-12 flex justify-center">
+      <div className="min-h-[100dvh] bg-background text-foreground py-12 flex justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
       </div>
     );
@@ -233,14 +233,14 @@ export default function ProductDetailsPage() {
 
   if (!product) {
     return (
-      <div className="min-h-screen bg-background text-foreground py-12 text-center">
+      <div className="min-h-[100dvh] bg-background text-foreground py-12 text-center">
         Product not found.
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground py-8">
+    <div className="min-h-[100dvh] bg-background text-foreground py-8">
       <div className="container mx-auto px-4 max-w-6xl">
         <Button
           variant="ghost"

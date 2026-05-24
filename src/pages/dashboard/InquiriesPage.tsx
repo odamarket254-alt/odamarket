@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "../../components/ui/Card";
 import { Badge } from "../../components/ui/Badge";
-import { Mail, Clock, CheckCircle, Search, Filter, Send } from "lucide-react";
+import { Mail, Clock, CheckCircle, Search, Filter, Send, ArrowLeft } from "lucide-react";
 import { Input } from "../../components/ui/Input";
 import { Button } from "../../components/ui/Button";
 import { supabase } from "../../lib/supabase";
@@ -51,7 +51,7 @@ export default function InquiriesPage() {
     fetchInquiries();
 
     const channel = supabase
-      .channel("inquiries-changes")
+      .channel(`inquiries-changes-${Math.random()}`)
       .on(
         "postgres_changes",
         {
@@ -95,7 +95,7 @@ export default function InquiriesPage() {
     fetchMessages();
 
     const channel = supabase
-      .channel(`messages-${selectedInquiry.id}`)
+      .channel(`messages-${selectedInquiry.id}-${Math.random()}`)
       .on(
         "postgres_changes",
         {
@@ -210,7 +210,7 @@ export default function InquiriesPage() {
   );
 
   return (
-    <div className="space-y-6 flex flex-col h-[calc(100vh-8rem)]">
+    <div className="space-y-6 flex flex-col min-h-[calc(100dvh-8rem)] lg:h-[calc(100dvh-8rem)]">
       <div className="shrink-0 flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-foreground">
@@ -240,9 +240,9 @@ export default function InquiriesPage() {
         </Button>
       </div>
 
-      <div className="flex-1 overflow-hidden grid lg:grid-cols-3 gap-6">
+      <div className="flex-1 overflow-visible lg:overflow-hidden grid lg:grid-cols-3 gap-6">
         {/* Inbox List */}
-        <div className="lg:col-span-1 border border-border bg-muted/50 text-foreground backdrop-blur-sm rounded-lg overflow-y-auto block min-h-0 h-full">
+        <div className={`lg:col-span-1 border border-border bg-muted/50 text-foreground backdrop-blur-sm rounded-lg overflow-y-auto min-h-[400px] lg:min-h-0 h-full ${selectedInquiry ? 'hidden lg:block' : 'block'}`}>
           {isLoading ? (
             <div className="p-8 text-center text-muted-foreground">
               Loading...
@@ -288,15 +288,20 @@ export default function InquiriesPage() {
         </div>
 
         {/* Selected Inquiry Detail */}
-        <div className="lg:col-span-2 overflow-hidden min-h-0 h-full">
+        <div className={`lg:col-span-2 overflow-hidden min-h-[500px] lg:min-h-0 h-full ${selectedInquiry ? 'block' : 'hidden lg:block'}`}>
           {selectedInquiry ? (
             <Card className="h-full border-border bg-muted/50 text-foreground backdrop-blur-sm overflow-y-auto">
               <CardContent className="p-8">
                 <div className="flex justify-between items-start mb-8">
                   <div>
-                    <h2 className="text-2xl font-bold text-foreground mb-2">
-                      {selectedInquiry.products?.name}
-                    </h2>
+                    <div className="flex items-center gap-2 mb-2">
+                       <Button variant="ghost" size="sm" className="lg:hidden p-0 h-6 w-6 mr-2" onClick={() => setSelectedInquiry(null)}>
+                         <ArrowLeft className="h-4 w-4" />
+                       </Button>
+                       <h2 className="text-2xl font-bold text-foreground">
+                         {selectedInquiry.products?.name}
+                       </h2>
+                    </div>
                     <p className="text-muted-foreground flex items-center gap-2">
                       From:{" "}
                       <span className="text-foreground font-medium">

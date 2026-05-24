@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/Button";
 import { Card, CardContent } from "../components/ui/Card";
 import { Input } from "../components/ui/Input";
@@ -136,10 +136,15 @@ export default function HomePage() {
   const [featuredRealtimeProducts, setFeaturedRealtimeProducts] = useState<
     MarketplaceProduct[]
   >([]);
+  const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchFeaturedProducts();
+    fetchCategoryCounts();
 
     const channel = supabase
       .channel("public-products-changes-home")
@@ -153,6 +158,7 @@ export default function HomePage() {
         },
         () => {
           fetchFeaturedProducts();
+          fetchCategoryCounts();
         },
       )
       .subscribe();
@@ -184,8 +190,32 @@ export default function HomePage() {
     }
   };
 
+  const fetchCategoryCounts = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("products")
+        .select("category")
+        .eq("status", "active");
+
+      if (error) {
+        console.error("Error fetching category counts:", error);
+      } else if (data) {
+        const counts: Record<string, number> = {};
+        data.forEach((p) => {
+          if (p.category) {
+            const catName = p.category.toLowerCase();
+            counts[catName] = (counts[catName] || 0) + 1;
+          }
+        });
+        setCategoryCounts(counts);
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   return (
-    <div className="flex flex-col min-h-[calc(100vh-4rem)] bg-background">
+    <div className="flex flex-col min-h-[calc(100dvh-4rem)] bg-background">
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-background">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-emerald-900/10 rounded-full blur-[120px]"></div>
@@ -215,22 +245,35 @@ export default function HomePage() {
               structured quotes.
             </p>
 
-            <div className="flex items-center gap-2 p-2 bg-muted/50 text-foreground backdrop-blur-xl border border-border rounded-2xl w-full max-w-2xl mx-auto shadow-2xl flex-col sm:flex-row">
+            <form 
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (searchQuery.trim()) {
+                  navigate(`/products?q=${encodeURIComponent(searchQuery)}`);
+                } else {
+                  navigate("/products");
+                }
+              }}
+              className="flex items-center gap-2 p-2 bg-muted/50 text-foreground backdrop-blur-xl border border-border rounded-2xl w-full max-w-2xl mx-auto shadow-2xl flex-col sm:flex-row"
+            >
               <div className="flex-1 flex items-center px-4 gap-3 w-full">
                 <Search className="w-5 h-5 text-muted-foreground" />
                 <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="What are you sourcing today?"
                   className="w-full bg-transparent border-none outline-none text-foreground/90 placeholder:text-zinc-600 h-12 shadow-none focus-visible:ring-0 px-0"
                 />
               </div>
               <div className="hidden sm:block h-8 w-[1px] bg-white/10"></div>
               <Button
+                type="submit"
                 size="lg"
                 className="h-12 px-8 text-sm bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl shadow-xl shadow-emerald-500/20 hover:scale-105 transition-transform w-full sm:w-auto"
               >
                 Search Market
               </Button>
-            </div>
+            </form>
           </motion.div>
         </div>
       </section>
@@ -316,7 +359,7 @@ export default function HomePage() {
                       {category.name}
                     </h3>
                     <p className="text-sm font-medium text-emerald-400 drop-shadow-md opacity-90">
-                      {category.count} products
+                      {categoryCounts[category.name.toLowerCase()] || 0} products
                     </p>
                   </div>
                   {/* Subtle Gradient Overlay for extra text pop */}

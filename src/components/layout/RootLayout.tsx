@@ -14,7 +14,7 @@ import {
 } from "../ui/DropdownMenu";
 import { supabase } from "../../lib/supabase";
 import { cn } from "../../lib/utils";
-import { ThemeToggle } from "../theme-toggle";
+import { NotificationBell } from "./NotificationBell";
 
 export default function RootLayout() {
   const { user, profile } = useAuthStore();
@@ -69,7 +69,7 @@ export default function RootLayout() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col font-sans bg-background text-foreground selection:bg-emerald-500/30">
+    <div className="min-h-[100dvh] flex flex-col font-sans bg-background text-foreground selection:bg-emerald-500/30">
       <header className="sticky top-0 z-50 w-full border-b border-border bg-background/80 backdrop-blur-md">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -132,7 +132,7 @@ export default function RootLayout() {
               </Link>
             </nav>
 
-            <ThemeToggle />
+            {user && <NotificationBell />}
             {user ? (
               <DropdownMenu>
                 <DropdownMenuTrigger
@@ -141,21 +141,26 @@ export default function RootLayout() {
                       variant="ghost"
                       className={cn(
                         "relative h-9 w-9 rounded-full flex items-center justify-center border",
-                        profile?.role === "seller" && profile?.verified
+                        profile?.logo_url ? "p-0 overflow-hidden border-border" : "",
+                        !profile?.logo_url && profile?.role === "seller" && profile?.verified
                           ? "bg-amber-500/20 hover:bg-amber-500/30 border-amber-500/30"
-                          : "bg-emerald-500/20 hover:bg-emerald-500/30 border-emerald-500/30"
+                          : !profile?.logo_url ? "bg-emerald-500/20 hover:bg-emerald-500/30 border-emerald-500/30" : ""
                       )}
                     />
                   }
                 >
-                  <span className={cn(
-                    "font-medium text-sm",
-                    profile?.role === "seller" && profile?.verified ? "text-amber-400" : "text-emerald-400"
-                  )}>
-                    {profile?.business_name
-                      ? profile.business_name.charAt(0).toUpperCase()
-                      : user.email?.charAt(0).toUpperCase()}
-                  </span>
+                  {profile?.logo_url ? (
+                    <img src={profile.logo_url} alt="Profile" className="h-full w-full object-cover" />
+                  ) : (
+                    <span className={cn(
+                      "font-medium text-sm",
+                      profile?.role === "seller" && profile?.verified ? "text-amber-400" : "text-emerald-400"
+                    )}>
+                      {profile?.business_name
+                        ? profile.business_name.charAt(0).toUpperCase()
+                        : user.email?.charAt(0).toUpperCase()}
+                    </span>
+                  )}
                 </DropdownMenuTrigger>
                 <DropdownMenuContent
                   className="w-56 bg-background border-border text-foreground"
@@ -325,12 +330,19 @@ export default function RootLayout() {
                 {user ? (
                   <>
                     <div className="flex items-center gap-3 px-2 mb-2">
-                      <div className="h-10 w-10 rounded-full bg-emerald-500/20 flex items-center justify-center border border-emerald-500/30 shrink-0">
-                        <span className="font-medium text-emerald-400 text-base">
-                          {profile?.business_name
-                            ? profile.business_name.charAt(0).toUpperCase()
-                            : user.email?.charAt(0).toUpperCase()}
-                        </span>
+                      <div className={cn(
+                        "h-10 w-10 rounded-full flex items-center justify-center border shrink-0",
+                        profile?.logo_url ? "p-0 overflow-hidden border-border" : "bg-emerald-500/20 border-emerald-500/30"
+                      )}>
+                        {profile?.logo_url ? (
+                          <img src={profile.logo_url} alt="Profile" className="h-full w-full object-cover" />
+                        ) : (
+                          <span className="font-medium text-emerald-400 text-base">
+                            {profile?.business_name
+                              ? profile.business_name.charAt(0).toUpperCase()
+                              : user.email?.charAt(0).toUpperCase()}
+                          </span>
+                        )}
                       </div>
                       <div className="flex flex-col min-w-0">
                         <span className="text-sm font-bold text-foreground truncate w-full">

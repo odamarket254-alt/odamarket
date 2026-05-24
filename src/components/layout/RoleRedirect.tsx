@@ -7,7 +7,7 @@ export default function RoleRedirect() {
 
   if (isLoading) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-background">
+      <div className="flex h-[100dvh] w-full items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-emerald-500" />
       </div>
     );

@@ -83,7 +83,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex-1 flex items-center justify-center p-4 bg-background min-h-[calc(100vh-4rem)]">
+    <div className="flex-1 flex items-center justify-center p-4 bg-background min-h-[calc(100dvh-4rem)]">
       <Card className="w-full max-w-md border-border bg-muted/50 text-foreground backdrop-blur-xl shadow-2xl">
         <CardHeader className="space-y-1 text-center">
           <CardTitle className="text-2xl font-bold tracking-tight text-foreground">
@@ -152,7 +152,7 @@ export default function LoginPage() {
                     Password
                   </Label>
                   <Link
-                    to="#"
+                    to="/forgot-password"
                     className="text-sm font-medium text-emerald-500 hover:text-emerald-400"
                   >
                     Forgot password?

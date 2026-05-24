@@ -375,7 +375,7 @@ export default function DashboardHome() {
       </div>
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-7 mt-4">
-        <Card className="col-span-4 border-border bg-muted/50 text-foreground backdrop-blur-sm">
+        <Card className="col-span-full lg:col-span-4 border-border bg-muted/50 text-foreground backdrop-blur-sm">
           <CardHeader>
             <CardTitle className="text-lg text-foreground">
               Recent Activity
@@ -421,7 +421,7 @@ export default function DashboardHome() {
         </Card>
 
         {profile?.role !== "buyer" && (
-          <Card className="col-span-3 border-border bg-muted/50 text-foreground backdrop-blur-sm">
+          <Card className="col-span-full lg:col-span-3 border-border bg-muted/50 text-foreground backdrop-blur-sm">
             <CardHeader>
               <CardTitle className="text-lg text-foreground">
                 {profile?.role === "admin"

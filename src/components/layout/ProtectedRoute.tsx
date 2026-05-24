@@ -14,7 +14,7 @@ export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
    */
   if (isLoading || (!profile && user)) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-background text-emerald-500">
+      <div className="flex h-[100dvh] w-full items-center justify-center bg-background text-emerald-500">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );

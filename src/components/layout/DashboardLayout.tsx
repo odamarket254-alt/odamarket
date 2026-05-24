@@ -17,7 +17,8 @@ import { motion, AnimatePresence } from "motion/react";
 import { supabase } from "../../lib/supabase";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/Button";
-import { ThemeToggle } from "../theme-toggle";
+
+import { NotificationBell } from "./NotificationBell";
 
 export default function DashboardLayout() {
   const { user, profile, isLoading } = useAuthStore();
@@ -47,7 +48,7 @@ export default function DashboardLayout() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-[100dvh] flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
       </div>
     );
@@ -134,9 +135,9 @@ export default function DashboardLayout() {
   const navItems = getNavItems();
 
   return (
-    <div className="min-h-screen flex bg-background font-sans selection:bg-emerald-500/30 text-foreground">
+    <div className="min-h-[100dvh] flex bg-background font-sans selection:bg-emerald-500/30 text-foreground">
       {/* Sidebar */}
-      <aside className="w-64 bg-card border-r border-border hidden md:flex flex-col sticky top-0 h-screen">
+      <aside className="w-64 bg-card border-r border-border hidden md:flex flex-col sticky top-0 h-[100dvh]">
         <div className="p-6 flex justify-between items-center">
           <Link to="/" className="flex items-center gap-2">
             <div className={cn(
@@ -153,7 +154,9 @@ export default function DashboardLayout() {
               {profile?.role === "seller" && profile?.verified ? "Premium" : "ODA Market"}
             </span>
           </Link>
-          <ThemeToggle />
+          <div className="flex items-center gap-2">
+            <NotificationBell />
+          </div>
         </div>
 
         <div className={cn(
@@ -244,7 +247,7 @@ export default function DashboardLayout() {
             </span>
           </Link>
           <div className="flex items-center gap-2">
-            <ThemeToggle />
+            <NotificationBell />
             <Button
               variant="ghost"
               size="icon"

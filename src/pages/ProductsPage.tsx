@@ -86,7 +86,7 @@ export default function ProductsPage() {
   );
 
   return (
-    <div className="min-h-[calc(100vh-4rem)] bg-background text-foreground py-8">
+    <div className="min-h-[calc(100dvh-4rem)] bg-background text-foreground py-8">
       <div className="container mx-auto px-4">
         {/* Header / Search */}
         <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center mb-8">

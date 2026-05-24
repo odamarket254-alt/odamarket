@@ -240,9 +240,9 @@ export default function InquiriesPage() {
         </Button>
       </div>
 
-      <div className="flex-1 overflow-visible lg:overflow-hidden grid lg:grid-cols-3 gap-6">
+      <div className="flex-1 flex flex-col lg:grid lg:grid-cols-3 gap-6 min-h-0">
         {/* Inbox List */}
-        <div className={`lg:col-span-1 border border-border bg-muted/50 text-foreground backdrop-blur-sm rounded-lg overflow-y-auto min-h-[400px] lg:min-h-0 h-full ${selectedInquiry ? 'hidden lg:block' : 'block'}`}>
+        <div className={`lg:col-span-1 border border-border bg-muted/50 text-foreground backdrop-blur-sm rounded-lg overflow-y-auto flex-1 lg:h-full ${selectedInquiry ? 'hidden lg:block' : 'block'}`}>
           {isLoading ? (
             <div className="p-8 text-center text-muted-foreground">
               Loading...
@@ -288,54 +288,52 @@ export default function InquiriesPage() {
         </div>
 
         {/* Selected Inquiry Detail */}
-        <div className={`lg:col-span-2 overflow-hidden min-h-[500px] lg:min-h-0 h-full ${selectedInquiry ? 'block' : 'hidden lg:block'}`}>
+        <div className={`lg:col-span-2 flex flex-col flex-1 lg:h-full ${selectedInquiry ? 'flex' : 'hidden lg:flex'}`}>
           {selectedInquiry ? (
-            <Card className="h-full border-border bg-muted/50 text-foreground backdrop-blur-sm overflow-y-auto">
-              <CardContent className="p-8">
-                <div className="flex justify-between items-start mb-8">
+            <Card className="flex flex-col flex-1 border-border bg-muted/50 text-foreground backdrop-blur-sm overflow-hidden">
+              <CardContent className="flex flex-col flex-1 p-4 sm:p-8 overflow-hidden">
+                <div className="flex justify-between items-start mb-6 shrink-0">
                   <div>
                     <div className="flex items-center gap-2 mb-2">
                        <Button variant="ghost" size="sm" className="lg:hidden p-0 h-6 w-6 mr-2" onClick={() => setSelectedInquiry(null)}>
                          <ArrowLeft className="h-4 w-4" />
                        </Button>
-                       <h2 className="text-2xl font-bold text-foreground">
+                       <h2 className="text-lg sm:text-2xl font-bold text-foreground truncate max-w-[200px] sm:max-w-md">
                          {selectedInquiry.products?.name}
                        </h2>
                     </div>
-                    <p className="text-muted-foreground flex items-center gap-2">
-                      From:{" "}
-                      <span className="text-foreground font-medium">
-                        {selectedInquiry.name}
-                      </span>{" "}
-                      ({selectedInquiry.company})
+                    <p className="text-muted-foreground flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-sm sm:text-base">
+                      <span>From: <span className="text-foreground font-medium">{selectedInquiry.name}</span></span>
+                      <span className="hidden sm:inline">({selectedInquiry.company})</span>
+                      <span className="sm:hidden text-xs text-muted-foreground">({selectedInquiry.company})</span>
                     </p>
-                    <p className="text-muted-foreground flex items-center gap-2 text-sm mt-1">
+                    <p className="text-muted-foreground flex items-center gap-2 text-xs sm:text-sm mt-1 truncate">
                       Email:{" "}
-                      <span className="text-foreground">
+                      <span className="text-foreground truncate max-w-[150px] sm:max-w-none">
                         {selectedInquiry.email}
                       </span>
                     </p>
                   </div>
-                  <div className="text-right">
+                  <div className="text-right shrink-0">
                     <div className="mb-2">
                       {getStatusBadge(selectedInquiry.status)}
                     </div>
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(selectedInquiry.created_at).toLocaleString()}
+                    <span className="text-[10px] sm:text-xs text-muted-foreground block text-right">
+                      {new Date(selectedInquiry.created_at).toLocaleDateString()}
                     </span>
                   </div>
                 </div>
 
-                <div className="bg-black/40 border border-border/50 rounded-xl p-6 mb-6">
-                  <h4 className="text-sm font-semibold text-muted-foreground mb-4 uppercase tracking-wider">
-                    Initial Inquiry
+                <div className="bg-black/40 border border-border/50 rounded-xl p-4 mb-4 shrink-0 max-h-[120px] overflow-y-auto hide-scrollbar">
+                  <h4 className="text-[10px] sm:text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider sticky top-0 bg-black/40 backdrop-blur-sm z-10 py-1">
+                    Initial Inquiry (Qty: {selectedInquiry.quantity})
                   </h4>
-                  <p className="text-foreground whitespace-pre-line leading-relaxed">
+                  <p className="text-foreground whitespace-pre-line leading-relaxed text-sm">
                     {selectedInquiry.message}
                   </p>
                 </div>
 
-                <div className="space-y-4 mb-6 max-h-[40vh] overflow-y-auto pr-2 pb-4 hide-scrollbar">
+                <div className="flex-1 overflow-y-auto mb-4 pr-2 pb-2 space-y-4 hide-scrollbar">
                   {inquiryMessages.map((msg) => {
                     const isOwn = msg.sender_id === user?.id;
                     return (
@@ -344,13 +342,13 @@ export default function InquiriesPage() {
                         className={`flex flex-col ${isOwn ? "items-end" : "items-start"}`}
                       >
                         <div
-                          className={`max-w-[80%] rounded-xl px-4 py-3 ${isOwn ? "bg-emerald-600/20 border border-emerald-500/30 text-emerald-50" : "bg-muted/50 border border-border text-foreground"}`}
+                          className={`max-w-[85%] sm:max-w-[80%] rounded-xl px-3 py-2 sm:px-4 sm:py-3 ${isOwn ? "bg-emerald-600/20 border border-emerald-500/30 text-emerald-50" : "bg-muted/50 border border-border text-foreground"}`}
                         >
                           <p className="whitespace-pre-line text-sm">
                             {msg.message}
                           </p>
                         </div>
-                        <span className="text-xs text-muted-foreground mt-1 px-1">
+                        <span className="text-[10px] sm:text-xs text-muted-foreground mt-1 px-1">
                           {formatDistanceToNow(new Date(msg.created_at), {
                             addSuffix: true,
                           })}
@@ -361,7 +359,7 @@ export default function InquiriesPage() {
                   <div ref={messagesEndRef} />
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex gap-2 shrink-0 pt-2 border-t border-border/50">
                   <Input
                     value={newMessage}
                     onChange={(e) => setNewMessage(e.target.value)}
@@ -371,29 +369,36 @@ export default function InquiriesPage() {
                         handleSendMessage();
                       }
                     }}
-                    placeholder="Type your reply here..."
-                    className="flex-1 bg-black/40 border-border text-foreground focus-visible:ring-emerald-500"
+                    placeholder="Reply..."
+                    className="flex-1 bg-black/40 border-border text-foreground focus-visible:ring-emerald-500 h-10 sm:h-12"
                   />
                   <Button
                     onClick={handleSendMessage}
                     disabled={!newMessage.trim() || isSending}
-                    className="bg-emerald-600 hover:bg-emerald-500 text-foreground px-6"
+                    className="bg-emerald-600 hover:bg-emerald-500 text-foreground px-4 sm:px-6 h-10 sm:h-12"
                   >
-                    {isSending ? "Sending..." : <Send className="h-4 w-4" />}
+                    {isSending ? (
+                       <span className="text-sm">Sending...</span>
+                    ) : (
+                       <>
+                         <Send className="h-4 w-4 sm:hidden" />
+                         <span className="hidden sm:inline">Send</span>
+                       </>
+                    )}
                   </Button>
                 </div>
               </CardContent>
             </Card>
           ) : (
-            <Card className="h-full border-border bg-muted/50 text-foreground backdrop-blur-sm flex flex-col items-center justify-center">
-              <CardContent className="text-center">
+            <Card className="flex flex-col flex-1 border-border bg-muted/50 text-foreground backdrop-blur-sm items-center justify-center">
+              <CardContent className="text-center p-8">
                 <div className="w-20 h-20 rounded-full bg-muted/50 text-foreground border border-border flex items-center justify-center mx-auto mb-4">
                   <Mail className="h-10 w-10 text-zinc-600" />
                 </div>
                 <h3 className="text-lg font-medium text-foreground">
                   Select an inquiry
                 </h3>
-                <p className="text-muted-foreground max-w-sm mx-auto">
+                <p className="text-muted-foreground max-w-sm mx-auto mt-2">
                   Choose an inquiry from the list to view details, buyer
                   information, and respond.
                 </p>

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "../../components/ui/Card";
 import { Badge } from "../../components/ui/Badge";
-import { Mail, Clock, CheckCircle, Search, Filter, Send, ArrowLeft } from "lucide-react";
+import { Mail, Clock, CheckCircle, Search, Filter, Send, ArrowLeft, Calendar, Building2 } from "lucide-react";
 import { Input } from "../../components/ui/Input";
 import { Button } from "../../components/ui/Button";
 import { supabase } from "../../lib/supabase";
@@ -292,45 +292,61 @@ export default function InquiriesPage() {
           {selectedInquiry ? (
             <Card className="flex flex-col flex-1 border-border bg-muted/50 text-foreground backdrop-blur-sm overflow-hidden">
               <CardContent className="flex flex-col flex-1 p-4 sm:p-8 overflow-hidden">
+                {/* Header Section */}
                 <div className="flex justify-between items-start mb-6 shrink-0">
                   <div>
                     <div className="flex items-center gap-2 mb-2">
-                       <Button variant="ghost" size="sm" className="lg:hidden p-0 h-6 w-6 mr-2" onClick={() => setSelectedInquiry(null)}>
+                       <Button variant="ghost" size="sm" className="lg:hidden p-0 h-6 w-6 mr-2 text-muted-foreground" onClick={() => setSelectedInquiry(null)}>
                          <ArrowLeft className="h-4 w-4" />
                        </Button>
-                       <h2 className="text-lg sm:text-2xl font-bold text-foreground truncate max-w-[200px] sm:max-w-md">
+                       <h2 className="text-lg sm:text-2xl font-bold text-foreground">
                          {selectedInquiry.products?.name}
                        </h2>
                     </div>
-                    <p className="text-muted-foreground flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2 text-sm sm:text-base">
-                      <span>From: <span className="text-foreground font-medium">{selectedInquiry.name}</span></span>
-                      <span className="hidden sm:inline">({selectedInquiry.company})</span>
-                      <span className="sm:hidden text-xs text-muted-foreground">({selectedInquiry.company})</span>
-                    </p>
-                    <p className="text-muted-foreground flex items-center gap-2 text-xs sm:text-sm mt-1 truncate">
-                      Email:{" "}
-                      <span className="text-foreground truncate max-w-[150px] sm:max-w-none">
-                        {selectedInquiry.email}
-                      </span>
-                    </p>
+                    <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground mb-3">
+                      <span className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" /> {new Date(selectedInquiry.created_at).toLocaleDateString()}</span>
+                      <span className="w-1 h-1 rounded-full bg-border" />
+                      <span className="flex items-center gap-1.5 font-semibold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">Qty: {selectedInquiry.quantity} Units</span>
+                    </div>
                   </div>
                   <div className="text-right shrink-0">
                     <div className="mb-2">
                       {getStatusBadge(selectedInquiry.status)}
                     </div>
-                    <span className="text-[10px] sm:text-xs text-muted-foreground block text-right">
-                      {new Date(selectedInquiry.created_at).toLocaleDateString()}
-                    </span>
                   </div>
                 </div>
 
-                <div className="bg-black/40 border border-border/50 rounded-xl p-4 mb-4 shrink-0 max-h-[120px] overflow-y-auto hide-scrollbar">
-                  <h4 className="text-[10px] sm:text-xs font-semibold text-muted-foreground mb-2 uppercase tracking-wider sticky top-0 bg-black/40 backdrop-blur-sm z-10 py-1">
-                    Initial Inquiry (Qty: {selectedInquiry.quantity})
-                  </h4>
-                  <p className="text-foreground whitespace-pre-line leading-relaxed text-sm">
-                    {selectedInquiry.message}
-                  </p>
+                {/* Sender Info & Initial Message */}
+                <div className="bg-muted/30 border border-border rounded-xl p-4 sm:p-5 mb-6 shrink-0 flex flex-col gap-4 shadow-sm">
+                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-border/50 pb-4">
+                    <div className="flex items-start gap-4">
+                       <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 shrink-0">
+                         <span className="text-emerald-500 font-bold text-base sm:text-lg">{selectedInquiry.name.charAt(0).toUpperCase()}</span>
+                       </div>
+                       <div>
+                         <p className="text-sm sm:text-base font-semibold text-foreground tracking-tight">{selectedInquiry.name}</p>
+                         <p className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1.5 mt-1">
+                           <Building2 className="h-3.5 w-3.5" /> {selectedInquiry.company}
+                         </p>
+                         <p className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1.5 mt-0.5">
+                           <Mail className="h-3.5 w-3.5" /> {selectedInquiry.email}
+                         </p>
+                       </div>
+                    </div>
+                    <div className="hidden sm:flex flex-col items-end pt-1">
+                       <span className="text-[10px] font-semibold tracking-wider uppercase text-muted-foreground mb-1.5">Inquiry Type</span>
+                       <span className="text-xs bg-black/40 px-2.5 py-1 rounded-md border border-border text-foreground/90 font-medium tracking-wide">Product Request</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="text-[10px] sm:text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">
+                      Message Content
+                    </h4>
+                    <p className="text-foreground/90 whitespace-pre-line text-sm leading-relaxed max-h-[120px] overflow-y-auto hide-scrollbar pl-3 sm:pl-4 border-l-2 border-emerald-500/50 italic bg-black/20 p-3 sm:p-4 rounded-r-xl shadow-inner">
+                      "{selectedInquiry.message}"
+                    </p>
+                  </div>
                 </div>
 
                 <div className="flex-1 overflow-y-auto mb-4 pr-2 pb-2 space-y-4 hide-scrollbar">

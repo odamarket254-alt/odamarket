@@ -153,268 +153,289 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-2">
-        <Card className="border-border bg-card/50 backdrop-blur-sm self-start flex flex-col items-stretch">
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <div className="space-y-1.5">
-              <CardTitle className="text-lg">Profile Information</CardTitle>
-              <CardDescription>
-                Your public business details.
-              </CardDescription>
-            </div>
-            {!isEditing ? (
-              <Button 
-                variant="outline" 
-                size="icon-sm" 
-                onClick={() => setIsEditing(true)}
-                className="h-8 w-8 rounded-full bg-black/20 hover:bg-emerald-500/20 hover:text-emerald-500 border-border"
-              >
-                <Pencil className="h-4 w-4" />
-              </Button>
-            ) : (
-              <Button 
-                variant="ghost" 
-                size="icon-sm" 
-                onClick={() => {
-                  setIsEditing(false);
-                  setEditForm({
-                    business_name: profile.business_name || "",
-                    location: profile.location || "",
-                    logo_url: profile.logo_url || "",
-                    bio: profile.bio || "",
-                  });
-                }}
-                className="h-8 w-8 rounded-full hover:bg-black/20"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            )}
-          </CardHeader>
-          <CardContent className="space-y-6 flex-1 mt-2">
-            
-            {/* Profile Picture Display */}
-            <div className="flex items-center gap-4">
-              <div className="h-20 w-20 rounded-full overflow-hidden border-2 border-border bg-black/40 flex items-center justify-center relative">
-                {profile.logo_url ? (
-                  <img src={profile.logo_url} alt="Profile" className="h-full w-full object-cover" />
-                ) : (
-                  <User className="h-8 w-8 text-muted-foreground/50" />
-                )}
-                {profile.verified && (
-                  <div className="absolute bottom-0 right-0 bg-amber-500 p-0.5 rounded-full border-2 border-background">
-                    <ShieldCheck className="h-3 w-3 text-white" />
+      <div className="space-y-10">
+        {/* Profile Information Section */}
+        <div className="grid md:grid-cols-4 gap-y-4 gap-x-8">
+          <div className="md:col-span-1 space-y-1">
+            <h3 className="text-lg font-medium text-foreground">Profile Details</h3>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Your public business information. This will be visible to other users on the platform.
+            </p>
+          </div>
+          
+          <div className="md:col-span-3">
+            <Card className="border-border bg-card/50 backdrop-blur-sm overflow-hidden">
+              <div className="flex items-center justify-between p-6 border-b border-border/50 bg-muted/20">
+                <div className="flex items-center gap-4">
+                  <div className="h-16 w-16 rounded-full overflow-hidden border-2 border-border bg-background flex flex-shrink-0 items-center justify-center relative shadow-sm">
+                    {profile.logo_url ? (
+                      <img src={profile.logo_url} alt="Profile" className="h-full w-full object-cover" />
+                    ) : (
+                      <User className="h-8 w-8 text-muted-foreground/50" />
+                    )}
+                    {profile.verified && (
+                      <div className="absolute -bottom-1 -right-1 bg-amber-500 p-0.5 rounded-full border-2 border-background">
+                        <ShieldCheck className="h-3.5 w-3.5 text-white" />
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-              <div>
-                <h4 className="text-base font-medium text-foreground">{profile.business_name || "Unnammed Business"}</h4>
-                <p className="text-sm text-muted-foreground capitalize">{profile.role}</p>
-              </div>
-            </div>
-
-            {isEditing ? (
-              <div className="space-y-4 animate-in fade-in slide-in-from-top-2">
-                <div className="space-y-2">
-                  <Label htmlFor="business_name">Business Name</Label>
-                  <Input 
-                    id="business_name"
-                    value={editForm.business_name}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, business_name: e.target.value }))}
-                    className="bg-black/40 border-border"
-                    placeholder="Enter business name"
-                  />
+                  <div>
+                    <h4 className="text-lg font-semibold text-foreground tracking-tight">
+                      {profile.business_name || "Unnamed Business"}
+                    </h4>
+                    <p className="text-sm font-medium text-emerald-500 capitalize">{profile.role}</p>
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="location">Location</Label>
-                  <Input 
-                    id="location"
-                    value={editForm.location}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, location: e.target.value }))}
-                    className="bg-black/40 border-border"
-                    placeholder="e.g. Nairobi, Kenya"
-                  />
-                </div>
-                {profile.verified ? (
-                  <div className="space-y-2">
-                    <Label htmlFor="logo_upload">Profile Picture</Label>
-                    <div className="flex items-center gap-4">
-                      {editForm.logo_url && (
-                        <div className="h-10 w-10 shrink-0 rounded-full overflow-hidden border border-border bg-black/40">
-                          <img src={editForm.logo_url} className="h-full w-full object-cover" alt="Preview" />
-                        </div>
-                      )}
-                      <Input 
-                        id="logo_upload"
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => {
-                          const file = e.target.files?.[0];
-                          if (!file) return;
-                          // Ensure file is < 2MB
-                          if (file.size > 2 * 1024 * 1024) {
-                            toast.error("Image must be smaller than 2MB");
-                            return;
-                          }
-                          const reader = new FileReader();
-                          reader.onloadend = () => {
-                            setEditForm(prev => ({ ...prev, logo_url: reader.result as string }));
-                          };
-                          reader.readAsDataURL(file);
-                        }}
-                        className="bg-black/40 border-border cursor-pointer file:cursor-pointer file:text-foreground file:bg-muted/50 file:border-0 hover:file:bg-muted/80"
-                      />
-                    </div>
-                    <p className="text-xs text-muted-foreground">Premium feature: You can customize your avatar (max 2MB).</p>
-                  </div>
-                ) : (
-                  <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-                    <p className="text-xs text-amber-500/90 leading-relaxed">
-                      Profile picture customization is a premium feature. Unlock it by verifying your business.
-                    </p>
-                  </div>
-                )}
-                {profile.role === "seller" && (
-                  <>
-                    <div className="space-y-2">
-                      <Label htmlFor="bio">Bio / Company Description</Label>
-                      <Textarea 
-                        id="bio"
-                        value={editForm.bio}
-                        onChange={(e) => setEditForm(prev => ({ ...prev, bio: e.target.value }))}
-                        className="bg-black/40 border-border"
-                        placeholder="Tell buyers about your company..."
-                        rows={4}
-                      />
-                    </div>
-
-                  </>
-                )}
-                <Button 
-                  onClick={handleSaveProfile} 
-                  disabled={isSaving}
-                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-foreground gap-2"
-                >
-                  {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
-                  Save Changes
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-4 pt-2">
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Business Name</p>
-                  <p className="text-base text-foreground">{profile.business_name || "Not set"}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm font-medium text-muted-foreground">Location</p>
-                  <p className="text-base text-foreground">{profile.location || "Not set"}</p>
-                </div>
-                {profile.role === "seller" && (
-                  <>
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium text-muted-foreground">Bio / Description</p>
-                      <p className="text-base text-foreground">{profile.bio || "Not set"}</p>
-                    </div>
-
-                  </>
-                )}
-              </div>
-            )}
-          </CardContent>
-        </Card>
-
-        {profile.role === "seller" && (
-        <Card className="border-border bg-card/50 backdrop-blur-sm self-start">
-          <CardHeader>
-            <CardTitle className="text-lg">Account Verification</CardTitle>
-            <CardDescription>
-              Verified sellers get a premium badge and higher trust from buyers.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6">
-            <div className={cn(
-              "flex flex-col items-center justify-center p-6 rounded-xl border",
-              profile.verified 
-                ? "bg-amber-500/10 border-amber-500/20" 
-                : "bg-muted/50 border-border"
-            )}>
-              {profile.verified ? (
-                <>
-                  <div className="h-16 w-16 rounded-full bg-amber-500/20 flex items-center justify-center mb-4 border border-amber-500/30 shadow-[0_0_15px_rgba(245,158,11,0.2)]">
-                    <ShieldCheck className="h-8 w-8 text-amber-500" />
-                  </div>
-                  <h3 className="text-lg font-medium text-amber-500">Premium Verified</h3>
-                  <p className="text-sm text-amber-500/80 text-center mt-2 max-w-[250px]">
-                    Your profile stands out and buyers know they can trust your business.
-                  </p>
-                </>
-              ) : (
-                <>
-                  <div className="h-16 w-16 rounded-full bg-muted flex items-center justify-center mb-4 border border-border">
-                    <ShieldAlert className="h-8 w-8 text-muted-foreground" />
-                  </div>
-                  <h3 className="text-lg font-medium text-foreground">Not Verified</h3>
-                  <p className="text-sm text-muted-foreground text-center mt-2 max-w-[250px]">
-                    Verify your business to earn the premium badge and attract more buyers.
-                  </p>
-                </>
-              )}
-            </div>
-
-            {!profile.verified && (
-              <div className="pt-2">
-                {hasRequested ? (
-                  <div className="flex items-start gap-3 p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/20">
-                    <CheckCircle2 className="h-5 w-5 text-emerald-500 shrink-0 mt-0.5" />
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium text-emerald-500">Verification in progress</p>
-                      <p className="text-xs text-emerald-500/80">
-                        We have received your verification request. Our admins are reviewing your profile. 
-                        Your status will update automatically here when approved.
-                      </p>
-                    </div>
-                  </div>
+                
+                {!isEditing ? (
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setIsEditing(true)}
+                    className="h-9 gap-2 shrink-0 border-border bg-background/50 hover:bg-emerald-500/10 hover:text-emerald-500 hover:border-emerald-500/50 transition-colors"
+                  >
+                    <Pencil className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Edit Profile</span>
+                  </Button>
                 ) : (
                   <Button 
-                    className="w-full bg-amber-600 hover:bg-amber-500 text-foreground gap-2 transition-all shadow-[0_0_15px_rgba(245,158,11,0.2)]"
-                    onClick={handleRequestVerification}
-                    disabled={isRequesting}
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => {
+                      setIsEditing(false);
+                      setEditForm({
+                        business_name: profile.business_name || "",
+                        location: profile.location || "",
+                        logo_url: profile.logo_url || "",
+                        bio: profile.bio || "",
+                      });
+                    }}
+                    className="h-9 gap-2 shrink-0 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                   >
-                    {isRequesting ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        Submitting Request...
-                      </>
-                    ) : (
-                      <>
-                        <ShieldCheck className="h-4 w-4" />
-                        Request Premium Verification
-                      </>
-                    )}
+                    <X className="h-3.5 w-3.5" />
+                    <span className="hidden sm:inline">Cancel</span>
                   </Button>
                 )}
               </div>
-            )}
-          </CardContent>
-        </Card>
+
+              <CardContent className="p-0">
+                {isEditing ? (
+                  <div className="p-6 space-y-6 animate-in fade-in duration-300">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2.5">
+                        <Label htmlFor="business_name" className="text-foreground/90 font-medium">Business Name</Label>
+                        <Input 
+                          id="business_name"
+                          value={editForm.business_name}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, business_name: e.target.value }))}
+                          className="bg-background/50 border-border focus-visible:border-emerald-500/50 focus-visible:ring-emerald-500/20"
+                          placeholder="e.g. Acme Corp"
+                        />
+                      </div>
+                      <div className="space-y-2.5">
+                        <Label htmlFor="location" className="text-foreground/90 font-medium">Location</Label>
+                        <Input 
+                          id="location"
+                          value={editForm.location}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, location: e.target.value }))}
+                          className="bg-background/50 border-border focus-visible:border-emerald-500/50 focus-visible:ring-emerald-500/20"
+                          placeholder="e.g. Nairobi, Kenya"
+                        />
+                      </div>
+                    </div>
+
+                    {profile.verified ? (
+                      <div className="space-y-3 p-4 rounded-xl border border-border bg-muted/20">
+                        <Label htmlFor="logo_upload" className="text-foreground/90 font-medium flex items-center gap-2">
+                          Brand Logo
+                          <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 text-[10px] uppercase font-bold tracking-wider border border-amber-500/20">Premium</span>
+                        </Label>
+                        <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+                          <div className="h-16 w-16 shrink-0 rounded-full overflow-hidden border-2 border-border bg-background flex items-center justify-center relative">
+                            {editForm.logo_url ? (
+                              <img src={editForm.logo_url} className="h-full w-full object-cover" alt="Preview" />
+                            ) : (
+                              <User className="h-6 w-6 text-muted-foreground/30" />
+                            )}
+                          </div>
+                          <div className="flex-1 space-y-2">
+                            <Input 
+                              id="logo_upload"
+                              type="file"
+                              accept="image/*"
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (!file) return;
+                                if (file.size > 2 * 1024 * 1024) {
+                                  toast.error("Image must be smaller than 2MB");
+                                  return;
+                                }
+                                const reader = new FileReader();
+                                reader.onloadend = () => {
+                                  setEditForm(prev => ({ ...prev, logo_url: reader.result as string }));
+                                };
+                                reader.readAsDataURL(file);
+                              }}
+                              className="bg-background/50 border-border cursor-pointer file:cursor-pointer file:font-medium file:text-foreground file:bg-muted file:border-0 hover:file:bg-muted/80 h-10 w-full"
+                            />
+                            <p className="text-xs text-muted-foreground">
+                              Recommended size: 256x256px. Max file size: 2MB.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="p-4 bg-amber-500/5 border border-amber-500/20 rounded-xl flex items-start gap-3">
+                        <ShieldAlert className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+                        <div>
+                          <p className="text-sm font-medium text-amber-500/90">Custom Avatar Locked</p>
+                          <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                            Uploading a custom business logo is an exclusive feature for verified sellers. Secure your verified badge to unlock branding options and increase buyer trust.
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {profile.role === "seller" && (
+                      <div className="space-y-2.5">
+                        <Label htmlFor="bio" className="text-foreground/90 font-medium">Company Profile</Label>
+                        <Textarea 
+                          id="bio"
+                          value={editForm.bio}
+                          onChange={(e) => setEditForm(prev => ({ ...prev, bio: e.target.value }))}
+                          className="bg-background/50 border-border focus-visible:border-emerald-500/50 focus-visible:ring-emerald-500/20 min-h-[120px] resize-y"
+                          placeholder="Provide a detailed overview of your company, products, and services..."
+                        />
+                      </div>
+                    )}
+                    
+                    <div className="pt-2 flex justify-end">
+                      <Button 
+                        onClick={handleSaveProfile} 
+                        disabled={isSaving}
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-medium shadow-sm transition-all h-10 px-8"
+                      >
+                        {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
+                        {isSaving ? 'Saving Changes...' : 'Save Profile Details'}
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="divide-y divide-border/50">
+                    <div className="grid grid-cols-1 sm:grid-cols-2">
+                      <div className="p-6 border-b sm:border-b-0 sm:border-r border-border/50 space-y-1.5">
+                         <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Business Name</h5>
+                         <p className="text-sm text-foreground font-medium">{profile.business_name || <span className="text-muted-foreground italic font-normal">Not configured</span>}</p>
+                      </div>
+                      <div className="p-6 space-y-1.5">
+                         <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Primary Location</h5>
+                         <p className="text-sm text-foreground font-medium">{profile.location || <span className="text-muted-foreground italic font-normal">Not configured</span>}</p>
+                      </div>
+                    </div>
+                    {profile.role === "seller" && (
+                      <div className="p-6 space-y-2">
+                         <h5 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Company Description</h5>
+                         <p className="text-sm text-foreground/90 leading-relaxed max-w-3xl whitespace-pre-line">
+                           {profile.bio || <span className="text-muted-foreground italic">No description provided. Add a bio to tell buyers about your business.</span>}
+                         </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+
+        {/* Verification Section */}
+        {profile.role === "seller" && (
+          <div className="grid md:grid-cols-4 gap-y-4 gap-x-8">
+            <div className="md:col-span-1 space-y-1">
+              <h3 className="text-lg font-medium text-foreground">Verification</h3>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Establish trust with buyers by requesting a verified merchant badge.
+              </p>
+            </div>
+            
+            <div className="md:col-span-3">
+              <Card className="border-border bg-card/50 backdrop-blur-sm overflow-hidden">
+                <CardContent className="p-0">
+                  <div className="p-6 sm:p-8 flex flex-col sm:flex-row items-center sm:items-start gap-6 text-center sm:text-left">
+                    <div className={cn(
+                        "h-20 w-20 rounded-2xl flex-shrink-0 flex items-center justify-center border shadow-sm",
+                        profile.verified 
+                          ? "bg-amber-500/10 border-amber-500/20 text-amber-500" 
+                          : "bg-muted border-border text-muted-foreground"
+                      )}>
+                        {profile.verified ? <ShieldCheck className="h-10 w-10" /> : <ShieldAlert className="h-10 w-10" />}
+                    </div>
+                    
+                    <div className="flex-1 space-y-3">
+                      <div>
+                        <h4 className={cn("text-lg font-semibold", profile.verified ? "text-amber-500" : "text-foreground")}>
+                          {profile.verified ? "Premium Verified Seller" : "Unverified Account"}
+                        </h4>
+                        <p className="text-sm text-muted-foreground mt-1 max-w-xl">
+                          {profile.verified 
+                            ? "Your business has been successfully verified. You now have access to premium features including custom branding, and your profile displays a badge to signal trust to buyers."
+                            : "Verified sellers receive priority placement, a verified badge, and the ability to upload custom logos. Strengthen your market presence by submitting a verification request."}
+                        </p>
+                      </div>
+
+                      {!profile.verified && (
+                        <div className="pt-3">
+                          {hasRequested ? (
+                            <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-sm font-medium text-emerald-500">
+                              <CheckCircle2 className="h-4 w-4" />
+                              Verification Request Under Review
+                            </div>
+                          ) : (
+                            <Button 
+                              onClick={handleRequestVerification}
+                              disabled={isRequesting}
+                              className="w-full sm:w-auto bg-foreground text-background hover:bg-foreground/90 font-medium px-6 h-10 shadow-sm"
+                            >
+                              {isRequesting ? (
+                                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                              ) : (
+                                <ShieldCheck className="h-4 w-4 mr-2" />
+                              )}
+                              Request Verification
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
         )}
 
-        <Card className="border-border bg-card/50 backdrop-blur-sm self-start">
-          <CardHeader>
-            <CardTitle className="text-lg">Appearance</CardTitle>
-            <CardDescription>
-              Customize the look and feel of the platform.
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center justify-between">
-              <div className="space-y-1">
-                <p className="text-sm font-medium text-foreground">Theme Mode</p>
-                <p className="text-xs text-muted-foreground">Toggle between light and dark mode</p>
-              </div>
-              <ThemeToggle />
-            </div>
-          </CardContent>
-        </Card>
+        {/* Preferences Section */}
+        <div className="grid md:grid-cols-4 gap-y-4 gap-x-8">
+          <div className="md:col-span-1 space-y-1">
+            <h3 className="text-lg font-medium text-foreground">Preferences</h3>
+            <p className="text-sm text-muted-foreground leading-relaxed">
+              Manage your local application settings and display preferences.
+            </p>
+          </div>
+          
+          <div className="md:col-span-3">
+            <Card className="border-border bg-card/50 backdrop-blur-sm overflow-hidden">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-1">
+                    <p className="text-base font-medium text-foreground tracking-tight">Appearance Interface</p>
+                    <p className="text-sm text-muted-foreground">Toggle the application theme between light and dark modes.</p>
+                  </div>
+                  <ThemeToggle />
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -127,8 +127,8 @@ export default function RootLayout() {
               >
                 Products
               </Link>
-              <Link to="#" className="hover:text-emerald-500 transition-colors">
-                Suppliers
+              <Link to="/contact" className="hover:text-emerald-500 transition-colors">
+                Contact Us
               </Link>
             </nav>
 
@@ -316,11 +316,11 @@ export default function RootLayout() {
                     <ChevronRight className="h-5 w-5 text-zinc-600" />
                   </Link>
                   <Link
-                    to="#"
+                    to="/contact"
                     className="flex items-center justify-between px-4 py-3.5 rounded-xl text-foreground/80 hover:text-foreground hover:bg-muted/50 text-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
-                    <span className="font-medium text-lg">Suppliers</span>
+                    <span className="font-medium text-lg">Contact Us</span>
                     <ChevronRight className="h-5 w-5 text-zinc-600" />
                   </Link>
                 </nav>

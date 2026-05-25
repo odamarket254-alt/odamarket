@@ -24,9 +24,11 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import ProductsPage from "./pages/ProductsPage";
 import ProductDetailsPage from "./pages/ProductDetailsPage";
+import ContactPage from "./pages/ContactPage";
 // Dashboard Pages
 import DashboardHome from "./pages/dashboard/DashboardHome";
 import InquiriesPage from "./pages/dashboard/InquiriesPage";
+import SupportMessagesPage from "./pages/dashboard/SupportMessagesPage";
 import DashboardProductsPage from "./pages/dashboard/ProductsPage";
 import SettingsPage from "./pages/dashboard/SettingsPage";
 
@@ -101,6 +103,7 @@ export default function App() {
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/products" element={<ProductsPage />} />
           <Route path="/products/:id" element={<ProductDetailsPage />} />
+          <Route path="/contact" element={<ContactPage />} />
         </Route>
 
         {/* Role Routing Interceptor */}
@@ -132,6 +135,7 @@ export default function App() {
             <Route path="users" element={<UsersPage />} />
             <Route path="products" element={<DashboardProductsPage />} />
             <Route path="settings" element={<SettingsPage />} />
+            <Route path="support" element={<SupportMessagesPage />} />
           </Route>
         </Route>
       </Routes>

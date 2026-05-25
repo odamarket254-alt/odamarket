@@ -105,6 +105,11 @@ export default function DashboardLayout() {
             path: "/admin/dashboard/products",
           },
           {
+            icon: Inbox,
+            label: "Support Messages",
+            path: "/admin/dashboard/support",
+          },
+          {
             icon: Settings,
             label: "Settings",
             path: "/admin/dashboard/settings",

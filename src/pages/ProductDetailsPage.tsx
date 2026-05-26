@@ -193,6 +193,13 @@ export default function ProductDetailsPage() {
   };
 
   const onSubmit = async (data: InquiryFormValues) => {
+    if (!user) {
+      toast.error("Authentication required", {
+        description: "You must be signed in to send inquiries.",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       if (!product) return;
@@ -200,7 +207,7 @@ export default function ProductDetailsPage() {
       const inquiryData = {
         product_id: product.id,
         seller_id: product.seller_id,
-        buyer_id: user ? user.id : null,
+        buyer_id: user.id,
         name: data.name,
         email: data.email,
         company: data.company,

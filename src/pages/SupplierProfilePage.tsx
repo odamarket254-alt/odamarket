@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { useAuthStore } from "../store/useAuthStore";
 import { Card, CardContent } from "../components/ui/Card";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
@@ -42,6 +43,7 @@ interface Product {
 
 export default function SupplierProfilePage() {
   const { id } = useParams<{ id: string }>();
+  const { user } = useAuthStore();
   const [supplier, setSupplier] = useState<SupplierProfile | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -156,47 +158,57 @@ export default function SupplierProfilePage() {
             </div>
             
             <div className="shrink-0 w-full sm:w-auto relative z-10">
-              <Dialog>
-                <DialogTrigger 
-                  render={
-                    <Button className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/20" />
-                  }
+              {user ? (
+                <Dialog>
+                  <DialogTrigger 
+                    render={
+                      <Button className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/20" />
+                    }
+                  >
+                    <Mail className="h-4 w-4 mr-2" />
+                    Contact Supplier
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[425px] bg-background border-border text-foreground">
+                    <DialogHeader>
+                      <DialogTitle>Contact {supplier.business_name}</DialogTitle>
+                      <DialogDescription>
+                        Send a direct message to this supplier. They will receive it in their inbox.
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="subject" className="text-foreground">Subject</Label>
+                        <Input id="subject" placeholder="Inquiry about your products" className="bg-muted/50 border-border text-foreground" />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="message" className="text-foreground">Message</Label>
+                        <Textarea 
+                          id="message" 
+                          placeholder="Hello, I would like to know more about..." 
+                          className="min-h-[120px] bg-muted/50 border-border text-foreground" 
+                        />
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button 
+                        type="submit" 
+                        onClick={() => toast.success("Message sent! The supplier will respond shortly.")}
+                        className="w-full bg-emerald-600 hover:bg-emerald-500 text-white"
+                      >
+                        Send Message
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              ) : (
+                <Button 
+                  className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/20"
+                  onClick={() => toast.error("Authentication required", { description: "Please log in to contact this supplier." })}
                 >
                   <Mail className="h-4 w-4 mr-2" />
                   Contact Supplier
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[425px] bg-background border-border text-foreground">
-                  <DialogHeader>
-                    <DialogTitle>Contact {supplier.business_name}</DialogTitle>
-                    <DialogDescription>
-                      Send a direct message to this supplier. They will receive it in their inbox.
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="grid gap-4 py-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="subject" className="text-foreground">Subject</Label>
-                      <Input id="subject" placeholder="Inquiry about your products" className="bg-muted/50 border-border text-foreground" />
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="message" className="text-foreground">Message</Label>
-                      <Textarea 
-                        id="message" 
-                        placeholder="Hello, I would like to know more about..." 
-                        className="min-h-[120px] bg-muted/50 border-border text-foreground" 
-                      />
-                    </div>
-                  </div>
-                  <DialogFooter>
-                    <Button 
-                      type="submit" 
-                      onClick={() => toast.success("Message sent! The supplier will respond shortly.")}
-                      className="w-full bg-emerald-600 hover:bg-emerald-500 text-white"
-                    >
-                      Send Message
-                    </Button>
-                  </DialogFooter>
-                </DialogContent>
-              </Dialog>
+                </Button>
+              )}
             </div>
           </div>
 

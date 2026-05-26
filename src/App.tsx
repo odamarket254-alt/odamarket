@@ -25,6 +25,7 @@ import ResetPasswordPage from "./pages/ResetPasswordPage";
 import ProductsPage from "./pages/ProductsPage";
 import ProductDetailsPage from "./pages/ProductDetailsPage";
 import ContactPage from "./pages/ContactPage";
+import SupplierProfilePage from "./pages/SupplierProfilePage";
 // Dashboard Pages
 import DashboardHome from "./pages/dashboard/DashboardHome";
 import InquiriesPage from "./pages/dashboard/InquiriesPage";
@@ -103,6 +104,7 @@ export default function App() {
           <Route path="/reset-password" element={<ResetPasswordPage />} />
           <Route path="/products" element={<ProductsPage />} />
           <Route path="/products/:id" element={<ProductDetailsPage />} />
+          <Route path="/suppliers/:id" element={<SupplierProfilePage />} />
           <Route path="/contact" element={<ContactPage />} />
         </Route>
 

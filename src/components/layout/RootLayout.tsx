@@ -83,16 +83,6 @@ export default function RootLayout() {
               <Menu className="h-5 w-5" />
             </Button>
             <Link to="/" className="flex items-center gap-2">
-              <div className={cn(
-                "w-8 h-8 rounded-lg flex items-center justify-center",
-                profile?.role === "seller" && profile?.verified 
-                  ? "bg-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.4)]"
-                  : "bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.4)]"
-              )}>
-                <span className="text-[#050505] font-bold text-lg leading-none">
-                  {profile?.role === "seller" && profile?.verified ? "✧" : "O"}
-                </span>
-              </div>
               <span className="text-xl font-bold tracking-tight text-foreground hidden sm:inline-block">
                 ODA <span className={cn(
                   profile?.role === "seller" && profile?.verified ? "text-amber-500" : "text-emerald-500"
@@ -254,16 +244,6 @@ export default function RootLayout() {
                   className="flex items-center gap-2"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
-                  <div className={cn(
-                    "w-8 h-8 rounded-lg flex items-center justify-center",
-                    profile?.role === "seller" && profile?.verified
-                      ? "bg-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.4)]"
-                      : "bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.4)]"
-                  )}>
-                    <span className="text-[#050505] font-bold text-lg leading-none">
-                      {profile?.role === "seller" && profile?.verified ? "✧" : "O"}
-                    </span>
-                  </div>
                   <span className="text-xl font-bold tracking-tight text-foreground">
                     ODA <span className={cn(
                       profile?.role === "seller" && profile?.verified ? "text-amber-500" : "text-emerald-500"
@@ -405,11 +385,6 @@ export default function RootLayout() {
         <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="space-y-4">
             <Link to="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center shadow-[0_0_20px_rgba(16,185,129,0.4)]">
-                <span className="text-[#050505] font-bold text-lg leading-none">
-                  O
-                </span>
-              </div>
               <span className="text-xl font-bold tracking-tight text-foreground">
                 ODA Market
               </span>

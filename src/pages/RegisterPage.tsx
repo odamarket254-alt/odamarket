@@ -82,9 +82,10 @@ export default function RegisterPage() {
         setIsLoading(false);
       } else {
         toast.success("Account created!", {
-          description: "You are now signed in.",
+          description: "Please check your email to confirm your account.",
         });
-        // Navigation will be handled by useEffect when profile loads
+        setIsLoading(false);
+        navigate("/login");
       }
     } catch (err) {
       toast.error("An unexpected error occurred");

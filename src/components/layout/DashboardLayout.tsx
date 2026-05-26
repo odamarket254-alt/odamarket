@@ -145,18 +145,8 @@ export default function DashboardLayout() {
       <aside className="w-64 bg-card border-r border-border hidden md:flex flex-col sticky top-0 h-[100dvh]">
         <div className="p-6 flex justify-between items-center">
           <Link to="/" className="flex items-center gap-2">
-            <div className={cn(
-              "w-8 h-8 rounded-lg flex items-center justify-center",
-              profile?.role === "seller" && profile?.verified 
-                ? "bg-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.4)]"
-                : "bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.4)]"
-            )}>
-              <span className="text-[#050505] font-bold text-lg leading-none">
-                {profile?.role === "seller" && profile?.verified ? "✧" : "O"}
-              </span>
-            </div>
             <span className="text-xl font-bold tracking-tight text-foreground">
-              {profile?.role === "seller" && profile?.verified ? "Premium" : "ODA Market"}
+              ODA Market
             </span>
           </Link>
           <div className="flex items-center gap-2">
@@ -237,18 +227,8 @@ export default function DashboardLayout() {
         {/* Mobile Header */}
         <header className="md:hidden flex items-center justify-between p-4 border-b border-border bg-card">
           <Link to="/" className="flex items-center gap-2">
-            <div className={cn(
-              "w-8 h-8 rounded-lg flex items-center justify-center",
-              profile?.role === "seller" && profile?.verified 
-                ? "bg-amber-500 shadow-[0_0_20px_rgba(245,158,11,0.4)]"
-                : "bg-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.4)]"
-            )}>
-              <span className="text-[#050505] font-bold text-lg leading-none">
-                {profile?.role === "seller" && profile?.verified ? "✧" : "O"}
-              </span>
-            </div>
             <span className="text-xl font-bold tracking-tight text-foreground">
-              {profile?.role === "seller" && profile?.verified ? "Premium" : "ODA Market"}
+              ODA Market
             </span>
           </Link>
           <div className="flex items-center gap-2">

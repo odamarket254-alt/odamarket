@@ -406,6 +406,7 @@ export default function ProductDetailsPage() {
                   <Button
                     variant="outline"
                     className="w-full sm:w-auto border-border bg-transparent hover:bg-muted/50 text-foreground text-foreground"
+                    render={<Link to={`/suppliers/${product.seller_id}`} />}
                   >
                     View Profile
                   </Button>

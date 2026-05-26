@@ -28,16 +28,16 @@ interface SupplierProfile {
   bio: string;
   verified: boolean;
   created_at: string;
+  logo_url?: string;
 }
 
 interface Product {
   id: string;
-  title: string;
-  category_id: string;
+  name: string;
+  category: string;
   price: number;
-  moq: string;
-  location: string;
-  product_images: { image_url: string }[];
+  stock: string;
+  image_url: string;
 }
 
 export default function SupplierProfilePage() {
@@ -68,7 +68,7 @@ export default function SupplierProfilePage() {
       // Fetch Supplier Products
       const { data: productsData, error: productsError } = await supabase
         .from("products")
-        .select("*, product_images(image_url)")
+        .select("*")
         .eq("seller_id", supplierId)
         .eq("status", "active")
         .order("created_at", { ascending: false });
@@ -117,9 +117,17 @@ export default function SupplierProfilePage() {
         <CardContent className="pt-0 relative px-6 sm:px-10 pb-10">
           <div className="flex flex-col sm:flex-row items-start sm:items-end gap-6 -mt-12 sm:-mt-16 mb-6">
             <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-background bg-muted flex items-center justify-center shrink-0 shadow-xl overflow-hidden relative z-10">
-              <span className="text-4xl text-emerald-500 font-bold uppercase">
-                {supplier.business_name?.charAt(0) || "S"}
-              </span>
+              {supplier.logo_url ? (
+                <img 
+                  src={supplier.logo_url} 
+                  alt={supplier.business_name} 
+                  className="w-full h-full object-cover" 
+                />
+              ) : (
+                <span className="text-4xl text-emerald-500 font-bold uppercase">
+                  {supplier.business_name?.charAt(0) || "S"}
+                </span>
+              )}
             </div>
             
             <div className="flex-1 space-y-2 relative z-10">
@@ -232,22 +240,22 @@ export default function SupplierProfilePage() {
                   <Card className="h-full border-border bg-card hover:border-emerald-500/50 transition-all hover:shadow-lg dark:hover:shadow-emerald-500/10 overflow-hidden flex flex-col group">
                     <div className="aspect-[4/3] bg-muted relative overflow-hidden">
                       <img
-                        src={product.product_images?.[0]?.image_url || "https://images.unsplash.com/photo-1559525839-b184a4d698c7?w=500&auto=format&fit=crop&q=80"}
-                        alt={product.title}
+                        src={product.image_url || "https://images.unsplash.com/photo-1559525839-b184a4d698c7?w=500&auto=format&fit=crop&q=80"}
+                        alt={product.name}
                         className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500"
                         loading="lazy"
                       />
                     </div>
                     <CardContent className="p-4 flex-1 flex flex-col">
                       <h3 className="font-semibold text-foreground line-clamp-1 mb-1 group-hover:text-emerald-500 transition-colors">
-                        {product.title}
+                        {product.name}
                       </h3>
                       <div className="text-lg font-bold text-foreground mb-auto">
                         KES {product.price?.toLocaleString()}
                       </div>
                       <div className="flex items-center justify-between mt-4 text-xs text-muted-foreground border-t border-border/50 pt-3">
-                        <span className="flex items-center gap-1.5"><Package className="h-3.5 w-3.5" /> MOQ: {product.moq}</span>
-                        <span className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> {product.location || supplier.location}</span>
+                        <span className="flex items-center gap-1.5"><Package className="h-3.5 w-3.5" /> MOQ: {product.stock || "N/A"}</span>
+                        <span className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> {supplier.location || "Global Location"}</span>
                       </div>
                     </CardContent>
                   </Card>

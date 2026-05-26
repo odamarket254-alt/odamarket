@@ -80,8 +80,8 @@ export default function ContactPage() {
               <div>
                 <h3 className="font-semibold text-foreground text-lg mb-1">Email Us</h3>
                 <p className="text-muted-foreground mb-1">Our friendly team is here to help.</p>
-                <a href="mailto:odamarket254@gmail.com" className="text-emerald-500 hover:text-emerald-400 font-medium transition-colors">
-                  odamarket254@gmail.com
+                <a href="mailto:info@odamarket.co.ke" className="text-emerald-500 hover:text-emerald-400 font-medium transition-colors">
+                  info@odamarket.co.ke
                 </a>
               </div>
             </div>

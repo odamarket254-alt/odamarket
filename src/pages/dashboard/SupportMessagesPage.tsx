@@ -211,7 +211,7 @@ export default function SupportMessagesPage() {
                    <Button 
                      variant="outline" 
                      className="bg-transparent border-border"
-                     onClick={() => window.open(`mailto:${selectedMessage.email}?subject=RE: ${selectedMessage.subject}`)}
+                     render={<a href={`mailto:${selectedMessage.email}?subject=RE: ${selectedMessage.subject}`} target="_top" rel="noopener noreferrer" />}
                    >
                      Reply via Email
                    </Button>

@@ -3,7 +3,7 @@
 -- 1. Create Products Table
 CREATE TABLE IF NOT EXISTS public.products (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    seller_id UUID REFERENCES auth.users(id),
+    seller_id UUID REFERENCES public.profiles(id),
     name TEXT NOT NULL,
     category TEXT,
     price TEXT,
@@ -21,14 +21,14 @@ ALTER TABLE public.products ADD COLUMN IF NOT EXISTS stock TEXT;
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'active';
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS image_url TEXT;
 ALTER TABLE public.products ADD COLUMN IF NOT EXISTS description TEXT;
-ALTER TABLE public.products ADD COLUMN IF NOT EXISTS seller_id UUID REFERENCES auth.users(id);
+ALTER TABLE public.products ADD COLUMN IF NOT EXISTS seller_id UUID REFERENCES public.profiles(id);
 
 -- 2. Create Inquiries Table
 CREATE TABLE IF NOT EXISTS public.inquiries (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     product_id UUID REFERENCES public.products(id) NOT NULL,
-    seller_id UUID REFERENCES auth.users(id) NOT NULL,
-    buyer_id UUID REFERENCES auth.users(id),
+    seller_id UUID REFERENCES public.profiles(id) NOT NULL,
+    buyer_id UUID REFERENCES public.profiles(id),
     name TEXT NOT NULL,
     email TEXT NOT NULL,
     company TEXT NOT NULL,
@@ -41,7 +41,7 @@ CREATE TABLE IF NOT EXISTS public.inquiries (
 
 -- Ensure columns exist for inquiries
 ALTER TABLE public.inquiries ADD COLUMN IF NOT EXISTS product_id UUID REFERENCES public.products(id);
-ALTER TABLE public.inquiries ADD COLUMN IF NOT EXISTS seller_id UUID REFERENCES auth.users(id);
+ALTER TABLE public.inquiries ADD COLUMN IF NOT EXISTS seller_id UUID REFERENCES public.profiles(id);
 
 -- 3. Enable RLS (Row Level Security)
 ALTER TABLE public.products ENABLE ROW LEVEL SECURITY;

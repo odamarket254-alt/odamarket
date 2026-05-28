@@ -2,7 +2,7 @@
 
 CREATE TABLE IF NOT EXISTS public.recent_views (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    buyer_id UUID REFERENCES auth.users(id) NOT NULL,
+    buyer_id UUID REFERENCES public.profiles(id) NOT NULL,
     product_id UUID REFERENCES public.products(id) ON DELETE CASCADE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
     UNIQUE(buyer_id, product_id)

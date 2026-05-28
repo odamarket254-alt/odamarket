@@ -15,7 +15,7 @@ async function startServer() {
     app.use(vite.middlewares);
 
     // Explicit fallback for deep links in development just in case
-    app.use("*", async (req, res, next) => {
+    app.get("*", async (req, res, next) => {
       if (req.originalUrl.startsWith("/api")) return next();
       
       try {

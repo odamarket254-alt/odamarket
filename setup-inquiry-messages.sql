@@ -3,7 +3,7 @@
 CREATE TABLE IF NOT EXISTS public.inquiry_messages (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     inquiry_id UUID NOT NULL REFERENCES public.inquiries(id) ON DELETE CASCADE,
-    sender_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    sender_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
     message TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );

@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Confirm your email address</title>
+  <style>
+    /* Base resets and typography */
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      background-color: #f4f4f5;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+    
+    table {
+      border-collapse: collapse;
+      width: 100%;
+    }
+    
+    /* Layout */
+    .wrapper {
+      padding: 40px 20px;
+      background-color: #f4f4f5;
+    }
+    
+    .container {
+      max-width: 600px;
+      margin: 0 auto;
+      background-color: #ffffff;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+    }
+    
+    /* Header Structure */
+    .header {
+      background-color: #047857; /* Emerald 700 */
+      padding: 32px 40px;
+      text-align: center;
+    }
+    
+    .header h1 {
+      color: #ffffff;
+      margin: 0;
+      font-size: 28px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+    
+    /* Body Content */
+    .content {
+      padding: 40px;
+      color: #3f3f46; /* Zinc 700 */
+      line-height: 1.6;
+    }
+    
+    .content h2 {
+      font-size: 22px;
+      color: #18181b; /* Zinc 900 */
+      margin-top: 0;
+      margin-bottom: 20px;
+      font-weight: 600;
+    }
+    
+    .content p {
+      font-size: 16px;
+      margin-top: 0;
+      margin-bottom: 20px;
+    }
+    
+    /* Call to Action Button */
+    .button-container {
+      text-align: center;
+      margin: 36px 0;
+    }
+    
+    .button {
+      background-color: #10b981; /* Emerald 500 */
+      color: #ffffff;
+      text-decoration: none;
+      padding: 14px 32px;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 16px;
+      display: inline-block;
+      box-shadow: 0 2px 4px rgba(16, 185, 129, 0.25);
+    }
+    
+    .button:hover {
+      background-color: #059669; /* Emerald 600 */
+    }
+    
+    /* Fallback Link */
+    .fallback-link {
+      word-break: break-all;
+      color: #059669;
+      font-size: 14px;
+      background-color: #f0fdf4; /* Emerald 50 */
+      padding: 12px;
+      border-radius: 6px;
+      margin-bottom: 24px;
+    }
+    
+    /* Footer */
+    .footer {
+      background-color: #fafafa;
+      padding: 32px 40px;
+      text-align: center;
+      font-size: 13px;
+      color: #71717a; /* Zinc 500 */
+      border-top: 1px solid #e4e4e7; /* Zinc 200 */
+    }
+    
+    .footer p {
+      margin: 0 0 8px 0;
+    }
+    
+    .footer a {
+      color: #059669;
+      text-decoration: none;
+      font-weight: 500;
+    }
+    .footer a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <div class="wrapper">
+    <div class="container">
+      
+      <!-- Header -->
+      <div class="header">
+        <h1>Odamarket</h1>
+      </div>
+      
+      <!-- Main Content -->
+      <div class="content">
+        <h2>Confirm your email address</h2>
+        
+        <p>Welcome to Odamarket! We're thrilled to have you join our marketplace.</p>
+        
+        <p>To get started, secure your account, and unlock all features, please confirm your email address by clicking the button below.</p>
+        
+        <!-- CTA Button -->
+        <div class="button-container">
+          <a href="{{ .ConfirmationURL }}" class="button">Confirm Email Address</a>
+        </div>
+        
+        <p>If the button above doesn't work, you can copy and paste the following link directly into your browser:</p>
+        
+        <div class="fallback-link">
+          {{ .ConfirmationURL }}
+        </div>
+        
+        <p style="font-size: 14px; color: #71717a;">If you didn't create an account with Odamarket, you can safely ignore this email.</p>
+        
+        <p style="margin-bottom: 0;">
+          Best regards,<br>
+          <strong>The Odamarket Team</strong>
+        </p>
+      </div>
+      
+      <!-- Footer -->
+      <div class="footer">
+        <p>&copy; 2026 Odamarket. All rights reserved.</p>
+        <p>Need help? Contact us at <a href="mailto:info@odamarket.co.ke">info@odamarket.co.ke</a></p>
+      </div>
+      
+    </div>
+  </div>
+</body>
+</html>

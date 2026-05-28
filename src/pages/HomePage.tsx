@@ -47,7 +47,7 @@ const categories = [
     name: "Gas Supply",
     count: "300+",
     image:
-      "https://images.unsplash.com/photo-1612270138971-ce4be8e12d5d?q=80&w=800",
+      "https://upload.wikimedia.org/wikipedia/commons/3/3b/Compressed_gas_cylinders.mapp_and_oxygen.triddle.jpg",
   },
   {
     name: "Construction Materials",
@@ -77,7 +77,7 @@ const categories = [
     name: "Packaging",
     count: "900+",
     image:
-      "https://images.unsplash.com/photo-1530587191344-18005eb11dc4?q=80&w=800",
+      "https://upload.wikimedia.org/wikipedia/commons/e/eb/Box.agr.jpg",
   },
   {
     name: "Machinery",
@@ -118,7 +118,7 @@ const featuredProducts = [
     supplier: "AgriCorp African",
     location: "Tanzania",
     image:
-      "https://images.unsplash.com/photo-1510627498534-cf7e9002fcca?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3",
+      "https://upload.wikimedia.org/wikipedia/commons/e/e3/Zea_mays_-_K%C3%B6hler%E2%80%93s_Medizinal-Pflanzen-283.jpg",
     isVerified: false,
   },
   {
@@ -127,7 +127,7 @@ const featuredProducts = [
     supplier: "SafeGas Ltd",
     location: "South Africa",
     image:
-      "https://images.unsplash.com/photo-1629828551695-1f9f257a09d3?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3",
+      "https://upload.wikimedia.org/wikipedia/commons/f/fe/Propane_tank_20lb.jpg",
     isVerified: true,
   },
 ];

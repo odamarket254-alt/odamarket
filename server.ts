@@ -1,6 +1,7 @@
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
+import { GoogleGenAI } from "@google/genai";
 
 async function startServer() {
   const app = express();
@@ -21,7 +22,6 @@ async function startServer() {
       }
 
       // @google/genai initialization
-      const { GoogleGenAI } = await import("@google/genai");
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
       const prompt = `You are an AI assistant inside ODA Market, an African B2B marketplace connecting buyers with suppliers, wholesalers, and manufacturers.
@@ -113,7 +113,6 @@ Buyer request: "${message}"${quantity ? ` (User also indicated quantity: ${quant
         return res.status(500).json({ error: "Gemini API integration missing." });
       }
 
-      const { GoogleGenAI } = await import("@google/genai");
       const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
       const prompt = `You are an AI quotation assistant for ODA Market, a professional African B2B marketplace.

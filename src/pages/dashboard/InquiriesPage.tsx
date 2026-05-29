@@ -42,8 +42,6 @@ export default function InquiriesPage() {
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
-  const [isGeneratingQuotation, setIsGeneratingQuotation] = useState(false);
-  const [isEnhancing, setIsEnhancing] = useState(false);
   const [search, setSearch] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -141,63 +139,6 @@ export default function InquiriesPage() {
       console.error(err);
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleGenerateQuotation = async () => {
-    if (!newMessage.trim()) {
-      toast.error("Please enter raw details (e.g., '50 units at $10 each') to generate a quotation.");
-      return;
-    }
-    
-    setIsGeneratingQuotation(true);
-    try {
-      const response = await fetch("/api/generate-quotation", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: newMessage }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to generate quotation");
-      }
-
-      const data = await response.json();
-      setNewMessage(data.quotation);
-      toast.success("Professional quotation generated successfully!");
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to generate quotation.");
-    } finally {
-      setIsGeneratingQuotation(false);
-    }
-  };
-
-  const handleEnhanceInquiry = async () => {
-    if (!newMessage.trim()) {
-      toast.error("Please enter a basic message first to enhance.");
-      return;
-    }
-
-    setIsEnhancing(true);
-    try {
-      const response = await fetch("/api/enhance-inquiry", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: newMessage }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to enhance message");
-      }
-
-      const data = await response.json();
-      setNewMessage(data.enhancedMessage);
-      toast.success("Message mathematically enhanced for B2B communication!");
-    } catch (error) {
-      toast.error("Failed to enhance inquiry. Please try again.");
-    } finally {
-      setIsEnhancing(false);
     }
   };
 
@@ -444,32 +385,9 @@ export default function InquiriesPage() {
                         handleSendMessage();
                       }
                     }}
-                    placeholder={profile?.role === "seller" ? "Reply with raw details to generate a quote, or just chat..." : "Reply with details to enhance inquiry, or just chat..."}
+                    placeholder={profile?.role === "seller" ? "Reply or just chat..." : "Reply or just chat..."}
                     className="flex-1 bg-black/40 border-border text-foreground focus-visible:ring-emerald-500 h-10 sm:h-12"
                   />
-                  {profile?.role === "seller" ? (
-                    <Button
-                      onClick={handleGenerateQuotation}
-                      disabled={!newMessage.trim() || isGeneratingQuotation}
-                      variant="outline"
-                      className="border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10 px-3 sm:px-4 h-10 sm:h-12 flex"
-                      title="Generate Professional Quotation"
-                    >
-                      <Sparkles className="w-4 h-4 sm:mr-2" />
-                      <span className="hidden sm:inline">{isGeneratingQuotation ? "Generating..." : "AI Quote"}</span>
-                    </Button>
-                  ) : (
-                    <Button
-                      onClick={handleEnhanceInquiry}
-                      disabled={!newMessage.trim() || isEnhancing}
-                      variant="outline"
-                      className="border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10 px-3 sm:px-4 h-10 sm:h-12 flex"
-                      title="Enhance message string for B2B communication"
-                    >
-                      <Sparkles className="w-4 h-4 sm:mr-2" />
-                      <span className="hidden sm:inline">{isEnhancing ? "Enhancing..." : "AI Enhance"}</span>
-                    </Button>
-                  )}
                   <Button
                     onClick={handleSendMessage}
                     disabled={!newMessage.trim() || isSending}

@@ -48,7 +48,6 @@ export default function SupplierProfilePage() {
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [contactMessage, setContactMessage] = useState("");
-  const [isEnhancing, setIsEnhancing] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -86,34 +85,6 @@ export default function SupplierProfilePage() {
       toast.error("Failed to load supplier profile.");
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleEnhanceInquiry = async () => {
-    if (!contactMessage || contactMessage.trim() === "") {
-      toast.error("Please enter a basic message first to enhance.");
-      return;
-    }
-
-    setIsEnhancing(true);
-    try {
-      const response = await fetch("/api/enhance-inquiry", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: contactMessage }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to enhance message");
-      }
-
-      const data = await response.json();
-      setContactMessage(data.enhancedMessage);
-      toast.success("Message professionally enhanced by AI!");
-    } catch (error) {
-      toast.error("Failed to enhance text. Please try again.");
-    } finally {
-      setIsEnhancing(false);
     }
   };
 
@@ -228,17 +199,6 @@ export default function SupplierProfilePage() {
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
                           <Label htmlFor="message" className="text-foreground">Message</Label>
-                          <Button
-                            type="button"
-                            variant="ghost"
-                            size="sm"
-                            onClick={handleEnhanceInquiry}
-                            disabled={isEnhancing}
-                            className="text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10 h-7 text-xs px-2"
-                          >
-                            <Sparkles className="w-3.5 h-3.5 mr-1" />
-                            {isEnhancing ? "Enhancing..." : "AI Enhance"}
-                          </Button>
                         </div>
                         <Textarea 
                           id="message" 

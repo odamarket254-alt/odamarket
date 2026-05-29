@@ -15,6 +15,7 @@ import {
 import { supabase } from "../../lib/supabase";
 import { cn } from "../../lib/utils";
 import { NotificationBell } from "./NotificationBell";
+import { MobileBottomNav } from "./MobileBottomNav";
 
 export default function RootLayout() {
   const { user, profile } = useAuthStore();
@@ -70,33 +71,61 @@ export default function RootLayout() {
 
   return (
     <div className="min-h-[100dvh] flex flex-col font-sans bg-background text-foreground selection:bg-emerald-500/30">
-      <header className="sticky top-0 z-50 w-full border-b border-border bg-background/80 backdrop-blur-md">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="md:hidden text-muted-foreground hover:text-foreground"
-              onClick={() => setIsMobileMenuOpen(true)}
-              aria-label="Open navigation menu"
-            >
-              <Menu className="h-5 w-5" />
-            </Button>
-            <Link to="/" className="flex items-center gap-2">
-              <span className="text-xl font-bold tracking-tight text-foreground hidden sm:inline-block">
-                ODA <span className={cn(
-                  profile?.role === "seller" && profile?.verified ? "text-amber-500" : "text-emerald-500"
-                )}>MARKET</span>
-              </span>
-            </Link>
+      <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur-md">
+        <div className="container mx-auto px-4 py-2 md:py-0 md:h-16 flex flex-col md:flex-row md:items-center justify-between gap-2 md:gap-4">
+          <div className="flex items-center justify-between w-full md:w-auto">
+            <div className="flex items-center gap-2 sm:gap-4">
+              <Link to="/" className="flex items-center gap-2">
+                <span className="text-xl font-bold tracking-tight text-foreground">
+                  ODA <span className={cn(
+                    profile?.role === "seller" && profile?.verified ? "text-amber-500" : "text-emerald-600 dark:text-emerald-500"
+                  )}>MARKET</span>
+                </span>
+              </Link>
+            </div>
+            
+            <div className="flex items-center gap-1 md:hidden">
+              {user && <NotificationBell />}
+              {user ? (
+                <Link to={`/${profile?.role || "buyer"}/dashboard`} className={cn(
+                  "relative h-8 w-8 rounded-full flex items-center justify-center border mr-1",
+                  profile?.logo_url ? "p-0 overflow-hidden border-border" : "",
+                  !profile?.logo_url && profile?.role === "seller" && profile?.verified
+                    ? "bg-amber-500/20 hover:bg-amber-500/30 border-amber-500/30"
+                    : !profile?.logo_url ? "bg-emerald-500/20 hover:bg-emerald-500/30 border-emerald-500/30" : ""
+                )}>
+                  {profile?.logo_url ? (
+                    <img src={profile.logo_url} alt="Profile" className="h-full w-full object-cover" />
+                  ) : (
+                    <span className={cn(
+                      "font-medium text-xs",
+                      profile?.role === "seller" && profile?.verified ? "text-amber-500" : "text-emerald-600 dark:text-emerald-400"
+                    )}>
+                      {profile?.business_name
+                        ? profile.business_name.charAt(0).toUpperCase()
+                        : user.email?.charAt(0).toUpperCase()}
+                    </span>
+                  )}
+                </Link>
+              ) : null}
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-muted-foreground hover:text-foreground h-9 w-9"
+                onClick={() => setIsMobileMenuOpen(true)}
+                aria-label="Open navigation menu"
+              >
+                <Menu className="h-5 w-5" />
+              </Button>
+            </div>
           </div>
 
-          <div className="flex-1 max-w-2xl hidden md:flex">
+          <div className="flex-1 max-w-2xl w-full">
             <form 
               className="relative w-full group"
               onSubmit={(e) => e.preventDefault()}
             >
-              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground group-focus-within:text-emerald-500 transition-colors">
+              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground group-focus-within:text-emerald-600 dark:group-focus-within:text-emerald-500 transition-colors">
                 <Search className="h-4 w-4" />
               </div>
               <Input
@@ -104,12 +133,12 @@ export default function RootLayout() {
                 value={searchQuery}
                 onChange={handleSearch}
                 placeholder="Search products, suppliers..."
-                className="w-full pl-10 bg-muted/50 text-foreground border-border text-foreground placeholder:text-zinc-600 focus-visible:ring-emerald-500 rounded-full h-10 shadow-sm"
+                className="w-full pl-10 bg-muted/80 text-foreground border-border placeholder:text-muted-foreground focus-visible:ring-emerald-600 dark:focus-visible:ring-emerald-500 rounded-full h-9 md:h-10 shadow-sm text-sm"
               />
             </form>
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-4">
+          <div className="hidden md:flex items-center gap-2 sm:gap-4">
             <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-muted-foreground mr-4">
               <Link
                 to="/products"
@@ -381,7 +410,7 @@ export default function RootLayout() {
         <Outlet />
       </main>
 
-      <footer className="bg-background text-muted-foreground py-12 border-t border-border">
+      <footer className="bg-background text-muted-foreground py-12 pb-24 md:pb-12 border-t border-border">
         <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="space-y-4">
             <Link to="/" className="flex items-center gap-2">
@@ -486,6 +515,7 @@ export default function RootLayout() {
           </div>
         </div>
       </footer>
+      <MobileBottomNav />
     </div>
   );
 }

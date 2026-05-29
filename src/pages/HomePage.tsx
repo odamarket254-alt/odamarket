@@ -10,6 +10,9 @@ import {
   ShieldCheck,
   ArrowRight,
   UserCheck,
+  Bookmark,
+  MessageCircle,
+  CheckCircle,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { supabase } from "../lib/supabase";
@@ -192,23 +195,22 @@ export default function HomePage() {
 
   const fetchCategoryCounts = async () => {
     try {
-      const { data, error } = await supabase
-        .from("products")
-        .select("category")
-        .eq("status", "active");
-
-      if (error) {
-        console.error("Error fetching category counts:", error);
-      } else if (data) {
-        const counts: Record<string, number> = {};
-        data.forEach((p) => {
-          if (p.category) {
-            const catName = p.category.toLowerCase();
-            counts[catName] = (counts[catName] || 0) + 1;
-          }
-        });
-        setCategoryCounts(counts);
-      }
+      const counts: Record<string, number> = {};
+      
+      const promises = categories.map(async (cat) => {
+        const { count, error } = await supabase
+          .from("products")
+          .select("*", { count: "exact", head: true })
+          .eq("status", "active")
+          .eq("category", cat.name);
+          
+        if (!error && count !== null) {
+          counts[cat.name.toLowerCase()] = count;
+        }
+      });
+      
+      await Promise.all(promises);
+      setCategoryCounts(counts);
     } catch (err) {
       console.error(err);
     }
@@ -222,24 +224,24 @@ export default function HomePage() {
         <div className="absolute top-20 right-40 w-32 h-32 border border-emerald-500/10 rounded-full"></div>
         <div className="absolute bottom-20 left-40 w-64 h-64 border border-amber-500/10 rounded-full"></div>
 
-        <div className="container relative mx-auto px-4 py-24 md:py-32 lg:py-40">
+        <div className="container relative mx-auto px-4 py-12 sm:py-16 md:py-24 lg:py-32">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
             className="text-center max-w-4xl mx-auto"
           >
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-xs font-semibold mb-6 uppercase tracking-wider">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[10px] sm:text-xs font-semibold mb-6 uppercase tracking-wider">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
               Africa's Fastest Growing B2B Network
             </div>
-            <h1 className="text-4xl md:text-6xl lg:text-7xl font-bold tracking-tight text-foreground mb-6 leading-[1.05]">
+            <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight text-foreground mb-4 sm:mb-6 leading-[1.1] sm:leading-[1.05]">
               Buy From Trusted <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-amber-200 to-emerald-500">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 via-amber-400 to-emerald-600 dark:from-emerald-400 dark:via-amber-200 dark:to-emerald-500">
                 African Suppliers
               </span>
             </h1>
-            <p className="text-lg md:text-xl text-muted-foreground mb-10 max-w-2xl mx-auto leading-relaxed">
+            <p className="text-base sm:text-lg md:text-xl text-muted-foreground mb-8 sm:mb-10 max-w-2xl mx-auto leading-relaxed px-2 sm:px-0">
               Connect your business across Africa. Source products, manage
               inquiries, and scale your operations with verified suppliers and
               structured quotes.
@@ -254,22 +256,21 @@ export default function HomePage() {
                   navigate("/products");
                 }
               }}
-              className="flex items-center gap-2 p-2 bg-muted/50 text-foreground backdrop-blur-xl border border-border rounded-2xl w-full max-w-2xl mx-auto shadow-2xl flex-col sm:flex-row"
+              className="flex items-center gap-2 p-1.5 sm:p-2 bg-card text-foreground backdrop-blur-xl border border-border/80 rounded-2xl w-full max-w-2xl mx-auto shadow-2xl flex-col sm:flex-row"
             >
-              <div className="flex-1 flex items-center px-4 gap-3 w-full">
-                <Search className="w-5 h-5 text-muted-foreground" />
+              <div className="flex-1 flex items-center px-4 gap-3 w-full border-b sm:border-b-0 sm:border-r border-border/50 pb-2 sm:pb-0">
+                <Search className="w-5 h-5 text-muted-foreground shrink-0" />
                 <Input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="What are you sourcing today?"
-                  className="w-full bg-transparent border-none outline-none text-foreground/90 placeholder:text-zinc-600 h-12 shadow-none focus-visible:ring-0 px-0"
+                  className="w-full bg-transparent border-none outline-none text-foreground/90 placeholder:text-zinc-500 h-10 sm:h-12 shadow-none focus-visible:ring-0 px-0 text-sm sm:text-base"
                 />
               </div>
-              <div className="hidden sm:block h-8 w-[1px] bg-white/10"></div>
               <Button
                 type="submit"
                 size="lg"
-                className="h-12 px-8 text-sm bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-xl shadow-xl shadow-emerald-500/20 hover:scale-105 transition-transform w-full sm:w-auto"
+                className="h-10 sm:h-12 px-8 text-sm bg-emerald-600 hover:bg-emerald-500 text-primary-foreground font-bold rounded-xl shadow-lg shadow-emerald-900/20 hover:scale-105 transition-transform w-[95%] sm:w-auto mx-auto mb-1.5 sm:mb-0"
               >
                 Search Market
               </Button>
@@ -281,32 +282,32 @@ export default function HomePage() {
       {/* Stats/Trust Bar */}
       <section className="bg-background border-y border-border/50">
         <div className="container mx-auto px-4 py-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 divide-x divide-white/10">
-            <div className="flex flex-col items-center justify-center text-center px-4">
-              <TrendingUp className="h-6 w-6 text-emerald-500 mb-2" />
-              <h3 className="text-2xl font-bold text-foreground">10k+</h3>
-              <p className="text-sm text-muted-foreground font-medium">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-y-8 sm:gap-y-0 sm:gap-x-8 sm:divide-x divide-border/50">
+            <div className="flex flex-col items-center justify-center text-center px-2">
+              <TrendingUp className="h-6 w-6 text-emerald-600 dark:text-emerald-500 mb-2" />
+              <h3 className="text-xl sm:text-2xl font-bold text-foreground">10k+</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground font-medium">
                 Active Suppliers
               </p>
             </div>
-            <div className="flex flex-col items-center justify-center text-center px-4">
-              <ShieldCheck className="h-6 w-6 text-emerald-500 mb-2" />
-              <h3 className="text-2xl font-bold text-foreground">100%</h3>
-              <p className="text-sm text-muted-foreground font-medium">
+            <div className="flex flex-col items-center justify-center text-center border-l sm:border-l-0 border-border/50 px-2">
+              <ShieldCheck className="h-6 w-6 text-emerald-600 dark:text-emerald-500 mb-2" />
+              <h3 className="text-xl sm:text-2xl font-bold text-foreground">100%</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground font-medium">
                 Verified Businesses
               </p>
             </div>
-            <div className="flex flex-col items-center justify-center text-center px-4">
-              <MapPin className="h-6 w-6 text-emerald-500 mb-2" />
-              <h3 className="text-2xl font-bold text-foreground">54</h3>
-              <p className="text-sm text-muted-foreground font-medium">
+            <div className="flex flex-col items-center justify-center text-center px-2">
+              <MapPin className="h-6 w-6 text-emerald-600 dark:text-emerald-500 mb-2" />
+              <h3 className="text-xl sm:text-2xl font-bold text-foreground">54</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground font-medium">
                 African Countries
               </p>
             </div>
-            <div className="flex flex-col items-center justify-center text-center px-4">
-              <UserCheck className="h-6 w-6 text-emerald-500 mb-2" />
-              <h3 className="text-2xl font-bold text-foreground">50k+</h3>
-              <p className="text-sm text-muted-foreground font-medium">
+            <div className="flex flex-col items-center justify-center text-center border-l sm:border-l-0 border-border/50 px-2">
+              <UserCheck className="h-6 w-6 text-emerald-600 dark:text-emerald-500 mb-2" />
+              <h3 className="text-xl sm:text-2xl font-bold text-foreground">50k+</h3>
+              <p className="text-xs sm:text-sm text-muted-foreground font-medium">
                 Successful Quotes
               </p>
             </div>
@@ -393,10 +394,17 @@ export default function HomePage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {isLoading ? (
-              <div className="col-span-full py-12 text-center text-muted-foreground">
-                <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent mx-auto"></div>
-                <p className="mt-4">Loading featured products...</p>
-              </div>
+              Array(4).fill(null).map((_, i) => (
+                <div key={i} className="flex flex-col w-full h-[320px] rounded-xl border border-border bg-card animate-pulse">
+                  <div className="aspect-[4/3] bg-muted/60 relative w-full flex-shrink-0 rounded-t-xl" />
+                  <div className="p-4 flex flex-col flex-1 gap-3">
+                    <div className="h-5 bg-muted rounded w-3/4" />
+                    <div className="h-6 bg-muted rounded w-1/3" />
+                    <div className="mt-auto h-4 bg-muted rounded w-1/2" />
+                    <div className="h-9 bg-muted rounded w-full mt-2" />
+                  </div>
+                </div>
+              ))
             ) : featuredRealtimeProducts.length === 0 ? (
               <div className="col-span-full py-12 text-center text-muted-foreground">
                 <p>No featured products available at the moment.</p>
@@ -414,39 +422,69 @@ export default function HomePage() {
                     to={`/products/${product.id}`}
                     className="group block h-full"
                   >
-                    <Card className="overflow-hidden h-full border-border bg-muted/50 text-foreground hover:bg-white/10 hover:border-emerald-500/30 hover:shadow-2xl transition-all duration-300">
-                      <div className="aspect-[4/3] overflow-hidden relative bg-black">
-                        <img
-                          src={
-                            product.image_url ||
-                            "https://images.unsplash.com/photo-1559525839-b184a4d698c7?w=500&auto=format&fit=crop&q=60"
-                          }
-                          alt={product.name}
-                          className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500 opacity-90 group-hover:opacity-100"
-                        />
-                      </div>
-                      <CardContent className="p-5">
-                        <div className="mb-3 flex items-start justify-between gap-2">
-                          <h3 className="font-semibold text-foreground leading-snug line-clamp-2 group-hover:text-emerald-400 transition-colors">
-                            {product.name}
-                          </h3>
+                      <Card className="overflow-hidden h-full border-border bg-card text-card-foreground hover:border-primary/30 hover:shadow-2xl transition-all duration-300 relative flex flex-col">
+                        <div className="aspect-[4/3] overflow-hidden relative bg-muted flex-shrink-0">
+                          {product.profiles?.verified && (
+                            <div className="absolute top-3 left-3 z-20 flex items-center gap-1 bg-background/90 backdrop-blur-md px-2.5 py-1 rounded-full border border-border shadow-sm">
+                              <CheckCircle className="w-3 h-3 text-amber-500 fill-amber-500/20" />
+                              <span className="text-[10px] font-bold text-foreground tracking-wide uppercase">Verified</span>
+                            </div>
+                          )}
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              // Toggle save logic here
+                            }}
+                            className="absolute top-3 right-3 z-20 p-2 rounded-full bg-background/60 backdrop-blur-md hover:bg-background/90 text-muted-foreground hover:text-red-500 transition-colors border border-border/50"
+                            aria-label="Save product"
+                          >
+                            <Bookmark className="w-4 h-4" />
+                          </button>
+                          <img
+                            src={
+                              product.image_url ||
+                              "https://images.unsplash.com/photo-1559525839-b184a4d698c7?w=500&auto=format&fit=crop&q=60"
+                            }
+                            alt={product.name}
+                            loading="lazy"
+                            className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500 opacity-95 group-hover:opacity-100"
+                          />
+                          <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                         </div>
-                        <div className="space-y-2 mt-4">
-                          <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-                            <span className="font-medium truncate">
-                              {product.profiles?.business_name || `Supplier ${product.seller_id?.slice(0, 5)}`}
-                            </span>
-                            {product.profiles?.verified && (
-                              <ShieldCheck className="h-4 w-4 text-emerald-500 shrink-0" />
-                            )}
-                          </p>
-                          <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                            <MapPin className="h-3.5 w-3.5" />
-                            {product.profiles?.location || "Global Market"}
-                          </p>
-                        </div>
-                      </CardContent>
-                    </Card>
+                        <CardContent className="p-4 flex flex-col flex-1">
+                          <div className="mb-2">
+                            <h3 className="font-semibold text-base text-foreground leading-snug line-clamp-2 group-hover:text-primary transition-colors">
+                              {product.name}
+                            </h3>
+                            <p className="text-primary font-bold text-lg mt-1">
+                              {product.price ? product.price : "Price on Request"}
+                            </p>
+                          </div>
+                          
+                          <div className="mt-auto space-y-2 pt-3 border-t border-border/50">
+                            <div className="flex items-center justify-between">
+                              <span className="text-xs font-medium text-foreground truncate max-w-[70%] text-muted-foreground">
+                                {product.profiles?.business_name || `Supplier ${product.seller_id?.slice(0, 5)}`}
+                              </span>
+                              <span className="text-[10px] text-muted-foreground flex items-center gap-1 bg-muted px-2 py-0.5 rounded-full">
+                                <MapPin className="w-3 h-3" />
+                                <span className="truncate max-w-[60px]">{product.profiles?.location || "Global"}</span>
+                              </span>
+                            </div>
+                            
+                            <Button 
+                              variant="outline" 
+                              className="w-full h-9 text-xs font-semibold mt-2 border-primary/20 text-primary hover:bg-primary hover:text-primary-foreground transition-colors group-hover:border-primary"
+                              onClick={(e) => {
+                                // Default link behavior handles navigation
+                              }}
+                            >
+                              <MessageCircle className="w-4 h-4 mr-2" />
+                              Send Inquiry
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
                   </Link>
                 </motion.div>
               ))

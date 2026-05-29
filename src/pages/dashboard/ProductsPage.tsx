@@ -388,12 +388,12 @@ export default function DashboardProductsPage() {
                   key={i}
                   className="p-4 flex items-center gap-4 animate-pulse"
                 >
-                  <div className="h-16 w-16 bg-muted/50 text-foreground rounded-lg shrink-0" />
+                  <div className="h-16 w-16 bg-muted rounded-lg shrink-0" />
                   <div className="flex-1 space-y-3">
-                    <div className="h-4 bg-muted/50 text-foreground rounded w-1/3" />
-                    <div className="h-3 bg-muted/50 text-foreground rounded w-1/4" />
+                    <div className="h-4 bg-muted rounded w-1/3" />
+                    <div className="h-3 bg-muted rounded w-1/4" />
                   </div>
-                  <div className="h-8 w-24 bg-muted/50 text-foreground rounded-full" />
+                  <div className="h-8 w-24 bg-muted rounded-full" />
                 </div>
               ))}
             </div>

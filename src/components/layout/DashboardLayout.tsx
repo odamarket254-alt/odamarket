@@ -17,8 +17,8 @@ import { motion, AnimatePresence } from "motion/react";
 import { supabase } from "../../lib/supabase";
 import { cn } from "../../lib/utils";
 import { Button } from "../ui/Button";
-
 import { NotificationBell } from "./NotificationBell";
+import { MobileBottomNav } from "./MobileBottomNav";
 
 export default function DashboardLayout() {
   const { user, profile, isLoading } = useAuthStore();
@@ -146,7 +146,9 @@ export default function DashboardLayout() {
         <div className="p-6 flex justify-between items-center">
           <Link to="/" className="flex items-center gap-2">
             <span className="text-xl font-bold tracking-tight text-foreground">
-              ODA Market
+              ODA <span className={cn(
+                profile?.role === "seller" && profile?.verified ? "text-amber-500" : "text-emerald-600 dark:text-emerald-500"
+              )}>MARKET</span>
             </span>
           </Link>
           <div className="flex items-center gap-2">
@@ -225,19 +227,21 @@ export default function DashboardLayout() {
       {/* Main Content */}
       <main className="flex-1 flex flex-col min-w-0 overflow-hidden bg-background relative">
         {/* Mobile Header */}
-        <header className="md:hidden flex items-center justify-between p-4 border-b border-border bg-card">
+        <header className="md:hidden sticky top-0 z-40 flex items-center justify-between px-4 py-3 border-b border-border bg-background/95 backdrop-blur-md">
           <Link to="/" className="flex items-center gap-2">
             <span className="text-xl font-bold tracking-tight text-foreground">
-              ODA Market
+              ODA <span className={cn(
+                profile?.role === "seller" && profile?.verified ? "text-amber-500" : "text-emerald-600 dark:text-emerald-500"
+              )}>MARKET</span>
             </span>
           </Link>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <NotificationBell />
             <Button
               variant="ghost"
               size="icon"
               onClick={() => setIsMobileMenuOpen(true)}
-              className="text-muted-foreground hover:text-foreground"
+              className="text-muted-foreground hover:text-foreground h-9 w-9"
               aria-label="Open mobile menu"
             >
               <Menu className="h-5 w-5" />
@@ -355,12 +359,13 @@ export default function DashboardLayout() {
           )}
         </AnimatePresence>
 
-        <div className="flex-1 overflow-y-auto p-4 md:p-8">
+        <div className="flex-1 overflow-y-auto p-4 md:p-8 pb-24 md:pb-8">
           <div className="max-w-6xl mx-auto">
             <Outlet />
           </div>
         </div>
       </main>
+      <MobileBottomNav />
     </div>
   );
 }

@@ -4,7 +4,7 @@ import { Card, CardContent } from "../components/ui/Card";
 import { Input } from "../components/ui/Input";
 import { Button } from "../components/ui/Button";
 import { Badge } from "../components/ui/Badge";
-import { Search, MapPin, Filter, ShieldCheck, ShoppingBag } from "lucide-react";
+import { Search, MapPin, Filter, ShieldCheck, ShoppingBag, Bookmark, MessageCircle, CheckCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 
@@ -65,7 +65,8 @@ export default function ProductsPage() {
         .from("products")
         .select("*, profiles!inner(verified)")
         .eq("status", "active")
-        .order("created_at", { ascending: false });
+        .order("created_at", { ascending: false })
+        .limit(50);
 
       if (error) {
         console.error("Error fetching marketplace products:", error);
@@ -158,12 +159,17 @@ export default function ProductsPage() {
         {/* Product Grid */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
           {isLoading ? (
-            <div className="col-span-full py-12 text-center">
-              <div className="h-8 w-8 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent mx-auto"></div>
-              <p className="mt-4 text-muted-foreground">
-                Loading products from market...
-              </p>
-            </div>
+            Array(8).fill(null).map((_, i) => (
+              <div key={i} className="flex flex-col w-full h-[320px] rounded-xl border border-border bg-card animate-pulse">
+                <div className="aspect-[4/3] bg-muted/60 relative w-full flex-shrink-0 rounded-t-xl" />
+                <div className="p-4 flex flex-col flex-1 gap-3">
+                  <div className="h-5 bg-muted rounded w-3/4" />
+                  <div className="h-6 bg-muted rounded w-1/3" />
+                  <div className="mt-auto h-4 bg-muted rounded w-1/2" />
+                  <div className="h-9 bg-muted rounded w-full mt-2" />
+                </div>
+              </div>
+            ))
           ) : filtered.length === 0 ? (
             <div className="col-span-full py-12 text-center border border-border/50 rounded-2xl bg-muted/50 text-foreground backdrop-blur-sm">
               <ShoppingBag className="h-12 w-12 text-zinc-600 mx-auto mb-4" />
@@ -181,61 +187,71 @@ export default function ProductsPage() {
                 to={`/products/${product.id}`}
                 className="group h-full flex mt-auto"
               >
-                <Card className="flex flex-col w-full overflow-hidden border-border hover:border-emerald-500/30 hover:shadow-2xl transition-all duration-300 bg-muted/50 text-foreground backdrop-blur-sm">
-                  <div className="aspect-[4/3] bg-black overflow-hidden relative">
-                    <Badge className="absolute top-3 right-3 z-10 bg-black/60 hover:bg-black/80 backdrop-blur-md border border-border text-foreground/90">
-                      {product.category}
-                    </Badge>
+                <Card className="overflow-hidden h-full border-border bg-card text-card-foreground hover:border-primary/30 hover:shadow-2xl transition-all duration-300 relative flex flex-col w-full">
+                  <div className="aspect-[4/3] overflow-hidden relative bg-muted flex-shrink-0">
+                    {product.profiles?.verified && (
+                      <div className="absolute top-3 left-3 z-20 flex items-center gap-1 bg-background/90 backdrop-blur-md px-2.5 py-1 rounded-full border border-border shadow-sm">
+                        <CheckCircle className="w-3 h-3 text-amber-500 fill-amber-500/20" />
+                        <span className="text-[10px] font-bold text-foreground tracking-wide uppercase">Verified</span>
+                      </div>
+                    )}
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        // Toggle save logic here
+                      }}
+                      className="absolute top-3 right-3 z-20 p-2 rounded-full bg-background/60 backdrop-blur-md hover:bg-background/90 text-muted-foreground hover:text-red-500 transition-colors border border-border/50"
+                      aria-label="Save product"
+                    >
+                      <Bookmark className="w-4 h-4" />
+                    </button>
                     <img
                       src={
                         product.image_url ||
                         "https://images.unsplash.com/photo-1559525839-b184a4d698c7?w=500&auto=format&fit=crop&q=60"
                       }
                       alt={product.name}
-                      className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500 opacity-90 group-hover:opacity-100"
+                      loading="lazy"
+                      className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500 opacity-95 group-hover:opacity-100"
                     />
+                    <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                   </div>
-                  <CardContent className="p-5 flex-1 flex flex-col">
-                    <div className="mb-2">
-                      <h3 className="font-semibold text-foreground leading-snug line-clamp-2 group-hover:text-emerald-400 transition-colors">
+                  <CardContent className="p-4 flex flex-col flex-1">
+                    <div className="mb-2 flex items-start justify-between gap-1">
+                      <h3 className="font-semibold text-base text-foreground leading-snug line-clamp-2 group-hover:text-primary transition-colors flex-1">
                         {product.name}
                       </h3>
+                      <Badge variant="outline" className="text-[9px] px-1.5 py-0 md:text-[10px] uppercase font-bold shrink-0 mt-0.5">
+                         {product.category}
+                      </Badge>
                     </div>
-
-                    <div className="mt-auto pt-4 space-y-3">
-                      <div className="flex items-end justify-between border-b border-border pb-3">
-                        <div>
-                          <p className="text-xs text-muted-foreground font-medium tracking-wide uppercase mb-0.5">
-                            Price
-                          </p>
-                          <p className="font-semibold text-emerald-400">
-                            {product.price}
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-xs text-muted-foreground font-medium tracking-wide uppercase mb-0.5">
-                            Stock
-                          </p>
-                          <p className="font-medium text-foreground/90">
-                            {product.stock}
-                          </p>
-                        </div>
+                    <div className="mt-1">
+                       <p className="text-primary font-bold text-lg">
+                        {product.price ? product.price : "Price on Request"}
+                       </p>
+                    </div>
+                    
+                    <div className="mt-auto space-y-2 pt-3 border-t border-border/50">
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-medium text-foreground truncate max-w-[70%] text-muted-foreground">
+                          {product.profiles?.business_name || `Supplier ${product.seller_id?.slice(0, 5)}`}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground flex items-center gap-1 bg-muted px-2 py-0.5 rounded-full">
+                          <MapPin className="w-3 h-3" />
+                          <span className="truncate max-w-[60px]">{product.profiles?.location || "Global"}</span>
+                        </span>
                       </div>
-
-                      <div className="space-y-1.5">
-                        <p className="text-sm text-muted-foreground flex items-center gap-1.5">
-                          <span className="truncate group-hover:text-foreground/80 transition-colors">
-                            {product.profiles?.business_name || `Supplier ${product.seller_id?.slice(0, 5)}`}
-                          </span>
-                          {product.profiles?.verified && (
-                            <ShieldCheck className="h-4 w-4 text-emerald-500 shrink-0" />
-                          )}
-                        </p>
-                        <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-                          <MapPin className="h-3.5 w-3.5 shrink-0" />
-                          {product.profiles?.location || "Global Market"}
-                        </p>
-                      </div>
+                      
+                      <Button 
+                        variant="outline" 
+                        className="w-full h-9 text-xs font-semibold mt-2 border-primary/20 text-primary hover:bg-primary hover:text-primary-foreground transition-colors group-hover:border-primary"
+                        onClick={(e) => {
+                          // Default link behavior handles navigation
+                        }}
+                      >
+                        <MessageCircle className="w-4 h-4 mr-2" />
+                        Send Inquiry
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>

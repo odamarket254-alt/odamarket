@@ -5,7 +5,7 @@ import { useAuthStore } from "../store/useAuthStore";
 import { Card, CardContent } from "../components/ui/Card";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
-import { MapPin, ShieldCheck, Mail, Building2, Package, Star, Calendar } from "lucide-react";
+import { MapPin, ShieldCheck, Mail, Building2, Package, Star, Calendar, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "motion/react";
 import {
@@ -47,6 +47,8 @@ export default function SupplierProfilePage() {
   const [supplier, setSupplier] = useState<SupplierProfile | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [contactMessage, setContactMessage] = useState("");
+  const [isEnhancing, setIsEnhancing] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -87,10 +89,53 @@ export default function SupplierProfilePage() {
     }
   };
 
+  const handleEnhanceInquiry = async () => {
+    if (!contactMessage || contactMessage.trim() === "") {
+      toast.error("Please enter a basic message first to enhance.");
+      return;
+    }
+
+    setIsEnhancing(true);
+    try {
+      const response = await fetch("/api/enhance-inquiry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: contactMessage }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to enhance message");
+      }
+
+      const data = await response.json();
+      setContactMessage(data.enhancedMessage);
+      toast.success("Message professionally enhanced by AI!");
+    } catch (error) {
+      toast.error("Failed to enhance text. Please try again.");
+    } finally {
+      setIsEnhancing(false);
+    }
+  };
+
   if (isLoading) {
     return (
-      <div className="flex justify-center items-center h-[50vh]">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+      <div className="container mx-auto px-4 py-8 max-w-6xl">
+        <div className="relative mb-8 pt-12 animate-pulse">
+          <div className="h-48 md:h-64 w-full bg-muted rounded-2xl"></div>
+          <div className="absolute -bottom-16 left-8 flex items-end">
+            <div className="h-32 w-32 rounded-2xl bg-muted border-4 border-background"></div>
+          </div>
+        </div>
+        <div className="mt-20 grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-2 space-y-6">
+            <div className="h-8 w-64 bg-muted rounded"></div>
+            <div className="h-4 w-48 bg-muted rounded"></div>
+            <div className="h-32 w-full bg-muted rounded"></div>
+          </div>
+          <div className="space-y-6">
+            <div className="h-64 w-full bg-muted rounded border border-border"></div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -181,11 +226,26 @@ export default function SupplierProfilePage() {
                         <Input id="subject" placeholder="Inquiry about your products" className="bg-muted/50 border-border text-foreground" />
                       </div>
                       <div className="space-y-2">
-                        <Label htmlFor="message" className="text-foreground">Message</Label>
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="message" className="text-foreground">Message</Label>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleEnhanceInquiry}
+                            disabled={isEnhancing}
+                            className="text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10 h-7 text-xs px-2"
+                          >
+                            <Sparkles className="w-3.5 h-3.5 mr-1" />
+                            {isEnhancing ? "Enhancing..." : "AI Enhance"}
+                          </Button>
+                        </div>
                         <Textarea 
                           id="message" 
+                          value={contactMessage}
+                          onChange={(e) => setContactMessage(e.target.value)}
                           placeholder="Hello, I would like to know more about..." 
-                          className="min-h-[120px] bg-muted/50 border-border text-foreground" 
+                          className="min-h-[120px] bg-muted/50 border-border text-foreground resize-none" 
                         />
                       </div>
                     </div>

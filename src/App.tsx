@@ -5,35 +5,44 @@
 
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { Toaster } from "./components/ui/Sonner";
-import { useEffect } from "react";
+import { useEffect, Suspense, lazy } from "react";
 import { supabase } from "./lib/supabase";
 import { useAuthStore } from "./store/useAuthStore";
+import { Loader2 } from "lucide-react";
 
 // Layouts
 import RootLayout from "./components/layout/RootLayout";
 import DashboardLayout from "./components/layout/DashboardLayout";
 import RoleRedirect from "./components/layout/RoleRedirect";
-
 import ProtectedRoute from "./components/layout/ProtectedRoute";
 
-// Pages
-import HomePage from "./pages/HomePage";
-import LoginPage from "./pages/LoginPage";
-import RegisterPage from "./pages/RegisterPage";
-import ForgotPasswordPage from "./pages/ForgotPasswordPage";
-import ResetPasswordPage from "./pages/ResetPasswordPage";
-import ProductsPage from "./pages/ProductsPage";
-import ProductDetailsPage from "./pages/ProductDetailsPage";
-import ContactPage from "./pages/ContactPage";
-import SupplierProfilePage from "./pages/SupplierProfilePage";
-// Dashboard Pages
-import DashboardHome from "./pages/dashboard/DashboardHome";
-import InquiriesPage from "./pages/dashboard/InquiriesPage";
-import SupportMessagesPage from "./pages/dashboard/SupportMessagesPage";
-import DashboardProductsPage from "./pages/dashboard/ProductsPage";
-import SettingsPage from "./pages/dashboard/SettingsPage";
+// Lazy Loaded Pages
+const HomePage = lazy(() => import("./pages/HomePage"));
+const LoginPage = lazy(() => import("./pages/LoginPage"));
+const RegisterPage = lazy(() => import("./pages/RegisterPage"));
+const ForgotPasswordPage = lazy(() => import("./pages/ForgotPasswordPage"));
+const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage"));
+const ProductsPage = lazy(() => import("./pages/ProductsPage"));
+const ProductDetailsPage = lazy(() => import("./pages/ProductDetailsPage"));
+const ContactPage = lazy(() => import("./pages/ContactPage"));
+const SupplierProfilePage = lazy(() => import("./pages/SupplierProfilePage"));
 
-import UsersPage from "./pages/dashboard/UsersPage";
+// Lazy Loaded Dashboard Pages
+const DashboardHome = lazy(() => import("./pages/dashboard/DashboardHome"));
+const InquiriesPage = lazy(() => import("./pages/dashboard/InquiriesPage"));
+const SupportMessagesPage = lazy(() => import("./pages/dashboard/SupportMessagesPage"));
+const DashboardProductsPage = lazy(() => import("./pages/dashboard/ProductsPage"));
+const SettingsPage = lazy(() => import("./pages/dashboard/SettingsPage"));
+const UsersPage = lazy(() => import("./pages/dashboard/UsersPage"));
+
+function LoadingFallback() {
+  return (
+    <div className="h-screen w-full flex flex-col items-center justify-center bg-background text-foreground">
+      <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+      <p className="text-sm text-muted-foreground animate-pulse">Loading Odamarket...</p>
+    </div>
+  );
+}
 
 export default function App() {
   const { setUser, setProfile, setLoading } = useAuthStore();
@@ -95,52 +104,54 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <Routes>
-        <Route element={<RootLayout />}>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/register" element={<RegisterPage />} />
-          <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-          <Route path="/reset-password" element={<ResetPasswordPage />} />
-          <Route path="/products" element={<ProductsPage />} />
-          <Route path="/products/:id" element={<ProductDetailsPage />} />
-          <Route path="/suppliers/:id" element={<SupplierProfilePage />} />
-          <Route path="/contact" element={<ContactPage />} />
-        </Route>
-
-        {/* Role Routing Interceptor */}
-        <Route path="/dashboard" element={<RoleRedirect />} />
-
-        {/* Buyer Routes */}
-        <Route element={<ProtectedRoute allowedRoles={["buyer"]} />}>
-          <Route path="/buyer/dashboard" element={<DashboardLayout />}>
-            <Route index element={<DashboardHome />} />
-            <Route path="inquiries" element={<InquiriesPage />} />
-            <Route path="settings" element={<SettingsPage />} />
+      <Suspense fallback={<LoadingFallback />}>
+        <Routes>
+          <Route element={<RootLayout />}>
+            <Route path="/" element={<HomePage />} />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/register" element={<RegisterPage />} />
+            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+            <Route path="/reset-password" element={<ResetPasswordPage />} />
+            <Route path="/products" element={<ProductsPage />} />
+            <Route path="/products/:id" element={<ProductDetailsPage />} />
+            <Route path="/suppliers/:id" element={<SupplierProfilePage />} />
+            <Route path="/contact" element={<ContactPage />} />
           </Route>
-        </Route>
 
-        {/* Seller Routes */}
-        <Route element={<ProtectedRoute allowedRoles={["seller"]} />}>
-          <Route path="/seller/dashboard" element={<DashboardLayout />}>
-            <Route index element={<DashboardHome />} />
-            <Route path="inquiries" element={<InquiriesPage />} />
-            <Route path="products" element={<DashboardProductsPage />} />
-            <Route path="settings" element={<SettingsPage />} />
-          </Route>
-        </Route>
+          {/* Role Routing Interceptor */}
+          <Route path="/dashboard" element={<RoleRedirect />} />
 
-        {/* Admin Routes */}
-        <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
-          <Route path="/admin/dashboard" element={<DashboardLayout />}>
-            <Route index element={<DashboardHome />} />
-            <Route path="users" element={<UsersPage />} />
-            <Route path="products" element={<DashboardProductsPage />} />
-            <Route path="settings" element={<SettingsPage />} />
-            <Route path="support" element={<SupportMessagesPage />} />
+          {/* Buyer Routes */}
+          <Route element={<ProtectedRoute allowedRoles={["buyer"]} />}>
+            <Route path="/buyer/dashboard" element={<DashboardLayout />}>
+              <Route index element={<DashboardHome />} />
+              <Route path="inquiries" element={<InquiriesPage />} />
+              <Route path="settings" element={<SettingsPage />} />
+            </Route>
           </Route>
-        </Route>
-      </Routes>
+
+          {/* Seller Routes */}
+          <Route element={<ProtectedRoute allowedRoles={["seller"]} />}>
+            <Route path="/seller/dashboard" element={<DashboardLayout />}>
+              <Route index element={<DashboardHome />} />
+              <Route path="inquiries" element={<InquiriesPage />} />
+              <Route path="products" element={<DashboardProductsPage />} />
+              <Route path="settings" element={<SettingsPage />} />
+            </Route>
+          </Route>
+
+          {/* Admin Routes */}
+          <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
+            <Route path="/admin/dashboard" element={<DashboardLayout />}>
+              <Route index element={<DashboardHome />} />
+              <Route path="users" element={<UsersPage />} />
+              <Route path="products" element={<DashboardProductsPage />} />
+              <Route path="settings" element={<SettingsPage />} />
+              <Route path="support" element={<SupportMessagesPage />} />
+            </Route>
+          </Route>
+        </Routes>
+      </Suspense>
       <Toaster position="top-center" richColors />
     </BrowserRouter>
   );

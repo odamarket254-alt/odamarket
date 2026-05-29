@@ -29,94 +29,99 @@ export default function DashboardHome() {
 
   const [savedProductCount, setSavedProductCount] = useState(0);
   const [recentViewsCount, setRecentViewsCount] = useState(0);
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     if (!user) return;
 
     const fetchStats = async () => {
-      if (profile?.role === "seller") {
-        const [
-          { count: pCount },
-          { count: iCount },
-          { data: recent },
-          { count: viewsCount },
-          { count: favCount },
-        ] = await Promise.all([
-          supabase
-            .from("products")
-            .select("*", { count: "exact", head: true })
-            .eq("seller_id", user.id),
-          supabase
-            .from("inquiries")
-            .select("*", { count: "exact", head: true })
-            .eq("seller_id", user.id),
-          supabase
-            .from("inquiries")
-            .select("*")
-            .eq("seller_id", user.id)
-            .order("created_at", { ascending: false })
-            .limit(3),
-          supabase
-            .from("recent_views")
-            .select("id, products!inner(seller_id)", { count: "exact", head: true })
-            .eq("products.seller_id", user.id),
-          supabase
-            .from("favorites")
-            .select("id, products!inner(seller_id)", { count: "exact", head: true })
-            .eq("products.seller_id", user.id)
-        ]);
-        setProductCount(pCount || 0);
-        setInquiryCount(iCount || 0);
-        setRecentActivities(recent || []);
-        setProductViews(viewsCount || 0);
-        setProfileVisits(favCount || 0);
-      } else if (profile?.role === "buyer") {
-        const [
-          { count },
-          { count: savedCount },
-          { count: viewsCount },
-          { data: recent },
-        ] = await Promise.all([
-          supabase
-            .from("inquiries")
-            .select("*", { count: "exact", head: true })
-            .eq("buyer_id", user.id),
-          supabase
-            .from("favorites")
-            .select("*", { count: "exact", head: true })
-            .eq("buyer_id", user.id),
-          supabase
-            .from("recent_views")
-            .select("*", { count: "exact", head: true })
-            .eq("buyer_id", user.id),
-          supabase
-            .from("inquiries")
-            .select("*")
-            .eq("buyer_id", user.id)
-            .order("created_at", { ascending: false })
-            .limit(3),
-        ]);
-        setSentInquiryCount(count || 0);
-        setSavedProductCount(savedCount || 0);
-        setRecentViewsCount(viewsCount || 0);
-        setRecentActivities(recent || []);
-      } else if (profile?.role === "admin") {
-        const [
-          { count: uCount },
-          { count: pCount },
-          { count: iCount },
-        ] = await Promise.all([
-          supabase.from("profiles").select("*", { count: "exact", head: true }),
-          supabase.from("products").select("*", { count: "exact", head: true }),
-          supabase.from("inquiries").select("*", { count: "exact", head: true }),
-        ]);
-        setAdminUsers(uCount || 0);
-        setAdminProducts(pCount || 0);
-        setAdminInquiries(iCount || 0);
-        
-        // Read pending verification requests
-        const requests = JSON.parse(localStorage.getItem("verification_requests") || "[]");
-        setAdminVerifications(requests.length);
+      try {
+        if (profile?.role === "seller") {
+          const [
+            { count: pCount },
+            { count: iCount },
+            { data: recent },
+            { count: viewsCount },
+            { count: favCount },
+          ] = await Promise.all([
+            supabase
+              .from("products")
+              .select("*", { count: "exact", head: true })
+              .eq("seller_id", user.id),
+            supabase
+              .from("inquiries")
+              .select("*", { count: "exact", head: true })
+              .eq("seller_id", user.id),
+            supabase
+              .from("inquiries")
+              .select("*")
+              .eq("seller_id", user.id)
+              .order("created_at", { ascending: false })
+              .limit(3),
+            supabase
+              .from("recent_views")
+              .select("id, products!inner(seller_id)", { count: "exact", head: true })
+              .eq("products.seller_id", user.id),
+            supabase
+              .from("favorites")
+              .select("id, products!inner(seller_id)", { count: "exact", head: true })
+              .eq("products.seller_id", user.id)
+          ]);
+          setProductCount(pCount || 0);
+          setInquiryCount(iCount || 0);
+          setRecentActivities(recent || []);
+          setProductViews(viewsCount || 0);
+          setProfileVisits(favCount || 0);
+        } else if (profile?.role === "buyer") {
+          const [
+            { count },
+            { count: savedCount },
+            { count: viewsCount },
+            { data: recent },
+          ] = await Promise.all([
+            supabase
+              .from("inquiries")
+              .select("*", { count: "exact", head: true })
+              .eq("buyer_id", user.id),
+            supabase
+              .from("favorites")
+              .select("*", { count: "exact", head: true })
+              .eq("buyer_id", user.id),
+            supabase
+              .from("recent_views")
+              .select("*", { count: "exact", head: true })
+              .eq("buyer_id", user.id),
+            supabase
+              .from("inquiries")
+              .select("*")
+              .eq("buyer_id", user.id)
+              .order("created_at", { ascending: false })
+              .limit(3),
+          ]);
+          setSentInquiryCount(count || 0);
+          setSavedProductCount(savedCount || 0);
+          setRecentViewsCount(viewsCount || 0);
+          setRecentActivities(recent || []);
+        } else if (profile?.role === "admin") {
+          const [
+            { count: uCount },
+            { count: pCount },
+            { count: iCount },
+          ] = await Promise.all([
+            supabase.from("profiles").select("*", { count: "exact", head: true }),
+            supabase.from("products").select("*", { count: "exact", head: true }),
+            supabase.from("inquiries").select("*", { count: "exact", head: true }),
+          ]);
+          setAdminUsers(uCount || 0);
+          setAdminProducts(pCount || 0);
+          setAdminInquiries(iCount || 0);
+          
+          // Read pending verification requests
+          const requests = JSON.parse(localStorage.getItem("verification_requests") || "[]");
+          setAdminVerifications(requests.length);
+        }
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -349,25 +354,34 @@ export default function DashboardHome() {
                 <Icon className={cn("h-4 w-4", isPremium ? "text-amber-500" : "text-emerald-500")} />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold text-foreground flex items-center gap-2">
-                  <motion.span
-                    key={stat.value}
-                    initial={{ opacity: 0.5, y: 2 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3 }}
-                  >
-                    {stat.value}
-                  </motion.span>
-                  {stat.change === "Live metric" && (
-                    <span className="relative flex h-2 w-2">
-                      <span className={cn("animate-ping absolute inline-flex h-full w-full rounded-full opacity-75", isPremium ? "bg-amber-400" : "bg-emerald-400")}></span>
-                      <span className={cn("relative inline-flex rounded-full h-2 w-2", isPremium ? "bg-amber-500" : "bg-emerald-500")}></span>
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {stat.change}
-                </p>
+                {isLoading ? (
+                  <div className="space-y-2 mt-1">
+                    <div className="h-8 bg-muted rounded w-16 animate-pulse" />
+                    <div className="h-3 bg-muted rounded w-20 animate-pulse" />
+                  </div>
+                ) : (
+                  <>
+                    <div className="text-2xl font-bold text-foreground flex items-center gap-2">
+                      <motion.span
+                        key={stat.value}
+                        initial={{ opacity: 0.5, y: 2 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3 }}
+                      >
+                        {stat.value}
+                      </motion.span>
+                      {stat.change === "Live metric" && (
+                        <span className="relative flex h-2 w-2">
+                          <span className={cn("animate-ping absolute inline-flex h-full w-full rounded-full opacity-75", isPremium ? "bg-amber-400" : "bg-emerald-400")}></span>
+                          <span className={cn("relative inline-flex rounded-full h-2 w-2", isPremium ? "bg-amber-500" : "bg-emerald-500")}></span>
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {stat.change}
+                    </p>
+                  </>
+                )}
               </CardContent>
             </Card>
           );
@@ -383,38 +397,54 @@ export default function DashboardHome() {
           </CardHeader>
           <CardContent>
             <div className="space-y-8">
-              {recentActivities.map((activity, i) => {
-                const isPremium = profile?.role === "seller" && profile?.verified;
-                return (
-                  <div key={activity.id || i} className="flex items-center">
-                    <span 
-                      className={cn(
-                        "relative flex h-2 w-2 rounded-full mr-4 animate-pulse",
-                        isPremium 
-                          ? "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]" 
-                          : "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"
-                      )}
-                    ></span>
-                    <div className="space-y-1">
-                      <p className="text-sm font-medium leading-none text-foreground">
-                        {profile?.role === "buyer"
-                          ? `Inquiry sent for product`
-                          : `Received inquiry from ${activity.name || "buyer"}`}
-                      </p>
-                      <p className="text-sm text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis max-w-xs">
-                        {activity.message || "Details"}
-                      </p>
+              {isLoading ? (
+                // Skeletons for Recent Activity
+                Array(3).fill(0).map((_, i) => (
+                  <div key={`skel-${i}`} className="flex items-center">
+                    <span className="relative flex h-2 w-2 rounded-full mr-4 bg-muted animate-pulse"></span>
+                    <div className="space-y-2 flex-1">
+                      <div className="h-4 bg-muted rounded w-1/2 animate-pulse" />
+                      <div className="h-3 bg-muted rounded w-3/4 animate-pulse" />
                     </div>
-                    <div className="ml-auto font-medium text-xs text-muted-foreground">
-                      {new Date(activity.created_at).toLocaleDateString()}
-                    </div>
+                    <div className="ml-auto w-16 h-3 bg-muted rounded animate-pulse" />
                   </div>
-                );
-              })}
-              {recentActivities.length === 0 && (
-                <p className="text-muted-foreground text-sm">
-                  No recent activity.
-                </p>
+                ))
+              ) : (
+                <>
+                  {recentActivities.map((activity, i) => {
+                    const isPremium = profile?.role === "seller" && profile?.verified;
+                    return (
+                      <div key={activity.id || i} className="flex items-center">
+                        <span 
+                          className={cn(
+                            "relative flex h-2 w-2 rounded-full mr-4 animate-pulse",
+                            isPremium 
+                              ? "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]" 
+                              : "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"
+                          )}
+                        ></span>
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium leading-none text-foreground">
+                            {profile?.role === "buyer"
+                              ? `Inquiry sent for product`
+                              : `Received inquiry from ${activity.name || "buyer"}`}
+                          </p>
+                          <p className="text-sm text-muted-foreground whitespace-nowrap overflow-hidden text-ellipsis max-w-xs">
+                            {activity.message || "Details"}
+                          </p>
+                        </div>
+                        <div className="ml-auto font-medium text-xs text-muted-foreground">
+                          {new Date(activity.created_at).toLocaleDateString()}
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {recentActivities.length === 0 && (
+                    <p className="text-muted-foreground text-sm">
+                      No recent activity.
+                    </p>
+                  )}
+                </>
               )}
             </div>
           </CardContent>
@@ -431,29 +461,41 @@ export default function DashboardHome() {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {[1, 2, 3].map((_, i) => (
-                  <div key={i} className="flex items-center">
-                    <div className="h-9 w-9 rounded bg-white/10 border border-border/50 flex items-center justify-center shrink-0">
-                      {profile?.role === "admin" ? (
-                        <Users className="h-4 w-4 text-muted-foreground" />
-                      ) : (
-                        <Package className="h-4 w-4 text-muted-foreground" />
-                      )}
+                {isLoading ? (
+                  Array(3).fill(0).map((_, i) => (
+                    <div key={`skel-top-${i}`} className="flex items-center">
+                      <div className="h-9 w-9 rounded bg-muted animate-pulse shrink-0"></div>
+                      <div className="ml-4 space-y-2 flex-1">
+                        <div className="h-4 bg-muted rounded w-1/3 animate-pulse" />
+                        <div className="h-3 bg-muted rounded w-1/2 animate-pulse" />
+                      </div>
                     </div>
-                    <div className="ml-4 space-y-1">
-                      <p className="text-sm font-medium leading-none text-foreground">
-                        {profile?.role === "admin"
-                          ? "AgriCorp Inc."
-                          : "Your Products"}
-                      </p>
-                      <p className="text-sm text-muted-foreground">
-                        {profile?.role === "admin"
-                          ? "145 total orders"
-                          : "Syncing..."}
-                      </p>
+                  ))
+                ) : (
+                  [1, 2, 3].map((_, i) => (
+                    <div key={i} className="flex items-center">
+                      <div className="h-9 w-9 rounded bg-white/10 border border-border/50 flex items-center justify-center shrink-0">
+                        {profile?.role === "admin" ? (
+                          <Users className="h-4 w-4 text-muted-foreground" />
+                        ) : (
+                          <Package className="h-4 w-4 text-muted-foreground" />
+                        )}
+                      </div>
+                      <div className="ml-4 space-y-1">
+                        <p className="text-sm font-medium leading-none text-foreground">
+                          {profile?.role === "admin"
+                            ? "AgriCorp Inc."
+                            : "Your Products"}
+                        </p>
+                        <p className="text-sm text-muted-foreground">
+                          {profile?.role === "admin"
+                            ? "145 total orders"
+                            : "Syncing..."}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>

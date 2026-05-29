@@ -17,6 +17,7 @@ import {
   ArrowLeft,
   Send,
   Heart,
+  Sparkles,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
@@ -45,12 +46,15 @@ export default function ProductDetailsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaved, setIsSaved] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [isEnhancing, setIsEnhancing] = useState(false);
 
   const {
     register,
     handleSubmit,
     formState: { errors },
     reset,
+    getValues,
+    setValue,
   } = useForm<InquiryFormValues>({
     resolver: zodResolver(inquirySchema),
   });
@@ -192,6 +196,37 @@ export default function ProductDetailsPage() {
     }
   };
 
+  const handleEnhanceInquiry = async () => {
+    const currentMessage = getValues("message");
+    const quantity = getValues("quantity");
+
+    if (!currentMessage || currentMessage.trim() === "") {
+      toast.error("Please enter a basic message first to enhance.");
+      return;
+    }
+
+    setIsEnhancing(true);
+    try {
+      const response = await fetch("/api/enhance-inquiry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: currentMessage, quantity }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to enhance message");
+      }
+
+      const data = await response.json();
+      setValue("message", data.enhancedMessage, { shouldValidate: true });
+      toast.success("Inquiry mathematically enhanced for B2B communication!");
+    } catch (error) {
+      toast.error("Failed to enhance inquiry. Please try again.");
+    } finally {
+      setIsEnhancing(false);
+    }
+  };
+
   const onSubmit = async (data: InquiryFormValues) => {
     if (!user) {
       toast.error("Authentication required", {
@@ -232,8 +267,32 @@ export default function ProductDetailsPage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-[100dvh] bg-background text-foreground py-12 flex justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-500"></div>
+      <div className="min-h-[100dvh] bg-background text-foreground py-8">
+        <div className="container mx-auto px-4">
+          <div className="h-6 w-32 bg-muted rounded animate-pulse mb-8" />
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 max-w-6xl mx-auto">
+            <div className="space-y-6">
+              <div className="aspect-[4/3] w-full rounded-2xl bg-muted animate-pulse" />
+            </div>
+            <div className="flex flex-col space-y-6">
+              <div className="space-y-4 border-b border-border pb-6">
+                <div className="h-4 w-24 bg-muted rounded animate-pulse" />
+                <div className="h-10 w-3/4 bg-muted rounded animate-pulse" />
+                <div className="h-6 w-48 bg-muted rounded animate-pulse" />
+                <div className="h-12 w-32 bg-muted rounded animate-pulse mt-4" />
+              </div>
+              <div className="space-y-4">
+                <div className="h-5 w-40 bg-muted rounded animate-pulse" />
+                <div className="h-16 w-full bg-muted rounded animate-pulse" />
+              </div>
+              <div className="mt-8 border border-border p-6 rounded-xl space-y-4">
+                <div className="h-8 w-1/3 bg-muted rounded animate-pulse" />
+                <div className="h-32 w-full bg-muted rounded animate-pulse" />
+                <div className="h-12 w-full bg-muted rounded animate-pulse" />
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -537,12 +596,25 @@ export default function ProductDetailsPage() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label
-                        htmlFor="message"
-                        className="text-muted-foreground"
-                      >
-                        Message Details
-                      </Label>
+                      <div className="flex items-center justify-between">
+                        <Label
+                          htmlFor="message"
+                          className="text-muted-foreground"
+                        >
+                          Message Details
+                        </Label>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleEnhanceInquiry}
+                          disabled={isEnhancing}
+                          className="text-emerald-500 hover:text-emerald-400 hover:bg-emerald-500/10 h-7 text-xs px-2"
+                        >
+                          <Sparkles className="w-3.5 h-3.5 mr-1" />
+                          {isEnhancing ? "Enhancing..." : "AI Enhance"}
+                        </Button>
+                      </div>
                       <Textarea
                         id="message"
                         {...register("message")}

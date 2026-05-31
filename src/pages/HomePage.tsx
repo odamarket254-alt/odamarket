@@ -16,6 +16,9 @@ import {
 } from "lucide-react";
 import { motion } from "motion/react";
 import { supabase } from "../lib/supabase";
+import { SwipeableProductCard } from "../components/SwipeableProductCard";
+
+import madarakaBanner from "../assets/images/madaraka_day_banner_1780143272280.png";
 
 interface MarketplaceProduct {
   id: string;
@@ -218,6 +221,18 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col min-h-[calc(100dvh-4rem)] bg-background">
+      {/* Madaraka Day Banner */}
+      <div className="w-full relative bg-[#0a0a0a] border-b border-border shadow-md z-10 flex justify-center">
+        <div className="w-full h-[120px] sm:h-[180px] md:h-[240px] lg:h-[280px] relative">
+          <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-transparent z-10 pointer-events-none" />
+          <img 
+            src={madarakaBanner} 
+            alt="Happy Madaraka Day Kenya" 
+            className="w-full h-full object-cover object-center"
+          />
+        </div>
+      </div>
+
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-background">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-emerald-900/10 rounded-full blur-[120px]"></div>
@@ -418,74 +433,7 @@ export default function HomePage() {
                   viewport={{ once: true }}
                   transition={{ delay: i * 0.1 }}
                 >
-                  <Link
-                    to={`/products/${product.id}`}
-                    className="group block h-full"
-                  >
-                      <Card className="overflow-hidden h-full border-border bg-card text-card-foreground hover:border-primary/30 hover:shadow-2xl transition-all duration-300 relative flex flex-col">
-                        <div className="aspect-[4/3] overflow-hidden relative bg-muted flex-shrink-0">
-                          {product.profiles?.verified && (
-                            <div className="absolute top-3 left-3 z-20 flex items-center gap-1 bg-background/90 backdrop-blur-md px-2.5 py-1 rounded-full border border-border shadow-sm">
-                              <CheckCircle className="w-3 h-3 text-amber-500 fill-amber-500/20" />
-                              <span className="text-[10px] font-bold text-foreground tracking-wide uppercase">Verified</span>
-                            </div>
-                          )}
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              // Toggle save logic here
-                            }}
-                            className="absolute top-3 right-3 z-20 p-2 rounded-full bg-background/60 backdrop-blur-md hover:bg-background/90 text-muted-foreground hover:text-red-500 transition-colors border border-border/50"
-                            aria-label="Save product"
-                          >
-                            <Bookmark className="w-4 h-4" />
-                          </button>
-                          <img
-                            src={
-                              product.image_url ||
-                              "https://images.unsplash.com/photo-1559525839-b184a4d698c7?w=500&auto=format&fit=crop&q=60"
-                            }
-                            alt={product.name}
-                            loading="lazy"
-                            className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500 opacity-95 group-hover:opacity-100"
-                          />
-                          <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                        </div>
-                        <CardContent className="p-4 flex flex-col flex-1">
-                          <div className="mb-2">
-                            <h3 className="font-semibold text-base text-foreground leading-snug line-clamp-2 group-hover:text-primary transition-colors">
-                              {product.name}
-                            </h3>
-                            <p className="text-primary font-bold text-lg mt-1">
-                              {product.price ? product.price : "Price on Request"}
-                            </p>
-                          </div>
-                          
-                          <div className="mt-auto space-y-2 pt-3 border-t border-border/50">
-                            <div className="flex items-center justify-between">
-                              <span className="text-xs font-medium text-foreground truncate max-w-[70%] text-muted-foreground">
-                                {product.profiles?.business_name || `Supplier ${product.seller_id?.slice(0, 5)}`}
-                              </span>
-                              <span className="text-[10px] text-muted-foreground flex items-center gap-1 bg-muted px-2 py-0.5 rounded-full">
-                                <MapPin className="w-3 h-3" />
-                                <span className="truncate max-w-[60px]">{product.profiles?.location || "Global"}</span>
-                              </span>
-                            </div>
-                            
-                            <Button 
-                              variant="outline" 
-                              className="w-full h-9 text-xs font-semibold mt-2 border-primary/20 text-primary hover:bg-primary hover:text-primary-foreground transition-colors group-hover:border-primary"
-                              onClick={(e) => {
-                                // Default link behavior handles navigation
-                              }}
-                            >
-                              <MessageCircle className="w-4 h-4 mr-2" />
-                              Send Inquiry
-                            </Button>
-                          </div>
-                        </CardContent>
-                      </Card>
-                  </Link>
+                  <SwipeableProductCard product={product as any} />
                 </motion.div>
               ))
             )}

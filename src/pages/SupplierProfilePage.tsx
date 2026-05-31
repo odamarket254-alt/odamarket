@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { SwipeableProductCard } from "../components/SwipeableProductCard";
 import { useAuthStore } from "../store/useAuthStore";
 import { Card, CardContent } from "../components/ui/Card";
 import { Badge } from "../components/ui/Badge";
@@ -268,30 +269,16 @@ export default function SupplierProfilePage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.3, delay: idx * 0.05 }}
               >
-                <Link to={`/products/${product.id}`} className="block h-full">
-                  <Card className="h-full border-border bg-card hover:border-emerald-500/50 transition-all hover:shadow-lg dark:hover:shadow-emerald-500/10 overflow-hidden flex flex-col group">
-                    <div className="aspect-[4/3] bg-muted relative overflow-hidden">
-                      <img
-                        src={product.image_url || "https://images.unsplash.com/photo-1559525839-b184a4d698c7?w=500&auto=format&fit=crop&q=80"}
-                        alt={product.name}
-                        className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500"
-                        loading="lazy"
-                      />
-                    </div>
-                    <CardContent className="p-4 flex-1 flex flex-col">
-                      <h3 className="font-semibold text-foreground line-clamp-1 mb-1 group-hover:text-emerald-500 transition-colors">
-                        {product.name}
-                      </h3>
-                      <div className="text-lg font-bold text-foreground mb-auto">
-                        KES {product.price?.toLocaleString()}
-                      </div>
-                      <div className="flex items-center justify-between mt-4 text-xs text-muted-foreground border-t border-border/50 pt-3">
-                        <span className="flex items-center gap-1.5"><Package className="h-3.5 w-3.5" /> MOQ: {product.stock || "N/A"}</span>
-                        <span className="flex items-center gap-1.5"><MapPin className="h-3.5 w-3.5" /> {supplier.location || "Global Location"}</span>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
+                <SwipeableProductCard
+                  product={{
+                    ...product,
+                    profiles: {
+                      business_name: supplier.business_name,
+                      verified: supplier.verified,
+                      location: supplier.location || 'Global Location',
+                    }
+                  } as any}
+                />
               </motion.div>
             ))}
           </div>

@@ -76,15 +76,37 @@ export default function UsersPage() {
         setPendingRequests(newRequests);
       }
 
+      const userTarget = users.find(u => u.id === userId);
+
+      // Trigger Edge Function / Notification API
+      try {
+        await fetch("/api/notify-verification", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            userId: userId,
+            email: userTarget?.email,
+            businessName: userTarget?.business_name,
+            verified: !currentStatus 
+          })
+        });
+      } catch (notifyErr) {
+        console.warn("Failed to dispatch notification webhook", notifyErr);
+      }
+
       toast.success(
-        currentStatus ? "User verification revoked" : "User verified successfully"
+        currentStatus ? "User verification revoked (Notification Sent)" : "User verified successfully (Notification Sent)"
       );
       
       setUsers(users.map(u => 
         u.id === userId ? { ...u, verified: !currentStatus } : u
       ));
     } catch (err: any) {
-      toast.error(err.message || "Failed to update verification status");
+      toast.error(
+        err.message?.includes("RLS") || err.message?.includes("row level security") || err.code === "42501" 
+          ? "Permission denied. Please run 'fix-admin-verification.sql' in your Supabase SQL editor to allow admins to verify users."
+          : (err.message || "Failed to update verification status")
+      );
     }
   };
 

@@ -1,4 +1,5 @@
 import { useState, useEffect, type FormEvent, type ChangeEvent } from "react";
+// Cache invalidation forced
 import {
   Card,
   CardContent,
@@ -120,8 +121,8 @@ export default function DashboardProductsPage() {
 
   const filteredProducts = products.filter(
     (product) =>
-      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.category.toLowerCase().includes(searchQuery.toLowerCase()),
+      (product.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (product.category || "").toLowerCase().includes(searchQuery.toLowerCase()),
   );
 
   const handleAddProduct = async (e: FormEvent<HTMLFormElement>) => {

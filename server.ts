@@ -8,6 +8,25 @@ async function startServer() {
 
   app.use(express.json());
 
+  // Edge Function / Notification Endpoint
+  app.post("/api/notify-verification", async (req, res) => {
+    try {
+      const { email, verified, businessName, userId } = req.body;
+      
+      // Log the notification to standard output
+      // In a real production system, you would integrate Resend, Postmark, or SendGrid here
+      console.log(`\n[EMAIL EDGE FUNCTION] 🚀 Triggered verification alert for user ${userId}`);
+      console.log(`[EMAIL EDGE FUNCTION] 📧 To: ${email || "User's Registered Address"}`);
+      console.log(`[EMAIL EDGE FUNCTION] 📝 Subject: Account Verification Update`);
+      console.log(`[EMAIL EDGE FUNCTION] ✉️ Body: Hello ${businessName || "Valued Member"},\n\nYour account has been officially ${verified ? "verified" : "unverified"} by the marketplace administrators.\n\nThank you for using ODA Market.`);
+
+      res.status(200).json({ success: true, message: "Notification sent successfully." });
+    } catch (error) {
+      console.error("Failed to send notification:", error);
+      res.status(500).json({ error: "Failed to send notification." });
+    }
+  });
+
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({

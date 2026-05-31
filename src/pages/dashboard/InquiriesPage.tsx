@@ -1,13 +1,15 @@
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "../../components/ui/Card";
 import { Badge } from "../../components/ui/Badge";
-import { Mail, Clock, CheckCircle, Search, Filter, Send, ArrowLeft, Calendar, Building2, Sparkles } from "lucide-react";
+import { Mail, Clock, CheckCircle, Search, Filter, Send, ArrowLeft, Calendar, Building2, Sparkles, Paperclip, Smile, Loader2 } from "lucide-react";
+import TextareaAutosize from "react-textarea-autosize";
 import { Input } from "../../components/ui/Input";
 import { Button } from "../../components/ui/Button";
 import { supabase } from "../../lib/supabase";
 import { useAuthStore } from "../../store/useAuthStore";
 import { formatDistanceToNow } from "date-fns";
 import { toast } from "sonner";
+import { useSearchParams } from "react-router-dom";
 
 interface Inquiry {
   id: string;
@@ -36,6 +38,7 @@ interface InquiryMessage {
 
 export default function InquiriesPage() {
   const { user, profile } = useAuthStore();
+  const [searchParams] = useSearchParams();
   const [inquiries, setInquiries] = useState<Inquiry[]>([]);
   const [selectedInquiry, setSelectedInquiry] = useState<Inquiry | null>(null);
   const [inquiryMessages, setInquiryMessages] = useState<InquiryMessage[]>([]);
@@ -70,6 +73,16 @@ export default function InquiriesPage() {
       supabase.removeChannel(channel);
     };
   }, [user]);
+
+  useEffect(() => {
+    const sellerId = searchParams.get("seller");
+    if (sellerId && inquiries.length > 0 && !selectedInquiry) {
+      const existingInquiry = inquiries.find(inq => inq.seller_id === sellerId);
+      if (existingInquiry) {
+        setSelectedInquiry(existingInquiry);
+      }
+    }
+  }, [searchParams, inquiries, selectedInquiry]);
 
   useEffect(() => {
     if (!selectedInquiry) {
@@ -204,9 +217,9 @@ export default function InquiriesPage() {
 
   const filteredInquiries = inquiries.filter(
     (i) =>
-      i.company.toLowerCase().includes(search.toLowerCase()) ||
-      i.name.toLowerCase().includes(search.toLowerCase()) ||
-      i.products?.name.toLowerCase().includes(search.toLowerCase()),
+      i.company?.toLowerCase().includes(search.toLowerCase()) ||
+      i.name?.toLowerCase().includes(search.toLowerCase()) ||
+      i.products?.name?.toLowerCase().includes(search.toLowerCase()),
   );
 
   return (
@@ -375,31 +388,39 @@ export default function InquiriesPage() {
                   <div ref={messagesEndRef} />
                 </div>
 
-                <div className="flex gap-2 shrink-0 pt-2 border-t border-border/50">
-                  <Input
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSendMessage();
-                      }
-                    }}
-                    placeholder={profile?.role === "seller" ? "Reply or just chat..." : "Reply or just chat..."}
-                    className="flex-1 bg-black/40 border-border text-foreground focus-visible:ring-emerald-500 h-10 sm:h-12"
-                  />
+                <div className="flex items-end gap-2 shrink-0 pt-3 border-t border-border/50 bg-background/50 p-2 sm:p-3 rounded-b-xl">
+                  <Button variant="ghost" size="icon" className="h-10 w-10 sm:h-12 sm:w-12 rounded-full shrink-0 text-muted-foreground hover:text-foreground mb-1">
+                    <Paperclip className="h-5 w-5" />
+                  </Button>
+                  <div className="flex-1 relative bg-muted/40 border border-border/50 focus-within:border-emerald-500/50 focus-within:bg-muted/80 transition-colors rounded-2xl flex items-end shadow-sm p-1">
+                    <Button variant="ghost" size="icon" className="h-10 w-10 sm:h-12 sm:w-12 shrink-0 text-muted-foreground hover:text-foreground self-end mb-0.5 sm:mb-0">
+                      <Smile className="h-5 w-5" />
+                    </Button>
+                    <TextareaAutosize
+                      value={newMessage}
+                      onChange={(e) => setNewMessage(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.shiftKey) {
+                          e.preventDefault();
+                          handleSendMessage();
+                        }
+                      }}
+                      placeholder="Message"
+                      minRows={1}
+                      maxRows={5}
+                      className="flex-1 min-w-0 bg-transparent border-0 ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 px-2 py-2.5 sm:py-3.5 resize-none text-foreground placeholder:text-muted-foreground shadow-none text-base outline-none"
+                    />
+                  </div>
                   <Button
                     onClick={handleSendMessage}
                     disabled={!newMessage.trim() || isSending}
-                    className="bg-emerald-600 hover:bg-emerald-500 text-foreground px-4 sm:px-6 h-10 sm:h-12"
+                    size="icon"
+                    className="h-10 w-10 sm:h-12 sm:w-12 rounded-full shrink-0 bg-emerald-600 hover:bg-emerald-500 text-white shadow-md transition-transform active:scale-95 mb-1"
                   >
                     {isSending ? (
-                       <span className="text-sm">Sending...</span>
+                      <Loader2 className="h-5 w-5 animate-spin" />
                     ) : (
-                       <>
-                         <Send className="h-4 w-4 sm:hidden" />
-                         <span className="hidden sm:inline">Send</span>
-                       </>
+                      <Send className="h-5 w-5 ml-0.5" />
                     )}
                   </Button>
                 </div>

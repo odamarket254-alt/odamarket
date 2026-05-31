@@ -10,6 +10,17 @@ import { supabase } from "./lib/supabase";
 import { useAuthStore } from "./store/useAuthStore";
 import { Loader2 } from "lucide-react";
 
+// Setup global error handling for failed dynamic imports (e.g., stale cache or dev server restart)
+if (typeof window !== "undefined") {
+  window.addEventListener("error", (e) => {
+    if (e.message?.includes("Failed to fetch dynamically imported module") || 
+        e.message?.includes("Importing a module script failed")) {
+      console.error("Dynamic import failed, reloading page...");
+      window.location.reload();
+    }
+  });
+}
+
 // Layouts
 import RootLayout from "./components/layout/RootLayout";
 import DashboardLayout from "./components/layout/DashboardLayout";
@@ -31,7 +42,7 @@ const SupplierProfilePage = lazy(() => import("./pages/SupplierProfilePage"));
 const DashboardHome = lazy(() => import("./pages/dashboard/DashboardHome"));
 const InquiriesPage = lazy(() => import("./pages/dashboard/InquiriesPage"));
 const SupportMessagesPage = lazy(() => import("./pages/dashboard/SupportMessagesPage"));
-const DashboardProductsPage = lazy(() => import("./pages/dashboard/ProductsPage"));
+const DashboardProductsPage = lazy(() => import("./pages/dashboard/SellerProductsPage"));
 const SettingsPage = lazy(() => import("./pages/dashboard/SettingsPage"));
 const UsersPage = lazy(() => import("./pages/dashboard/UsersPage"));
 
@@ -44,11 +55,12 @@ function LoadingFallback() {
   );
 }
 
+import { ErrorBoundary } from "./components/ErrorBoundary";
+
 export default function App() {
   const { setUser, setProfile, setLoading } = useAuthStore();
 
   useEffect(() => {
-    // Check active sessions and sets the user
     supabase.auth.getSession().then(({ data: { session } }) => {
       setUser(session?.user ?? null);
       if (session?.user) {
@@ -104,6 +116,7 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <ErrorBoundary>
       <Suspense fallback={<LoadingFallback />}>
         <Routes>
           <Route element={<RootLayout />}>
@@ -152,6 +165,7 @@ export default function App() {
           </Route>
         </Routes>
       </Suspense>
+      </ErrorBoundary>
       <Toaster position="top-center" richColors />
     </BrowserRouter>
   );

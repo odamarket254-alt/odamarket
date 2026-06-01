@@ -140,14 +140,14 @@ export default function DashboardLayout() {
   const navItems = getNavItems();
 
   return (
-    <div className="min-h-[100dvh] flex bg-background font-sans selection:bg-emerald-500/30 text-foreground">
+    <div className="min-h-[100dvh] flex bg-background font-sans text-foreground">
       {/* Sidebar */}
       <aside className="w-64 bg-card border-r border-border hidden md:flex flex-col sticky top-0 h-[100dvh]">
         <div className="p-6 flex justify-between items-center">
           <Link to="/" className="flex items-center gap-2">
             <span className="text-xl font-bold tracking-tight text-foreground">
               ODA <span className={cn(
-                profile?.role === "seller" && profile?.verified ? "text-amber-500" : "text-emerald-600 dark:text-emerald-500"
+                profile?.role === "seller" && profile?.verified ? "text-amber-600 dark:text-amber-500" : "text-emerald-600 dark:text-emerald-500"
               )}>MARKET</span>
             </span>
           </Link>
@@ -167,7 +167,7 @@ export default function DashboardLayout() {
               <p className="text-sm font-medium text-foreground truncate flex items-center gap-1.5">
                 {profile?.business_name || "My Business"}
                 {profile?.role === "seller" && profile?.verified && (
-                  <ShieldCheck className="h-4 w-4 text-amber-500 shrink-0" />
+                  <ShieldCheck className="h-4 w-4 text-amber-600 dark:text-amber-500 shrink-0" />
                 )}
               </p>
               <p className={cn(
@@ -196,14 +196,14 @@ export default function DashboardLayout() {
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
                   isActive
-                    ? (isPremium ? "bg-amber-500/10 text-amber-500" : "bg-emerald-500/10 text-emerald-400")
+                    ? (isPremium ? "bg-amber-500/10 text-amber-600 dark:text-amber-500" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400")
                     : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
                 )}
               >
                 <Icon
                   className={cn(
                     "h-5 w-5",
-                    isActive ? (isPremium ? "text-amber-500" : "text-emerald-500") : "text-muted-foreground",
+                    isActive ? (isPremium ? "text-amber-600 dark:text-amber-500" : "text-emerald-600 dark:text-emerald-500") : "text-muted-foreground",
                   )}
                 />
                 {item.label}
@@ -231,7 +231,7 @@ export default function DashboardLayout() {
           <Link to="/" className="flex items-center gap-2">
             <span className="text-xl font-bold tracking-tight text-foreground">
               ODA <span className={cn(
-                profile?.role === "seller" && profile?.verified ? "text-amber-500" : "text-emerald-600 dark:text-emerald-500"
+                profile?.role === "seller" && profile?.verified ? "text-amber-600 dark:text-amber-500" : "text-emerald-600 dark:text-emerald-500"
               )}>MARKET</span>
             </span>
           </Link>
@@ -283,7 +283,7 @@ export default function DashboardLayout() {
                     <span className="text-sm font-medium text-foreground truncate flex items-center gap-1.5">
                       {profile?.business_name || "My Business"}
                       {profile?.role === "seller" && profile?.verified && (
-                        <ShieldCheck className="h-4 w-4 text-amber-500 shrink-0" />
+                        <ShieldCheck className="h-4 w-4 text-amber-600 dark:text-amber-500 shrink-0" />
                       )}
                     </span>
                     <span className={cn(
@@ -317,7 +317,7 @@ export default function DashboardLayout() {
                         className={cn(
                           "flex items-center gap-4 px-4 py-3.5 rounded-xl text-base font-medium transition-all focus:outline-none",
                           isActive
-                            ? (isPremium ? "bg-amber-500/10 text-amber-500 focus:ring-2 focus:ring-amber-500" : "bg-emerald-500/10 text-emerald-400 focus:ring-2 focus:ring-emerald-500")
+                            ? (isPremium ? "bg-amber-500/10 text-amber-600 dark:text-amber-500 focus:ring-2 focus:ring-amber-500" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 focus:ring-2 focus:ring-emerald-500")
                             : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
                         )}
                       >
@@ -325,7 +325,7 @@ export default function DashboardLayout() {
                           className={cn(
                             "h-6 w-6",
                             isActive
-                              ? (isPremium ? "text-amber-500" : "text-emerald-500")
+                              ? (isPremium ? "text-amber-600 dark:text-amber-500" : "text-emerald-600 dark:text-emerald-500")
                               : "text-muted-foreground",
                           )}
                         />
@@ -338,7 +338,7 @@ export default function DashboardLayout() {
                 <div className="p-4 border-t border-border bg-muted/50 text-foreground flex flex-col gap-3">
                   <Button
                     render={<Link to="/" />}
-                    className="w-full bg-white/10 hover:bg-white/20 text-foreground border border-border h-12"
+                    className="w-full bg-muted/50 hover:bg-muted text-foreground border border-border h-12"
                   >
                     Back to Market
                   </Button>

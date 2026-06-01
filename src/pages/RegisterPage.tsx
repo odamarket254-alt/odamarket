@@ -134,16 +134,16 @@ export default function RegisterPage() {
                     <motion.div
                       whileHover={{ y: -2 }}
                       whileTap={{ scale: 0.98 }}
-                      className="relative flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-border/50 bg-black/40 p-5 text-center transition-all duration-300 hover:bg-white/[0.04] hover:border-white/20 peer-checked:border-emerald-500 peer-checked:bg-emerald-500/10 peer-checked:shadow-[0_8px_30px_rgba(16,185,129,0.15)]"
+                      className="relative flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-border/50 bg-card text-center transition-all duration-300 hover:bg-muted/50 hover:border-border peer-checked:border-emerald-500 peer-checked:bg-emerald-500/10 peer-checked:shadow-[0_8px_30px_rgba(16,185,129,0.15)]"
                     >
-                      <div className="rounded-full bg-muted/50 text-foreground p-3 text-muted-foreground transition-all duration-300 peer-checked:bg-emerald-500/20 peer-checked:text-emerald-500 peer-checked:scale-110">
+                      <div className="rounded-full bg-muted/50 text-foreground p-3 text-muted-foreground transition-all duration-300 peer-checked:bg-emerald-500/20 peer-checked:text-emerald-600 dark:text-emerald-500 peer-checked:scale-110">
                         <ShoppingBag className="h-6 w-6" />
                       </div>
                       <div>
-                        <span className="block font-semibold text-foreground transition-colors duration-300 peer-checked:text-emerald-400">
+                        <span className="block font-semibold text-foreground transition-colors duration-300 peer-checked:text-emerald-600 dark:text-emerald-400">
                           Buyer
                         </span>
-                        <span className="mt-1 block text-xs text-muted-foreground transition-colors duration-300 peer-checked:text-emerald-400/80">
+                        <span className="mt-1 block text-xs text-muted-foreground transition-colors duration-300 peer-checked:text-emerald-600 dark:text-emerald-400/80">
                           Source products
                         </span>
                       </div>
@@ -160,7 +160,7 @@ export default function RegisterPage() {
                     <motion.div
                       whileHover={{ y: -2 }}
                       whileTap={{ scale: 0.98 }}
-                      className="relative flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-border/50 bg-black/40 p-5 text-center transition-all duration-300 hover:bg-white/[0.04] hover:border-white/20 peer-checked:border-blue-500 peer-checked:bg-blue-500/10 peer-checked:shadow-[0_8px_30px_rgba(59,130,246,0.15)]"
+                      className="relative flex flex-col items-center justify-center gap-3 rounded-xl border-2 border-border/50 bg-card text-center transition-all duration-300 hover:bg-muted/50 hover:border-border peer-checked:border-blue-500 peer-checked:bg-blue-500/10 peer-checked:shadow-[0_8px_30px_rgba(59,130,246,0.15)]"
                     >
                       <div className="rounded-full bg-muted/50 text-foreground p-3 text-muted-foreground transition-all duration-300 peer-checked:bg-blue-500/20 peer-checked:text-blue-500 peer-checked:scale-110">
                         <Package className="h-6 w-6" />
@@ -213,7 +213,7 @@ export default function RegisterPage() {
                             : "e.g. John Doe"
                         }
                         {...register("business_name")}
-                        className={`pl-10 h-11 bg-black/40 border-border text-foreground placeholder:text-zinc-600 focus-visible:ring-emerald-500 focus-visible:border-emerald-500 ${errors.business_name ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+                        className={`pl-10 h-11 bg-background text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-500 focus-visible:border-emerald-500 ${errors.business_name ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                       />
                     </div>
                     {errors.business_name && (
@@ -235,7 +235,7 @@ export default function RegisterPage() {
                       type="email"
                       placeholder="you@example.com"
                       {...register("email")}
-                      className={`h-11 bg-black/40 border-border text-foreground placeholder:text-zinc-600 focus-visible:ring-emerald-500 focus-visible:border-emerald-500 ${errors.email ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+                      className={`h-11 bg-background text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-500 focus-visible:border-emerald-500 ${errors.email ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                     />
                     {errors.email && (
                       <p className="text-xs text-red-500 mt-1">
@@ -256,7 +256,7 @@ export default function RegisterPage() {
                       type="password"
                       placeholder="••••••••"
                       {...register("password")}
-                      className={`h-11 bg-black/40 border-border text-foreground placeholder:text-zinc-600 focus-visible:ring-emerald-500 focus-visible:border-emerald-500 ${errors.password ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+                      className={`h-11 bg-background text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-500 focus-visible:border-emerald-500 ${errors.password ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                     />
                     {errors.password && (
                       <p className="text-xs text-red-500 mt-1">
@@ -288,7 +288,7 @@ export default function RegisterPage() {
               Already have an account?{" "}
               <Link
                 to="/login"
-                className="font-semibold text-emerald-400 hover:text-emerald-300 transition-colors"
+                className="font-semibold text-emerald-600 dark:text-emerald-400 hover:text-emerald-300 transition-colors"
               >
                 Sign in
               </Link>

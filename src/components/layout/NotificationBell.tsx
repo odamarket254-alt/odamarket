@@ -41,7 +41,7 @@ export function NotificationBell() {
           setUnreadCount((prev) => prev + 1);
           toast(newNotif.title, {
             description: newNotif.message,
-            icon: <Bell className="h-4 w-4 text-emerald-500" />,
+            icon: <Bell className="h-4 w-4 text-emerald-600 dark:text-emerald-500" />,
             action: newNotif.link ? {
               label: "View",
               onClick: () => window.location.href = newNotif.link
@@ -128,7 +128,7 @@ export function NotificationBell() {
               variant="ghost"
               size="sm"
               onClick={markAllAsRead}
-              className="text-xs h-auto py-1 text-emerald-500 hover:text-emerald-400"
+              className="text-xs h-auto py-1 text-emerald-600 dark:text-emerald-500 hover:text-emerald-600 dark:text-emerald-400"
             >
               Mark all as read
             </Button>
@@ -165,7 +165,7 @@ export function NotificationBell() {
                       <Button
                         variant="link"
                         size="sm"
-                        className="h-auto p-0 text-xs text-emerald-500"
+                        className="h-auto p-0 text-xs text-emerald-600 dark:text-emerald-500"
                         render={<Link to={notif.link} />}
                         onClick={() => {
                           markAsRead(notif.id);

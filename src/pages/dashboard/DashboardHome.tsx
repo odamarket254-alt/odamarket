@@ -351,7 +351,7 @@ export default function DashboardHome() {
                 <CardTitle className="text-sm font-medium text-muted-foreground">
                   {stat.title}
                 </CardTitle>
-                <Icon className={cn("h-4 w-4", isPremium ? "text-amber-500" : "text-emerald-500")} />
+                <Icon className={cn("h-4 w-4", isPremium ? "text-amber-600 dark:text-amber-500" : "text-emerald-600 dark:text-emerald-500")} />
               </CardHeader>
               <CardContent>
                 {isLoading ? (
@@ -474,7 +474,7 @@ export default function DashboardHome() {
                 ) : (
                   [1, 2, 3].map((_, i) => (
                     <div key={i} className="flex items-center">
-                      <div className="h-9 w-9 rounded bg-white/10 border border-border/50 flex items-center justify-center shrink-0">
+                      <div className="h-9 w-9 rounded bg-muted/50 border border-border/50 flex items-center justify-center shrink-0">
                         {profile?.role === "admin" ? (
                           <Users className="h-4 w-4 text-muted-foreground" />
                         ) : (

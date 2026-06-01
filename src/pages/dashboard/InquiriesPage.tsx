@@ -180,7 +180,7 @@ export default function InquiriesPage() {
       case "new":
       case "pending":
         return (
-          <Badge className="bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30">
+          <Badge className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30">
             New
           </Badge>
         );
@@ -192,7 +192,7 @@ export default function InquiriesPage() {
         );
       case "closed":
         return (
-          <Badge className="bg-white/10 text-foreground/80 hover:bg-white/10 border border-white/20">
+          <Badge className="bg-muted/50 text-foreground/80 hover:bg-accent hover:text-accent-foreground border border-border">
             Closed
           </Badge>
         );
@@ -205,7 +205,7 @@ export default function InquiriesPage() {
     switch (status) {
       case "new":
       case "pending":
-        return <Mail className="h-5 w-5 text-emerald-500" />;
+        return <Mail className="h-5 w-5 text-emerald-600 dark:text-emerald-500" />;
       case "contacted":
         return <Clock className="h-5 w-5 text-blue-500" />;
       case "closed":
@@ -242,12 +242,12 @@ export default function InquiriesPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Search inquiries..."
-            className="pl-9 bg-muted/50 text-foreground border-border text-foreground placeholder:text-zinc-600 focus-visible:ring-emerald-500"
+            className="pl-9 bg-muted/50 text-foreground border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-500"
           />
         </div>
         <Button
           variant="outline"
-          className="bg-muted/50 text-foreground border-border text-foreground hover:bg-white/10"
+          className="bg-muted/50 text-foreground border-border text-foreground hover:bg-accent hover:text-accent-foreground"
         >
           <Filter className="h-4 w-4 mr-2" /> Filter
         </Button>
@@ -289,7 +289,7 @@ export default function InquiriesPage() {
                     {inquiry.products?.name}
                   </p>
                   <div className="flex justify-between items-center">
-                    <span className="text-xs bg-black/40 text-muted-foreground border border-border/50 px-2 py-1 rounded">
+                    <span className="text-xs bg-muted/50 border border-border/50 px-2 py-1 rounded">
                       Qty: {inquiry.quantity}
                     </span>
                     {getStatusBadge(inquiry.status)}
@@ -319,7 +319,7 @@ export default function InquiriesPage() {
                     <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground mb-3">
                       <span className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" /> {new Date(selectedInquiry.created_at).toLocaleDateString()}</span>
                       <span className="w-1 h-1 rounded-full bg-border" />
-                      <span className="flex items-center gap-1.5 font-semibold text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">Qty: {selectedInquiry.quantity} Units</span>
+                      <span className="flex items-center gap-1.5 font-semibold text-emerald-600 dark:text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">Qty: {selectedInquiry.quantity} Units</span>
                     </div>
                   </div>
                   <div className="text-right shrink-0">
@@ -334,7 +334,7 @@ export default function InquiriesPage() {
                   <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-border/50 pb-4">
                     <div className="flex items-start gap-4">
                        <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 shrink-0">
-                         <span className="text-emerald-500 font-bold text-base sm:text-lg">{selectedInquiry.name.charAt(0).toUpperCase()}</span>
+                         <span className="text-emerald-600 dark:text-emerald-500 font-bold text-base sm:text-lg">{selectedInquiry.name.charAt(0).toUpperCase()}</span>
                        </div>
                        <div>
                          <p className="text-sm sm:text-base font-semibold text-foreground tracking-tight">{selectedInquiry.name}</p>
@@ -348,7 +348,7 @@ export default function InquiriesPage() {
                     </div>
                     <div className="hidden sm:flex flex-col items-end pt-1">
                        <span className="text-[10px] font-semibold tracking-wider uppercase text-muted-foreground mb-1.5">Inquiry Type</span>
-                       <span className="text-xs bg-black/40 px-2.5 py-1 rounded-md border border-border text-foreground/90 font-medium tracking-wide">Product Request</span>
+                       <span className="text-xs bg-muted/502.5 py-1 rounded-md border border-border text-foreground/90 font-medium tracking-wide">Product Request</span>
                     </div>
                   </div>
 
@@ -430,7 +430,7 @@ export default function InquiriesPage() {
             <Card className="flex flex-col flex-1 border-border bg-muted/50 text-foreground backdrop-blur-sm items-center justify-center">
               <CardContent className="text-center p-8">
                 <div className="w-20 h-20 rounded-full bg-muted/50 text-foreground border border-border flex items-center justify-center mx-auto mb-4">
-                  <Mail className="h-10 w-10 text-zinc-600" />
+                  <Mail className="h-10 w-10 text-muted-foreground" />
                 </div>
                 <h3 className="text-lg font-medium text-foreground">
                   Select an inquiry

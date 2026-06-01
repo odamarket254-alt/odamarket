@@ -151,7 +151,7 @@ export default function SupportMessagesPage() {
                   <div className="flex justify-between items-center text-[10px] text-muted-foreground">
                     <span className="flex items-center gap-1">
                       {msg.status === 'unread' && <div className="w-2 h-2 rounded-full bg-emerald-500" />}
-                      {msg.status === 'resolved' && <CheckCircle className="h-3 w-3 text-emerald-500" />}
+                      {msg.status === 'resolved' && <CheckCircle className="h-3 w-3 text-emerald-600 dark:text-emerald-500" />}
                       {msg.status.toUpperCase()}
                     </span>
                     <span>{formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}</span>
@@ -184,7 +184,7 @@ export default function SupportMessagesPage() {
                        <div>
                          <p className="text-sm font-semibold text-foreground">{selectedMessage.name}</p>
                          <p className="text-xs text-muted-foreground">
-                            <a href={`mailto:${selectedMessage.email}`} className="hover:text-emerald-500 hover:underline">
+                            <a href={`mailto:${selectedMessage.email}`} className="hover:text-emerald-600 dark:text-emerald-500 hover:underline">
                               {selectedMessage.email}
                             </a>
                          </p>
@@ -230,7 +230,7 @@ export default function SupportMessagesPage() {
             <Card className="flex flex-col flex-1 border-border bg-muted/50 text-foreground backdrop-blur-sm items-center justify-center">
               <CardContent className="text-center p-8">
                 <div className="w-20 h-20 rounded-full bg-muted/50 text-foreground border border-border flex items-center justify-center mx-auto mb-4">
-                  <Mail className="h-10 w-10 text-zinc-600" />
+                  <Mail className="h-10 w-10 text-muted-foreground" />
                 </div>
                 <h3 className="text-lg font-semibold text-foreground">
                   Select a message

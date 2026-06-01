@@ -74,11 +74,11 @@ export const SwipeableProductCard: React.FC<{ product: MarketplaceProduct }> = (
     <div className="relative overflow-hidden rounded-xl h-full flex flex-col group">
       {/* Background Actions */}
       <div className="absolute inset-0 flex items-center justify-between px-8 bg-zinc-800 rounded-xl">
-         <div className="flex flex-col items-center justify-center text-amber-500">
+         <div className="flex flex-col items-center justify-center text-amber-600 dark:text-amber-500">
             <Bookmark className="w-8 h-8 mb-2" />
             <span className="text-xs font-bold uppercase tracking-wider">Save</span>
          </div>
-         <div className="flex flex-col items-center justify-center text-emerald-500">
+         <div className="flex flex-col items-center justify-center text-emerald-600 dark:text-emerald-500">
             <MessageCircle className="w-8 h-8 mb-2" />
             <span className="text-xs font-bold uppercase tracking-wider">Contact</span>
          </div>
@@ -100,7 +100,7 @@ export const SwipeableProductCard: React.FC<{ product: MarketplaceProduct }> = (
           <div className="aspect-[4/3] overflow-hidden relative bg-muted flex-shrink-0">
             {product.profiles?.verified && (
               <div className="absolute top-3 left-3 z-20 flex items-center gap-1 bg-background/90 backdrop-blur-md px-2.5 py-1 rounded-full border border-border shadow-sm">
-                <CheckCircle className="w-3 h-3 text-amber-500 fill-amber-500/20" />
+                <CheckCircle className="w-3 h-3 text-amber-600 dark:text-amber-500 fill-amber-500/20" />
                 <span className="text-[10px] font-bold text-foreground tracking-wide uppercase">Verified</span>
               </div>
             )}

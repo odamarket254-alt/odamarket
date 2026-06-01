@@ -98,7 +98,7 @@ export default function LoginPage() {
             <Button
               variant="outline"
               onClick={handleGoogleSignIn}
-              className="border-border bg-black/40 hover:bg-white/10 text-foreground"
+              className="border-border bg-muted/50 dark:bg-black/40 hover:bg-muted dark:hover:bg-accent hover:text-accent-foreground text-foreground"
             >
               <svg className="mr-2 h-4 w-4" viewBox="0 0 24 24">
                 <path
@@ -140,7 +140,7 @@ export default function LoginPage() {
                   type="email"
                   placeholder="m@example.com"
                   {...register("email")}
-                  className={`bg-black/40 border-border text-foreground placeholder:text-zinc-600 focus-visible:ring-emerald-500 ${errors.email ? "border-red-500" : ""}`}
+                  className={`bg-background text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-500 ${errors.email ? "border-red-500" : ""}`}
                 />
                 {errors.email && (
                   <p className="text-xs text-red-500">{errors.email.message}</p>
@@ -153,7 +153,7 @@ export default function LoginPage() {
                   </Label>
                   <Link
                     to="/forgot-password"
-                    className="text-sm font-medium text-emerald-500 hover:text-emerald-400"
+                    className="text-sm font-medium text-emerald-600 dark:text-emerald-500 hover:text-emerald-600 dark:text-emerald-400"
                   >
                     Forgot password?
                   </Link>
@@ -162,7 +162,7 @@ export default function LoginPage() {
                   id="password"
                   type="password"
                   {...register("password")}
-                  className={`bg-black/40 border-border text-foreground placeholder:text-zinc-600 focus-visible:ring-emerald-500 ${errors.password ? "border-red-500" : ""}`}
+                  className={`bg-background text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-500 ${errors.password ? "border-red-500" : ""}`}
                 />
                 {errors.password && (
                   <p className="text-xs text-red-500">
@@ -185,7 +185,7 @@ export default function LoginPage() {
             Don't have an account?{" "}
             <Link
               to="/register"
-              className="font-semibold text-emerald-500 hover:text-emerald-400"
+              className="font-semibold text-emerald-600 dark:text-emerald-500 hover:text-emerald-600 dark:text-emerald-400"
             >
               Sign up
             </Link>

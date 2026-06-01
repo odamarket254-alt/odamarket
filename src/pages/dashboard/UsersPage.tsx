@@ -149,10 +149,10 @@ export default function UsersPage() {
         <CardContent>
           <div className="flex flex-col sm:flex-row justify-between gap-4 mb-6">
             <div className="relative w-full sm:w-[300px]">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
                 placeholder="Search users..."
-                className="pl-9 bg-black/40 border-border"
+                className="pl-9 bg-background"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -162,7 +162,7 @@ export default function UsersPage() {
           <div className="rounded-xl border border-border/50 overflow-hidden bg-black/20">
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left">
-                <thead className="bg-black/40 text-muted-foreground font-medium border-b border-border/50">
+                <thead className="bg-muted/50 font-medium border-b border-border/50">
                   <tr>
                     <th className="px-6 py-4">User ID / Business</th>
                     <th className="px-6 py-4">Role</th>
@@ -188,7 +188,7 @@ export default function UsersPage() {
                     filtered.map((user) => (
                       <tr
                         key={user.id}
-                        className="hover:bg-white/5 transition-colors"
+                        className="hover:bg-muted/30 transition-colors"
                       >
                         <td className="px-6 py-4">
                           <div className="flex flex-col gap-1">
@@ -210,7 +210,7 @@ export default function UsersPage() {
                         </td>
                         <td className="px-6 py-4">
                           {user.verified ? (
-                            <Badge className="bg-emerald-500/20 text-emerald-400 border-emerald-500/30 gap-1.5 focus:bg-emerald-500/20 pointer-events-none">
+                            <Badge className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/30 gap-1.5 focus:bg-emerald-500/20 pointer-events-none">
                               <ShieldCheck className="h-3.5 w-3.5" /> Verified
                             </Badge>
                           ) : pendingRequests.includes(user.id) ? (
@@ -232,8 +232,8 @@ export default function UsersPage() {
                               user.verified
                                 ? "border-red-500/30 text-red-500 hover:bg-red-500/10 hover:text-red-400"
                                 : pendingRequests.includes(user.id)
-                                  ? "border-amber-500/30 text-amber-500 hover:bg-amber-500/10 hover:text-amber-400"
-                                  : "border-emerald-500/30 text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-400"
+                                  ? "border-amber-500/30 text-amber-600 dark:text-amber-500 hover:bg-amber-500/10 hover:text-amber-600 dark:text-amber-400"
+                                  : "border-emerald-500/30 text-emerald-600 dark:text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-600 dark:text-emerald-400"
                             }
                           >
                             {user.verified ? "Revoke" : pendingRequests.includes(user.id) ? "Approve Request" : "Verify Badge"}

@@ -328,12 +328,12 @@ export default function ProductDetailsPage() {
                   </Button>
                 </div>
 
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-black/40 rounded-xl mb-8 border border-border/50">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-card mb-8 border border-border/50">
                   <div>
                     <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1 font-medium">
                       Est. Price
                     </p>
-                    <p className="font-semibold text-lg text-emerald-400">
+                    <p className="font-semibold text-lg text-emerald-600 dark:text-emerald-400">
                       {product.price}
                       <span className="text-sm text-muted-foreground font-normal">
                         /{product.unit}
@@ -361,7 +361,7 @@ export default function ProductDetailsPage() {
                     <p className="text-xs text-muted-foreground uppercase tracking-wide mb-1 font-medium">
                       Availability
                     </p>
-                    <p className="font-medium text-emerald-500">In Stock</p>
+                    <p className="font-medium text-emerald-600 dark:text-emerald-500">In Stock</p>
                   </div>
                 </div>
 
@@ -395,7 +395,7 @@ export default function ProductDetailsPage() {
                   )}>
                     <span className={cn(
                       "text-2xl font-bold",
-                      product.isVerified ? "text-amber-500" : "text-emerald-500"
+                      product.isVerified ? "text-amber-600 dark:text-amber-500" : "text-emerald-600 dark:text-emerald-500"
                     )}>
                       {product.supplier.charAt(0)}
                     </span>
@@ -406,7 +406,7 @@ export default function ProductDetailsPage() {
                         {product.supplier}
                       </h4>
                       {product.isVerified && (
-                        <ShieldCheck className="h-5 w-5 text-amber-500" />
+                        <ShieldCheck className="h-5 w-5 text-amber-600 dark:text-amber-500" />
                       )}
                     </div>
                     <p className={cn(
@@ -423,13 +423,13 @@ export default function ProductDetailsPage() {
                       {!product.isVerified && <MapPin className="h-4 w-4" />}
                     </p>
                     <div className="flex flex-wrap gap-4 text-sm">
-                      <div className="bg-black/40 px-3 py-1.5 rounded-md border border-border/50 text-muted-foreground">
+                      <div className="bg-muted/503 py-1.5 rounded-md border border-border/50 text-muted-foreground">
                         <span className="font-medium text-foreground">
                           Type:
                         </span>{" "}
                         {product.supplierInfo.type}
                       </div>
-                      <div className="bg-black/40 px-3 py-1.5 rounded-md border border-border/50 text-muted-foreground">
+                      <div className="bg-muted/503 py-1.5 rounded-md border border-border/50 text-muted-foreground">
                         <span className="font-medium text-foreground">
                           Est:
                         </span>{" "}
@@ -477,7 +477,7 @@ export default function ProductDetailsPage() {
                           id="name"
                           {...register("name")}
                           placeholder="John Doe"
-                          className={`bg-black/40 border-border text-foreground placeholder:text-zinc-600 focus-visible:ring-emerald-500 ${errors.name ? "border-red-500" : ""}`}
+                          className={`bg-background text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-500 ${errors.name ? "border-red-500" : ""}`}
                         />
                         {errors.name && (
                           <p className="text-xs text-red-500">
@@ -497,7 +497,7 @@ export default function ProductDetailsPage() {
                           type="email"
                           {...register("email")}
                           placeholder="john@company.com"
-                          className={`bg-black/40 border-border text-foreground placeholder:text-zinc-600 focus-visible:ring-emerald-500 ${errors.email ? "border-red-500" : ""}`}
+                          className={`bg-background text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-500 ${errors.email ? "border-red-500" : ""}`}
                         />
                         {errors.email && (
                           <p className="text-xs text-red-500">
@@ -518,7 +518,7 @@ export default function ProductDetailsPage() {
                         id="company"
                         {...register("company")}
                         placeholder="Global Imports Ltd"
-                        className={`bg-black/40 border-border text-foreground placeholder:text-zinc-600 focus-visible:ring-emerald-500 ${errors.company ? "border-red-500" : ""}`}
+                        className={`bg-background text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-500 ${errors.company ? "border-red-500" : ""}`}
                       />
                       {errors.company && (
                         <p className="text-xs text-red-500">
@@ -539,7 +539,7 @@ export default function ProductDetailsPage() {
                           id="phone"
                           {...register("phone")}
                           placeholder="+1 234 567 890"
-                          className="bg-black/40 border-border text-foreground placeholder:text-zinc-600 focus-visible:ring-emerald-500"
+                          className="bg-background text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-500"
                         />
                       </div>
                       <div className="space-y-2">
@@ -553,7 +553,7 @@ export default function ProductDetailsPage() {
                           id="quantity"
                           {...register("quantity")}
                           placeholder={`e.g. 1000 ${product.unit}`}
-                          className={`bg-black/40 border-border text-foreground placeholder:text-zinc-600 focus-visible:ring-emerald-500 ${errors.quantity ? "border-red-500" : ""}`}
+                          className={`bg-background text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-500 ${errors.quantity ? "border-red-500" : ""}`}
                         />
                         {errors.quantity && (
                           <p className="text-xs text-red-500">
@@ -577,7 +577,7 @@ export default function ProductDetailsPage() {
                         {...register("message")}
                         placeholder="Please include delivery destination, special requirements, or target price..."
                         rows={4}
-                        className={`bg-black/40 border-border text-foreground placeholder:text-zinc-600 focus-visible:ring-emerald-500 ${errors.message ? "border-red-500 resize-none" : "resize-none"}`}
+                        className={`bg-background text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-500 ${errors.message ? "border-red-500 resize-none" : "resize-none"}`}
                       />
                       {errors.message && (
                         <p className="text-xs text-red-500">

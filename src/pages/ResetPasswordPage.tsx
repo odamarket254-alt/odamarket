@@ -95,7 +95,7 @@ export default function ResetPasswordPage() {
                 id="password"
                 type="password"
                 {...register("password")}
-                className={`bg-black/40 border-border text-foreground placeholder:text-zinc-600 focus-visible:ring-emerald-500 ${
+                className={`bg-background text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-500 ${
                   errors.password ? "border-red-500" : ""
                 }`}
               />
@@ -111,7 +111,7 @@ export default function ResetPasswordPage() {
                 id="confirmPassword"
                 type="password"
                 {...register("confirmPassword")}
-                className={`bg-black/40 border-border text-foreground placeholder:text-zinc-600 focus-visible:ring-emerald-500 ${
+                className={`bg-background text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-500 ${
                   errors.confirmPassword ? "border-red-500" : ""
                 }`}
               />
@@ -133,7 +133,7 @@ export default function ResetPasswordPage() {
         <CardFooter className="flex flex-wrap items-center justify-center gap-2 border-t border-border pt-4 pb-6 px-6 bg-black/20">
           <Link
             to="/login"
-            className="flex items-center text-sm font-medium text-emerald-500 hover:text-emerald-400"
+            className="flex items-center text-sm font-medium text-emerald-600 dark:text-emerald-500 hover:text-emerald-600 dark:text-emerald-400"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to login

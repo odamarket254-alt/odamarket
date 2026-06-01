@@ -81,7 +81,7 @@ export default function ForgotPasswordPage() {
                   type="email"
                   placeholder="m@example.com"
                   {...register("email")}
-                  className={`bg-black/40 border-border text-foreground placeholder:text-zinc-600 focus-visible:ring-emerald-500 ${
+                  className={`bg-background text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-500 ${
                     errors.email ? "border-red-500" : ""
                   }`}
                 />
@@ -109,7 +109,7 @@ export default function ForgotPasswordPage() {
                 strokeWidth="2"
                 strokeLinecap="round"
                 strokeLinejoin="round"
-                className="text-emerald-500"
+                className="text-emerald-600 dark:text-emerald-500"
               >
                 <path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h8"></path>
                 <path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"></path>
@@ -121,7 +121,7 @@ export default function ForgotPasswordPage() {
         <CardFooter className="flex flex-wrap items-center justify-center gap-2 border-t border-border pt-4 pb-6 px-6 bg-black/20">
           <Link
             to="/login"
-            className="flex items-center text-sm font-medium text-emerald-500 hover:text-emerald-400"
+            className="flex items-center text-sm font-medium text-emerald-600 dark:text-emerald-500 hover:text-emerald-600 dark:text-emerald-400"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to login

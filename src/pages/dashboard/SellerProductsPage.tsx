@@ -227,7 +227,7 @@ export default function DashboardProductsPage() {
               <div className="space-y-2">
                 <Label className="text-foreground/80">Product Image</Label>
                 <div className="flex items-center gap-4">
-                  <div className="h-20 w-20 rounded-xl border-2 border-dashed border-white/20 bg-black/40 flex items-center justify-center overflow-hidden shrink-0">
+                  <div className="h-20 w-20 rounded-xl border-2 border-dashed border-border bg-muted/50">
                     {imagePreview ? (
                       <img
                         src={imagePreview}
@@ -241,7 +241,7 @@ export default function DashboardProductsPage() {
                   <div className="flex-1">
                     <Label
                       htmlFor="image-upload"
-                      className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-muted/50 text-foreground hover:bg-white/10 border border-border rounded-lg text-sm font-medium transition-colors text-foreground"
+                      className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-muted/50 text-foreground hover:bg-accent hover:text-accent-foreground border border-border rounded-lg text-sm font-medium transition-colors text-foreground"
                     >
                       <Upload className="h-4 w-4" />
                       Choose Image
@@ -269,7 +269,7 @@ export default function DashboardProductsPage() {
                   required
                   defaultValue={editingProduct?.name || ""}
                   placeholder="e.g. Premium Arabica Coffee Beans"
-                  className="bg-black/40 border-border"
+                  className="bg-background"
                 />
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -283,7 +283,7 @@ export default function DashboardProductsPage() {
                     required
                     defaultValue={editingProduct?.category || ""}
                     placeholder="e.g. Agriculture"
-                    className="bg-black/40 border-border"
+                    className="bg-background"
                   />
                 </div>
                 <div className="space-y-2">
@@ -296,7 +296,7 @@ export default function DashboardProductsPage() {
                     required
                     defaultValue={editingProduct?.price || ""}
                     placeholder="e.g. Ksh 45,000/mt"
-                    className="bg-black/40 border-border"
+                    className="bg-background"
                   />
                 </div>
               </div>
@@ -311,7 +311,7 @@ export default function DashboardProductsPage() {
                     required
                     defaultValue={editingProduct?.stock || ""}
                     placeholder="e.g. 500 mt"
-                    className="bg-black/40 border-border"
+                    className="bg-background"
                   />
                 </div>
                 <div className="space-y-2">
@@ -319,7 +319,7 @@ export default function DashboardProductsPage() {
                     Status
                   </Label>
                   <Select name="status" defaultValue={editingProduct?.status || "active"}>
-                    <SelectTrigger className="bg-black/40 border-border">
+                    <SelectTrigger className="bg-background">
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
                     <SelectContent className="bg-[#0a0a0a] border-border text-foreground">
@@ -338,7 +338,7 @@ export default function DashboardProductsPage() {
                   name="description"
                   defaultValue={editingProduct?.description || ""}
                   placeholder="Product details..."
-                  className="bg-black/40 border-border resize-none"
+                  className="bg-background resize-none"
                   rows={3}
                 />
               </div>
@@ -406,9 +406,9 @@ export default function DashboardProductsPage() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.05 }}
                   key={product.id}
-                  className="p-4 flex flex-col sm:flex-row sm:items-center gap-4 hover:bg-white/[0.02] transition-colors group"
+                  className="p-4 flex flex-col sm:flex-row sm:items-center gap-4 hover:bg-muted/50 transition-colors group"
                 >
-                  <div className="h-16 w-16 rounded-lg bg-black/40 overflow-hidden shrink-0 border border-border">
+                  <div className="h-16 w-16 rounded-lg bg-muted/50">
                     {product.image_url ? (
                       <img
                         src={product.image_url}
@@ -416,14 +416,14 @@ export default function DashboardProductsPage() {
                         className="w-full h-full object-cover"
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-zinc-600">
+                      <div className="w-full h-full flex items-center justify-center text-muted-foreground">
                         <Package className="h-6 w-6" />
                       </div>
                     )}
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-base font-medium text-foreground truncate group-hover:text-emerald-400 transition-colors">
+                    <h3 className="text-base font-medium text-foreground truncate group-hover:text-emerald-600 dark:text-emerald-400 transition-colors">
                       {product.name}
                     </h3>
                     <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
@@ -441,7 +441,7 @@ export default function DashboardProductsPage() {
                     <div
                       className={`px-2.5 py-1 text-xs font-medium rounded-full ${
                         product.status === "active"
-                          ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/20"
+                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
                           : "bg-zinc-500/10 text-muted-foreground border border-zinc-500/20"
                       }`}
                     >
@@ -454,7 +454,7 @@ export default function DashboardProductsPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-foreground hover:bg-white/10"
+                            className="h-8 w-8 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                           />
                         }
                       >
@@ -465,7 +465,7 @@ export default function DashboardProductsPage() {
                         className="w-40 bg-[#0a0a0a] border-border text-foreground"
                       >
                         <DropdownMenuItem 
-                          className="focus:bg-white/10 focus:text-foreground cursor-pointer gap-2"
+                          className="focus:bg-muted/50 focus:text-foreground cursor-pointer gap-2"
                           onClick={() => {
                             setEditingProduct(product);
                             setImagePreview(product.image_url || null);

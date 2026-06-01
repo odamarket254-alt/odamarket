@@ -143,7 +143,7 @@ export default function SupplierProfilePage() {
                   className="w-full h-full object-cover" 
                 />
               ) : (
-                <span className="text-4xl text-emerald-500 font-bold uppercase">
+                <span className="text-4xl text-emerald-600 dark:text-emerald-500 font-bold uppercase">
                   {supplier.business_name?.charAt(0) || "S"}
                 </span>
               )}
@@ -155,7 +155,7 @@ export default function SupplierProfilePage() {
                   {supplier.business_name || "Unknown Supplier"}
                 </h1>
                 {supplier.verified && (
-                  <ShieldCheck className="h-6 w-6 text-emerald-500" />
+                  <ShieldCheck className="h-6 w-6 text-emerald-600 dark:text-emerald-500" />
                 )}
               </div>
               <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
@@ -246,10 +246,10 @@ export default function SupplierProfilePage() {
       <div>
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold flex items-center gap-2">
-            <Package className="h-5 w-5 text-emerald-500" />
+            <Package className="h-5 w-5 text-emerald-600 dark:text-emerald-500" />
             Products by {supplier.business_name}
           </h2>
-          <Badge variant="outline" className="text-emerald-500 border-emerald-500/30 bg-emerald-500/10">
+          <Badge variant="outline" className="text-emerald-600 dark:text-emerald-500 border-emerald-500/30 bg-emerald-500/10">
             {products.length} Items Listed
           </Badge>
         </div>

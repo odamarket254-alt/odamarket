@@ -70,7 +70,7 @@ export default function RootLayout() {
   };
 
   return (
-    <div className="min-h-[100dvh] flex flex-col font-sans bg-background text-foreground selection:bg-emerald-500/30">
+    <div className="min-h-[100dvh] flex flex-col font-sans bg-background text-foreground">
       <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur-md">
         <div className="container mx-auto px-4 py-2 md:py-0 md:h-16 flex flex-col md:flex-row md:items-center justify-between gap-2 md:gap-4">
           <div className="flex items-center justify-between w-full md:w-auto">
@@ -78,7 +78,7 @@ export default function RootLayout() {
               <Link to="/" className="flex items-center gap-2">
                 <span className="text-xl font-bold tracking-tight text-foreground">
                   ODA <span className={cn(
-                    profile?.role === "seller" && profile?.verified ? "text-amber-500" : "text-emerald-600 dark:text-emerald-500"
+                    profile?.role === "seller" && profile?.verified ? "text-amber-600 dark:text-amber-500" : "text-emerald-600 dark:text-emerald-500"
                   )}>MARKET</span>
                 </span>
               </Link>
@@ -99,7 +99,7 @@ export default function RootLayout() {
                   ) : (
                     <span className={cn(
                       "font-medium text-xs",
-                      profile?.role === "seller" && profile?.verified ? "text-amber-500" : "text-emerald-600 dark:text-emerald-400"
+                      profile?.role === "seller" && profile?.verified ? "text-amber-600 dark:text-amber-500" : "text-emerald-600 dark:text-emerald-400"
                     )}>
                       {profile?.business_name
                         ? profile.business_name.charAt(0).toUpperCase()
@@ -125,7 +125,7 @@ export default function RootLayout() {
               className="relative w-full group"
               onSubmit={(e) => e.preventDefault()}
             >
-              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground group-focus-within:text-emerald-600 dark:group-focus-within:text-emerald-500 transition-colors">
+              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground group-focus-within:text-emerald-600 dark:group-focus-within:text-emerald-600 dark:text-emerald-500 transition-colors">
                 <Search className="h-4 w-4" />
               </div>
               <Input
@@ -142,11 +142,11 @@ export default function RootLayout() {
             <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-muted-foreground mr-4">
               <Link
                 to="/products"
-                className="hover:text-emerald-500 transition-colors"
+                className="hover:text-emerald-600 dark:text-emerald-500 transition-colors"
               >
                 Products
               </Link>
-              <Link to="/contact" className="hover:text-emerald-500 transition-colors">
+              <Link to="/contact" className="hover:text-emerald-600 dark:text-emerald-500 transition-colors">
                 Contact Us
               </Link>
             </nav>
@@ -173,7 +173,7 @@ export default function RootLayout() {
                   ) : (
                     <span className={cn(
                       "font-medium text-sm",
-                      profile?.role === "seller" && profile?.verified ? "text-amber-400" : "text-emerald-400"
+                      profile?.role === "seller" && profile?.verified ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"
                     )}>
                       {profile?.business_name
                         ? profile.business_name.charAt(0).toUpperCase()
@@ -262,7 +262,7 @@ export default function RootLayout() {
               animate={{ x: 0 }}
               exit={{ x: "-100%" }}
               transition={{ type: "spring", bounce: 0, duration: 0.4 }}
-              className="fixed inset-y-0 left-0 z-[110] w-[85vw] max-w-sm bg-[#0a0a0a] border-r border-border shadow-2xl flex flex-col md:hidden"
+              className="fixed inset-y-0 left-0 z-[110] w-[85vw] max-w-sm bg-card border-r border-border shadow-2xl flex flex-col md:hidden"
               role="dialog"
               aria-modal="true"
               aria-label="Mobile navigation"
@@ -275,7 +275,7 @@ export default function RootLayout() {
                 >
                   <span className="text-xl font-bold tracking-tight text-foreground">
                     ODA <span className={cn(
-                      profile?.role === "seller" && profile?.verified ? "text-amber-500" : "text-emerald-500"
+                      profile?.role === "seller" && profile?.verified ? "text-amber-600 dark:text-amber-500" : "text-emerald-600 dark:text-emerald-500"
                     )}>MARKET</span>
                   </span>
                 </Link>
@@ -298,7 +298,7 @@ export default function RootLayout() {
                     setIsMobileMenuOpen(false);
                   }}
                 >
-                  <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground group-focus-within:text-emerald-500 transition-colors">
+                  <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground group-focus-within:text-emerald-600 dark:text-emerald-500 transition-colors">
                     <Search className="h-4 w-4" />
                   </div>
                   <Input
@@ -309,7 +309,7 @@ export default function RootLayout() {
                       // Don't close menu immediately to let them see results, but they are on mobile so we could.
                     }}
                     placeholder="Search products..."
-                    className="w-full pl-10 bg-muted/50 text-foreground border-border text-foreground placeholder:text-zinc-600 focus-visible:ring-emerald-500 rounded-full h-12"
+                    className="w-full pl-10 bg-muted/50 text-foreground border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-500 rounded-full h-12"
                   />
                 </form>
               </div>
@@ -322,7 +322,7 @@ export default function RootLayout() {
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     <span className="font-medium text-lg">Products</span>
-                    <ChevronRight className="h-5 w-5 text-zinc-600" />
+                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
                   </Link>
                   <Link
                     to="/contact"
@@ -330,7 +330,7 @@ export default function RootLayout() {
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
                     <span className="font-medium text-lg">Contact Us</span>
-                    <ChevronRight className="h-5 w-5 text-zinc-600" />
+                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
                   </Link>
                 </nav>
               </div>
@@ -346,7 +346,7 @@ export default function RootLayout() {
                         {profile?.logo_url ? (
                           <img src={profile.logo_url} alt="Profile" className="h-full w-full object-cover" />
                         ) : (
-                          <span className="font-medium text-emerald-400 text-base">
+                          <span className="font-medium text-emerald-600 dark:text-emerald-400 text-base">
                             {profile?.business_name
                               ? profile.business_name.charAt(0).toUpperCase()
                               : user.email?.charAt(0).toUpperCase()}
@@ -366,7 +366,7 @@ export default function RootLayout() {
                       render={
                         <Link to={`/${profile?.role || "buyer"}/dashboard`} />
                       }
-                      className="w-full bg-white/10 hover:bg-white/20 text-foreground border border-border h-12"
+                      className="w-full bg-muted/50 hover:bg-muted text-foreground border border-border h-12"
                     >
                       Dashboard
                     </Button>
@@ -386,7 +386,7 @@ export default function RootLayout() {
                     <Button
                       render={<Link to="/login" />}
                       variant="outline"
-                      className="w-full bg-muted/50 text-foreground border-border text-foreground hover:bg-white/10 h-12 text-base justify-center font-semibold"
+                      className="w-full bg-muted/50 text-foreground border-border text-foreground hover:bg-accent hover:text-accent-foreground h-12 text-base justify-center font-semibold"
                     >
                       <LogIn className="h-4 w-4 mr-2" />
                       Sign In
@@ -428,32 +428,32 @@ export default function RootLayout() {
             <ul className="space-y-2 text-sm">
               <li>
                 <Link
-                  to="#"
-                  className="hover:text-emerald-400 transition-colors"
+                  to="/products?category=Agriculture"
+                  className="hover:text-emerald-600 dark:text-emerald-400 transition-colors"
                 >
                   Agriculture
                 </Link>
               </li>
               <li>
                 <Link
-                  to="#"
-                  className="hover:text-emerald-400 transition-colors"
+                  to="/products?category=Livestock"
+                  className="hover:text-emerald-600 dark:text-emerald-400 transition-colors"
                 >
                   Livestock
                 </Link>
               </li>
               <li>
                 <Link
-                  to="#"
-                  className="hover:text-emerald-400 transition-colors"
+                  to="/products?category=Construction"
+                  className="hover:text-emerald-600 dark:text-emerald-400 transition-colors"
                 >
                   Construction
                 </Link>
               </li>
               <li>
                 <Link
-                  to="#"
-                  className="hover:text-emerald-400 transition-colors"
+                  to="/products?category=Manufacturing"
+                  className="hover:text-emerald-600 dark:text-emerald-400 transition-colors"
                 >
                   Manufacturing
                 </Link>
@@ -466,7 +466,7 @@ export default function RootLayout() {
               <li>
                 <Link
                   to="#"
-                  className="hover:text-emerald-400 transition-colors"
+                  className="hover:text-emerald-600 dark:text-emerald-400 transition-colors"
                 >
                   About Us
                 </Link>
@@ -474,7 +474,7 @@ export default function RootLayout() {
               <li>
                 <Link
                   to="#"
-                  className="hover:text-emerald-400 transition-colors"
+                  className="hover:text-emerald-600 dark:text-emerald-400 transition-colors"
                 >
                   Careers
                 </Link>
@@ -482,7 +482,7 @@ export default function RootLayout() {
               <li>
                 <Link
                   to="#"
-                  className="hover:text-emerald-400 transition-colors"
+                  className="hover:text-emerald-600 dark:text-emerald-400 transition-colors"
                 >
                   Terms of Service
                 </Link>
@@ -490,7 +490,7 @@ export default function RootLayout() {
               <li>
                 <Link
                   to="#"
-                  className="hover:text-emerald-400 transition-colors"
+                  className="hover:text-emerald-600 dark:text-emerald-400 transition-colors"
                 >
                   Privacy Policy
                 </Link>
@@ -509,7 +509,7 @@ export default function RootLayout() {
         <div className="container mx-auto px-4 mt-12 pt-8 border-t border-border text-sm flex flex-col md:flex-row justify-between items-center text-[11px] tracking-widest uppercase">
           <p>© {new Date().getFullYear()} ODA Market</p>
           <div className="flex gap-6 mt-4 md:mt-0">
-            <span className="text-emerald-500 font-bold italic tracking-normal">
+            <span className="text-emerald-600 dark:text-emerald-500 font-bold italic tracking-normal">
               #AfricaTrade{new Date().getFullYear()}
             </span>
           </div>

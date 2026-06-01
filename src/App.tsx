@@ -9,17 +9,7 @@ import { useEffect, Suspense, lazy } from "react";
 import { supabase } from "./lib/supabase";
 import { useAuthStore } from "./store/useAuthStore";
 import { Loader2 } from "lucide-react";
-
-// Setup global error handling for failed dynamic imports (e.g., stale cache or dev server restart)
-if (typeof window !== "undefined") {
-  window.addEventListener("error", (e) => {
-    if (e.message?.includes("Failed to fetch dynamically imported module") || 
-        e.message?.includes("Importing a module script failed")) {
-      console.error("Dynamic import failed, reloading page...");
-      window.location.reload();
-    }
-  });
-}
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 // Layouts
 import RootLayout from "./components/layout/RootLayout";
@@ -54,8 +44,6 @@ function LoadingFallback() {
     </div>
   );
 }
-
-import { ErrorBoundary } from "./components/ErrorBoundary";
 
 export default function App() {
   const { setUser, setProfile, setLoading } = useAuthStore();

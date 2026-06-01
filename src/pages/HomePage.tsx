@@ -222,13 +222,18 @@ export default function HomePage() {
   return (
     <div className="flex flex-col min-h-[calc(100dvh-4rem)] bg-background">
       {/* Madaraka Day Banner */}
-      <div className="w-full relative bg-[#0a0a0a] border-b border-border shadow-md z-10 flex justify-center">
-        <div className="w-full h-[120px] sm:h-[180px] md:h-[240px] lg:h-[280px] relative">
-          <div className="absolute inset-0 bg-gradient-to-r from-black/60 to-transparent z-10 pointer-events-none" />
+      <div className="w-full relative bg-background flex justify-center pt-6 px-4 z-10">
+        <div className="w-full max-w-6xl h-[160px] sm:h-[200px] md:h-[260px] relative rounded-2xl overflow-hidden shadow-xl border border-border group">
+          <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/50 to-transparent z-10 pointer-events-none flex flex-col justify-center p-6 sm:p-8 md:p-12 transition-opacity duration-300">
+            <h2 className="text-xl sm:text-3xl md:text-4xl font-bold text-white mb-2 max-w-lg">Happy Madaraka Day! 🇰🇪</h2>
+            <p className="text-xs sm:text-sm md:text-base text-gray-200 max-w-md font-medium leading-relaxed">
+              To all our valued clients, today we celebrate freedom, innovation, and our shared journey. Thank you for growing with ODA Market. We appreciate you!
+            </p>
+          </div>
           <img 
             src={madarakaBanner} 
             alt="Happy Madaraka Day Kenya" 
-            className="w-full h-full object-cover object-center"
+            className="w-full h-full object-cover object-[center_35%] transition-transform duration-700 group-hover:scale-105"
           />
         </div>
       </div>
@@ -279,7 +284,7 @@ export default function HomePage() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="What are you sourcing today?"
-                  className="w-full bg-transparent border-none outline-none text-foreground/90 placeholder:text-zinc-500 h-10 sm:h-12 shadow-none focus-visible:ring-0 px-0 text-sm sm:text-base"
+                  className="w-full bg-transparent border-none outline-none text-foreground/90 placeholder:text-muted-foreground h-10 sm:h-12 shadow-none focus-visible:ring-0 px-0 text-sm sm:text-base"
                 />
               </div>
               <Button
@@ -344,7 +349,7 @@ export default function HomePage() {
             </div>
             <Button
               variant="ghost"
-              className="hidden sm:flex text-emerald-500 hover:text-emerald-400 hover:bg-muted/50 text-foreground"
+              className="hidden sm:flex text-emerald-600 dark:text-emerald-500 hover:text-emerald-600 dark:text-emerald-400 hover:bg-muted/50 text-foreground"
             >
               View All <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
@@ -361,7 +366,7 @@ export default function HomePage() {
               >
                 <Link
                   to={`/products?category=${encodeURIComponent(category.name)}`}
-                  className="block relative h-48 md:h-56 rounded-2xl overflow-hidden group border border-border shadow-lg bg-muted/50 text-foreground transition-all duration-500 hover:-translate-y-1.5 hover:shadow-2xl hover:shadow-emerald-500/10 hover:border-white/20"
+                  className="block relative h-48 md:h-56 rounded-2xl overflow-hidden group border border-border shadow-lg bg-slate-900 transition-all duration-500 hover:-translate-y-1.5 hover:shadow-2xl hover:shadow-emerald-500/10 hover:border-border"
                 >
                   <div className="absolute inset-0 bg-black/40 transition-colors duration-500 group-hover:bg-black/60 z-10" />
                   <img
@@ -371,7 +376,7 @@ export default function HomePage() {
                     className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                   />
                   <div className="absolute inset-0 z-20 p-5 flex flex-col justify-end transition-transform duration-500 group-hover:-translate-y-1">
-                    <h3 className="text-lg md:text-xl font-bold text-foreground mb-1 shadow-black/50 drop-shadow-md">
+                    <h3 className="text-lg md:text-xl font-bold text-white mb-1 shadow-black/50 drop-shadow-md">
                       {category.name}
                     </h3>
                     <p className="text-sm font-medium text-emerald-400 drop-shadow-md opacity-90">
@@ -401,7 +406,7 @@ export default function HomePage() {
             </div>
             <Button
               variant="outline"
-              className="hidden sm:flex border-border bg-muted/50 text-foreground text-foreground hover:bg-white/10"
+              className="hidden sm:flex border-border bg-muted/50 text-foreground text-foreground hover:bg-accent hover:text-accent-foreground"
             >
               Browse Market
             </Button>
@@ -447,7 +452,7 @@ export default function HomePage() {
         <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-[100px]" />
 
         <div className="container mx-auto px-4 relative z-10 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-500 text-xs font-semibold mb-6 uppercase tracking-wider">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-500 text-xs font-semibold mb-6 uppercase tracking-wider">
             Unlock Wholesale Prices
           </div>
           <h2 className="text-3xl md:text-5xl font-bold text-foreground mb-6 max-w-2xl mx-auto">
@@ -469,7 +474,7 @@ export default function HomePage() {
               size="lg"
               variant="outline"
               render={<Link to="/products" />}
-              className="border-border bg-muted/50 text-foreground text-foreground hover:bg-white/10 rounded-xl px-8 h-14 text-lg font-medium backdrop-blur-sm"
+              className="border-border bg-muted/50 text-foreground text-foreground hover:bg-accent hover:text-accent-foreground rounded-xl px-8 h-14 text-lg font-medium backdrop-blur-sm"
             >
               Start Sourcing
             </Button>

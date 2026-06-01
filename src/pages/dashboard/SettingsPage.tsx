@@ -75,7 +75,7 @@ export default function SettingsPage() {
           if (updatedProfile.verified !== profile.verified) {
             if (updatedProfile.verified) {
               toast.success("Congratulations! Your account has been verified.", {
-                icon: <ShieldCheck className="h-5 w-5 text-amber-500" />
+                icon: <ShieldCheck className="h-5 w-5 text-amber-600 dark:text-amber-500" />
               });
               setHasRequested(false);
               localStorage.removeItem(`verification_requested_${profile.id}`);
@@ -183,7 +183,7 @@ export default function SettingsPage() {
                     <h4 className="text-lg font-semibold text-foreground tracking-tight">
                       {profile.business_name || "Unnamed Business"}
                     </h4>
-                    <p className="text-sm font-medium text-emerald-500 capitalize">{profile.role}</p>
+                    <p className="text-sm font-medium text-emerald-600 dark:text-emerald-500 capitalize">{profile.role}</p>
                   </div>
                 </div>
                 
@@ -192,7 +192,7 @@ export default function SettingsPage() {
                     variant="outline" 
                     size="sm" 
                     onClick={() => setIsEditing(true)}
-                    className="h-9 gap-2 shrink-0 border-border bg-background/50 hover:bg-emerald-500/10 hover:text-emerald-500 hover:border-emerald-500/50 transition-colors"
+                    className="h-9 gap-2 shrink-0 border-border bg-background/50 hover:bg-emerald-500/10 hover:text-emerald-600 dark:text-emerald-500 hover:border-emerald-500/50 transition-colors"
                   >
                     <Pencil className="h-3.5 w-3.5" />
                     <span className="hidden sm:inline">Edit Profile</span>
@@ -248,7 +248,7 @@ export default function SettingsPage() {
                       <div className="space-y-3 p-4 rounded-xl border border-border bg-muted/20">
                         <Label htmlFor="logo_upload" className="text-foreground/90 font-medium flex items-center gap-2">
                           Brand Logo
-                          <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-500 text-[10px] uppercase font-bold tracking-wider border border-amber-500/20">Premium</span>
+                          <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-500 text-[10px] uppercase font-bold tracking-wider border border-amber-500/20">Premium</span>
                         </Label>
                         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                           <div className="h-16 w-16 shrink-0 rounded-full overflow-hidden border-2 border-border bg-background flex items-center justify-center relative">
@@ -286,7 +286,7 @@ export default function SettingsPage() {
                       </div>
                     ) : (
                       <div className="p-4 bg-amber-500/5 border border-amber-500/20 rounded-xl flex items-start gap-3">
-                        <ShieldAlert className="h-5 w-5 text-amber-500 shrink-0 mt-0.5" />
+                        <ShieldAlert className="h-5 w-5 text-amber-600 dark:text-amber-500 shrink-0 mt-0.5" />
                         <div>
                           <p className="text-sm font-medium text-amber-500/90">Custom Avatar Locked</p>
                           <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
@@ -364,7 +364,7 @@ export default function SettingsPage() {
                     <div className={cn(
                         "h-20 w-20 rounded-2xl flex-shrink-0 flex items-center justify-center border shadow-sm",
                         profile.verified 
-                          ? "bg-amber-500/10 border-amber-500/20 text-amber-500" 
+                          ? "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-500" 
                           : "bg-muted border-border text-muted-foreground"
                       )}>
                         {profile.verified ? <ShieldCheck className="h-10 w-10" /> : <ShieldAlert className="h-10 w-10" />}
@@ -372,7 +372,7 @@ export default function SettingsPage() {
                     
                     <div className="flex-1 space-y-3">
                       <div>
-                        <h4 className={cn("text-lg font-semibold", profile.verified ? "text-amber-500" : "text-foreground")}>
+                        <h4 className={cn("text-lg font-semibold", profile.verified ? "text-amber-600 dark:text-amber-500" : "text-foreground")}>
                           {profile.verified ? "Premium Verified Seller" : "Unverified Account"}
                         </h4>
                         <p className="text-sm text-muted-foreground mt-1 max-w-xl">
@@ -385,7 +385,7 @@ export default function SettingsPage() {
                       {!profile.verified && (
                         <div className="pt-3">
                           {hasRequested ? (
-                            <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-sm font-medium text-emerald-500">
+                            <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-sm font-medium text-emerald-600 dark:text-emerald-500">
                               <CheckCircle2 className="h-4 w-4" />
                               Verification Request Under Review
                             </div>

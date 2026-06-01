@@ -113,12 +113,12 @@ export default function ProductsPage() {
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search products, categories..."
-                className="pl-9 bg-muted/50 text-foreground border-border text-foreground placeholder:text-zinc-600 focus-visible:ring-emerald-500"
+                className="pl-9 bg-muted/50 text-foreground border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-500"
               />
             </form>
             <Button
               variant="outline"
-              className="shrink-0 bg-muted/50 text-foreground border-border hover:bg-white/10 text-foreground"
+              className="shrink-0 bg-muted/50 text-foreground border-border hover:bg-accent hover:text-accent-foreground text-foreground"
             >
               <Filter className="h-4 w-4 mr-2" />
               Filters
@@ -131,7 +131,7 @@ export default function ProductsPage() {
           <Badge
             variant="secondary"
             onClick={() => setSearch("")}
-            className={`px-4 py-1.5 cursor-pointer hover:bg-emerald-500/20 hover:text-emerald-500 text-sm border border-border ${search === "" ? "bg-emerald-500/20 text-emerald-500 border-emerald-500/30" : "bg-muted/50 text-foreground/80"}`}
+            className={`px-4 py-1.5 cursor-pointer hover:bg-emerald-500/20 hover:text-emerald-600 dark:hover:text-emerald-500 text-sm border border-border ${search === "" ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-500 border-emerald-500/30" : "bg-muted/50 text-foreground/80"}`}
           >
             All
           </Badge>
@@ -151,7 +151,7 @@ export default function ProductsPage() {
               key={cat}
               variant="secondary"
               onClick={() => setSearch(cat)}
-              className={`px-4 py-1.5 cursor-pointer hover:bg-emerald-500/20 hover:text-emerald-500 text-sm border border-border ${search === cat ? "bg-emerald-500/20 text-emerald-500 border-emerald-500/30" : "bg-muted/50 text-foreground/80"}`}
+              className={`px-4 py-1.5 cursor-pointer hover:bg-emerald-500/20 hover:text-emerald-600 dark:hover:text-emerald-500 text-sm border border-border ${search === cat ? "bg-emerald-500/20 text-emerald-600 dark:text-emerald-500 border-emerald-500/30" : "bg-muted/50 text-foreground/80"}`}
             >
               {cat}
             </Badge>
@@ -174,7 +174,7 @@ export default function ProductsPage() {
             ))
           ) : filtered.length === 0 ? (
             <div className="col-span-full py-12 text-center border border-border/50 rounded-2xl bg-muted/50 text-foreground backdrop-blur-sm">
-              <ShoppingBag className="h-12 w-12 text-zinc-600 mx-auto mb-4" />
+              <ShoppingBag className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <h3 className="text-lg font-medium text-foreground">
                 No products found
               </h3>

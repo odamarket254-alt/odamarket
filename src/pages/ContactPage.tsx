@@ -65,7 +65,7 @@ export default function ContactPage() {
         <div className="space-y-8">
           <div>
             <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground mb-4">
-              Get in <span className="text-emerald-500">Touch</span>
+              Get in <span className="text-emerald-600 dark:text-emerald-500">Touch</span>
             </h1>
             <p className="text-muted-foreground text-lg leading-relaxed max-w-md">
               Whether you're a buyer looking for specific products or a seller needing support, our team is here to help you succeed on ODA Market.
@@ -75,12 +75,12 @@ export default function ContactPage() {
           <div className="space-y-6 pt-4">
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-                <Mail className="h-5 w-5 text-emerald-500" />
+                <Mail className="h-5 w-5 text-emerald-600 dark:text-emerald-500" />
               </div>
               <div>
                 <h3 className="font-semibold text-foreground text-lg mb-1">Email Us</h3>
                 <p className="text-muted-foreground mb-1">Our friendly team is here to help.</p>
-                <a href="mailto:info@odamarket.co.ke" className="text-emerald-500 hover:text-emerald-400 font-medium transition-colors">
+                <a href="mailto:info@odamarket.co.ke" className="text-emerald-600 dark:text-emerald-500 hover:text-emerald-600 dark:text-emerald-400 font-medium transition-colors">
                   info@odamarket.co.ke
                 </a>
               </div>
@@ -88,7 +88,7 @@ export default function ContactPage() {
 
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-                <MapPin className="h-5 w-5 text-emerald-500" />
+                <MapPin className="h-5 w-5 text-emerald-600 dark:text-emerald-500" />
               </div>
               <div>
                 <h3 className="font-semibold text-foreground text-lg mb-1">Office</h3>
@@ -99,12 +99,12 @@ export default function ContactPage() {
 
             <div className="flex items-start gap-4">
               <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-                <Phone className="h-5 w-5 text-emerald-500" />
+                <Phone className="h-5 w-5 text-emerald-600 dark:text-emerald-500" />
               </div>
               <div>
                 <h3 className="font-semibold text-foreground text-lg mb-1">Phone</h3>
                 <p className="text-muted-foreground mb-1">Mon-Fri from 8am to 5pm.</p>
-                <a href="tel:0792867386" className="text-emerald-500 hover:text-emerald-400 font-medium transition-colors">
+                <a href="tel:0792867386" className="text-emerald-600 dark:text-emerald-500 hover:text-emerald-600 dark:text-emerald-400 font-medium transition-colors">
                   0792867386
                 </a>
               </div>

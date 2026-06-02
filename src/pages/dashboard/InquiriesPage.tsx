@@ -1,13 +1,17 @@
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "../../components/ui/Card";
 import { Badge } from "../../components/ui/Badge";
-import { Mail, Clock, CheckCircle, Search, Filter, Send, ArrowLeft, Calendar, Building2, Sparkles, Paperclip, Smile, Loader2 } from "lucide-react";
+import { 
+  Mail, Clock, CheckCircle, Search, Filter, Send, ArrowLeft, 
+  Calendar, Building2, Paperclip, Smile, Loader2, FileText, 
+  Download, MapPin, MessageSquare
+} from "lucide-react";
 import TextareaAutosize from "react-textarea-autosize";
 import { Input } from "../../components/ui/Input";
 import { Button } from "../../components/ui/Button";
 import { supabase } from "../../lib/supabase";
 import { useAuthStore } from "../../store/useAuthStore";
-import { formatDistanceToNow } from "date-fns";
+import { formatDistanceToNow, format } from "date-fns";
 import { toast } from "sonner";
 import { useSearchParams } from "react-router-dom";
 
@@ -36,6 +40,135 @@ interface InquiryMessage {
   created_at: string;
 }
 
+const parseMessage = (text: string) => {
+  try {
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      const parsed = JSON.parse(jsonMatch[0]);
+      if (parsed.Product || parsed["Total Amount"] || parsed["Unit Price"]) {
+         return { type: 'quotation', data: parsed, original: text, before: text.substring(0, jsonMatch.index), after: text.substring(jsonMatch.index! + jsonMatch[0].length) };
+      }
+    }
+  } catch (e) {}
+
+  const isQuotation = /product/i.test(text) && (/amount/i.test(text) || /price/i.test(text) || /fee/i.test(text));
+  if (isQuotation) {
+      const rawLines = text.split(/\r?\n/);
+      const quoteData: Record<string, string> = {};
+      
+      const textLines: string[] = [];
+      
+      rawLines.forEach(line => {
+        const match = line.match(/^[\*\-]?\s*([^:]+)\s*:\s*(.+)$/);
+        if (match) {
+          const key = match[1].trim().replace(/\*/g, '');
+          const value = match[2].trim().replace(/\*/g, '');
+          if (key.split(' ').length <= 4) { 
+            quoteData[key] = value;
+          } else {
+             textLines.push(line);
+          }
+        } else {
+           textLines.push(line);
+        }
+      });
+      if (Object.keys(quoteData).length >= 3) {
+        return { type: 'quotation', data: quoteData, original: text, before: '', after: textLines.join('\n') };
+      }
+  }
+
+  return { type: 'text', original: text };
+};
+
+const QuotationCard = ({ data, isOwn }: { data: Record<string, string>, isOwn: boolean }) => {
+  const getValue = (keys: string[]) => {
+    const key = Object.keys(data).find(k => keys.some(searchKey => k.toLowerCase().includes(searchKey.toLowerCase())));
+    return key ? data[key] : null;
+  };
+
+  const product = getValue(['Product', 'Item', 'Name']) || "Custom Quotation";
+  const quantity = getValue(['Quantity', 'Qty']);
+  const unitPrice = getValue(['Unit Price', 'Price']);
+  const deliveryFee = getValue(['Delivery Fee', 'Shipping']);
+  const totalAmount = getValue(['Total', 'Amount']);
+  const coverage = getValue(['Coverage', 'Location', 'Deliver ']);
+  const timeline = getValue(['Timeline', 'Time', 'Duration', 'ETA']);
+  const seller = getValue(['Seller', 'Vendor', 'Company']);
+
+  return (
+    <div className={`my-2 flex flex-col w-[280px] sm:w-[320px] rounded-2xl overflow-hidden shadow-sm ${isOwn ? 'bg-emerald-50 dark:bg-emerald-900/40 text-emerald-950 dark:text-emerald-50 border border-emerald-200 dark:border-emerald-800' : 'bg-card border border-border dark:bg-zinc-800 dark:border-zinc-700 text-foreground'}`}>
+      <div className={`px-4 py-3 border-b flex items-center justify-between ${isOwn ? 'bg-emerald-100/80 border-emerald-200/50 dark:bg-emerald-800/50 dark:border-emerald-700/50' : 'bg-muted/50 border-border dark:bg-zinc-900/50'}`}>
+        <div className="flex items-center gap-2">
+          <FileText className={`h-4 w-4 ${isOwn ? 'text-emerald-700 dark:text-emerald-400' : 'text-primary'}`} />
+          <span className={`font-semibold text-sm ${isOwn ? 'text-emerald-900 dark:text-emerald-300' : 'text-foreground'}`}>Quotation</span>
+        </div>
+        {totalAmount && <span className={`font-bold text-sm ${isOwn ? 'text-emerald-700 dark:text-emerald-400' : 'text-primary'}`}>{totalAmount}</span>}
+      </div>
+      
+      <div className="p-4 flex flex-col gap-3">
+        <div>
+          <h4 className={`font-semibold text-[15px] leading-tight mb-1 ${isOwn ? 'text-emerald-950 dark:text-emerald-100' : 'text-foreground'}`}>{product}</h4>
+          {seller && <p className={`text-[13px] ${isOwn ? 'text-emerald-800/80 dark:text-emerald-200/80' : 'text-muted-foreground'}`}>From: {seller}</p>}
+        </div>
+
+        <div className="grid grid-cols-2 gap-3 mt-1">
+          {quantity && (
+            <div className="flex flex-col">
+              <span className={`text-[10px] uppercase font-bold tracking-wider ${isOwn ? 'text-emerald-700/70 dark:text-emerald-400/70' : 'text-muted-foreground'}`}>Quantity</span>
+              <span className={`text-[14px] font-medium leading-snug ${isOwn ? 'text-emerald-950 dark:text-emerald-200' : 'text-foreground'}`}>{quantity}</span>
+            </div>
+          )}
+          {unitPrice && (
+            <div className="flex flex-col">
+              <span className={`text-[10px] uppercase font-bold tracking-wider ${isOwn ? 'text-emerald-700/70 dark:text-emerald-400/70' : 'text-muted-foreground'}`}>Unit Price</span>
+              <span className={`text-[14px] font-medium leading-snug ${isOwn ? 'text-emerald-950 dark:text-emerald-200' : 'text-foreground'}`}>{unitPrice}</span>
+            </div>
+          )}
+          {deliveryFee && (
+            <div className="flex flex-col">
+              <span className={`text-[10px] uppercase font-bold tracking-wider ${isOwn ? 'text-emerald-700/70 dark:text-emerald-400/70' : 'text-muted-foreground'}`}>Delivery Fee</span>
+              <span className={`text-[14px] font-medium leading-snug ${isOwn ? 'text-emerald-950 dark:text-emerald-200' : 'text-foreground'}`}>{deliveryFee}</span>
+            </div>
+          )}
+          {timeline && (
+            <div className="flex flex-col">
+              <span className={`text-[10px] uppercase font-bold tracking-wider ${isOwn ? 'text-emerald-700/70 dark:text-emerald-400/70' : 'text-muted-foreground'}`}>Timeline</span>
+              <span className={`text-[14px] font-medium leading-snug ${isOwn ? 'text-emerald-950 dark:text-emerald-200' : 'text-foreground'}`}>{timeline}</span>
+            </div>
+          )}
+        </div>
+        
+        {coverage && (
+          <div className={`flex items-center gap-1.5 mt-1 border-t pt-2 ${isOwn ? 'border-emerald-200/50 dark:border-emerald-700/50' : 'border-border/50'}`}>
+            <MapPin className={`h-3.5 w-3.5 ${isOwn ? 'text-emerald-700 dark:text-emerald-400' : 'text-muted-foreground'}`} />
+            <span className={`text-[13px] truncate ${isOwn ? 'text-emerald-800 dark:text-emerald-300' : 'text-muted-foreground'}`}>{coverage}</span>
+          </div>
+        )}
+      </div>
+
+      {!isOwn && (
+        <div className="p-3 bg-muted/30 border-t border-border flex flex-col gap-2">
+          <Button size="sm" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm">
+             Accept Quote
+          </Button>
+          <div className="flex gap-2">
+            <Button size="sm" variant="outline" className="flex-1 text-xs bg-card hover:bg-muted font-semibold text-foreground">
+              Negotiate
+            </Button>
+            <Button size="sm" variant="outline" className="flex-1 text-xs bg-card hover:bg-muted font-semibold text-foreground">
+              Contact Seller
+            </Button>
+            <Button size="sm" variant="outline" className="flex flex-col items-center justify-center px-3 bg-card hover:bg-muted" title="Download PDF">
+              <Download className="h-4 w-4 text-foreground" />
+            </Button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+
 export default function InquiriesPage() {
   const { user, profile } = useAuthStore();
   const [searchParams] = useSearchParams();
@@ -50,37 +183,23 @@ export default function InquiriesPage() {
 
   useEffect(() => {
     if (!user) return;
-
     fetchInquiries();
-
     const channel = supabase
       .channel(`inquiries-changes-${Math.random()}`)
       .on(
         "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "inquiries",
-          filter: `seller_id=eq.${user.id}`,
-        },
-        () => {
-          fetchInquiries();
-        },
+        { event: "*", schema: "public", table: "inquiries", filter: `seller_id=eq.${user.id}` },
+        () => { fetchInquiries(); }
       )
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [user]);
 
   useEffect(() => {
     const sellerId = searchParams.get("seller");
     if (sellerId && inquiries.length > 0 && !selectedInquiry) {
       const existingInquiry = inquiries.find(inq => inq.seller_id === sellerId);
-      if (existingInquiry) {
-        setSelectedInquiry(existingInquiry);
-      }
+      if (existingInquiry) { setSelectedInquiry(existingInquiry); }
     }
   }, [searchParams, inquiries, selectedInquiry]);
 
@@ -89,7 +208,6 @@ export default function InquiriesPage() {
       setInquiryMessages([]);
       return;
     }
-
     const fetchMessages = async () => {
       try {
         const { data, error } = await supabase
@@ -97,7 +215,6 @@ export default function InquiriesPage() {
           .select("*")
           .eq("inquiry_id", selectedInquiry.id)
           .order("created_at", { ascending: true });
-
         if (error) console.error(error);
         if (data) setInquiryMessages(data);
       } catch (err) {
@@ -106,29 +223,15 @@ export default function InquiriesPage() {
     };
 
     fetchMessages();
-
     const channel = supabase
       .channel(`messages-${selectedInquiry.id}-${Math.random()}`)
       .on(
         "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "inquiry_messages",
-          filter: `inquiry_id=eq.${selectedInquiry.id}`,
-        },
-        (payload) => {
-          setInquiryMessages((prev) => [
-            ...prev,
-            payload.new as InquiryMessage,
-          ]);
-        },
+        { event: "INSERT", schema: "public", table: "inquiry_messages", filter: `inquiry_id=eq.${selectedInquiry.id}` },
+        (payload) => { setInquiryMessages((prev) => [...prev, payload.new as InquiryMessage]); }
       )
       .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    return () => { supabase.removeChannel(channel); };
   }, [selectedInquiry]);
 
   useEffect(() => {
@@ -145,7 +248,6 @@ export default function InquiriesPage() {
         .select("*, products(name)")
         .or(`seller_id.eq.${user?.id},buyer_id.eq.${user?.id}`)
         .order("created_at", { ascending: false });
-
       if (error) throw error;
       if (data) setInquiries(data);
     } catch (err) {
@@ -164,7 +266,6 @@ export default function InquiriesPage() {
         sender_id: user.id,
         message: newMessage.trim(),
       });
-
       if (error) throw error;
       setNewMessage("");
     } catch (error: any) {
@@ -179,39 +280,13 @@ export default function InquiriesPage() {
     switch (status) {
       case "new":
       case "pending":
-        return (
-          <Badge className="bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/20 border border-emerald-500/30">
-            New
-          </Badge>
-        );
+        return <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">New</Badge>;
       case "contacted":
-        return (
-          <Badge className="bg-blue-500/20 text-blue-400 hover:bg-blue-500/20 border border-blue-500/30">
-            Contacted
-          </Badge>
-        );
+        return <Badge className="bg-blue-500/10 text-blue-500 dark:text-blue-400 border border-blue-500/20">Contacted</Badge>;
       case "closed":
-        return (
-          <Badge className="bg-muted/50 text-foreground/80 hover:bg-accent hover:text-accent-foreground border border-border">
-            Closed
-          </Badge>
-        );
+        return <Badge className="bg-muted text-foreground/80 border border-border">Closed</Badge>;
       default:
         return <Badge>{status}</Badge>;
-    }
-  };
-
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "new":
-      case "pending":
-        return <Mail className="h-5 w-5 text-emerald-600 dark:text-emerald-500" />;
-      case "contacted":
-        return <Clock className="h-5 w-5 text-blue-500" />;
-      case "closed":
-        return <CheckCircle className="h-5 w-5 text-muted-foreground" />;
-      default:
-        return <Mail className="h-5 w-5" />;
     }
   };
 
@@ -223,226 +298,203 @@ export default function InquiriesPage() {
   );
 
   return (
-    <div className="space-y-6 flex flex-col min-h-[calc(100dvh-8rem)] lg:h-[calc(100dvh-8rem)]">
-      <div className="shrink-0 flex justify-between items-center">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-foreground">
-            Inquiries Inbox
-          </h1>
-          <p className="text-muted-foreground">
-            Manage buyer requests and quotes.
-          </p>
+    <div className="flex flex-col h-[calc(100dvh-64px)] lg:h-[calc(100dvh-64px)] -mx-4 sm:mx-0 sm:h-full lg:flex-row overflow-hidden bg-background">
+      {/* Sidebar List */}
+      <div className={`w-full lg:w-[350px] xl:w-[400px] flex flex-col border-r border-border bg-card z-10 ${selectedInquiry ? 'hidden lg:flex' : 'flex'}`}>
+        <div className="p-4 border-b border-border bg-card shrink-0">
+          <h1 className="text-xl font-bold tracking-tight text-foreground mb-4">Messages</h1>
+          <div className="relative w-full">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search messages..."
+              className="pl-9 bg-muted/50 border-border h-10 w-full"
+            />
+          </div>
         </div>
-      </div>
 
-      <div className="flex gap-4 shrink-0">
-        <div className="relative flex-1 max-w-md">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search inquiries..."
-            className="pl-9 bg-muted/50 text-foreground border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-500"
-          />
-        </div>
-        <Button
-          variant="outline"
-          className="bg-muted/50 text-foreground border-border text-foreground hover:bg-accent hover:text-accent-foreground"
-        >
-          <Filter className="h-4 w-4 mr-2" /> Filter
-        </Button>
-      </div>
-
-      <div className="flex-1 flex flex-col lg:grid lg:grid-cols-3 gap-6 min-h-0">
-        {/* Inbox List */}
-        <div className={`lg:col-span-1 border border-border bg-muted/50 text-foreground backdrop-blur-sm rounded-lg overflow-y-auto flex-1 lg:h-full ${selectedInquiry ? 'hidden lg:block' : 'block'}`}>
+        <div className="flex-1 overflow-y-auto min-h-0 bg-background/50 hide-scrollbar">
           {isLoading ? (
-            <div className="p-8 text-center text-muted-foreground">
-              Loading...
+            <div className="flex justify-center items-center h-32">
+              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : filteredInquiries.length === 0 ? (
-            <div className="p-8 text-center text-muted-foreground">
-              No inquiries found.
+            <div className="p-8 text-center text-muted-foreground flex flex-col items-center">
+               <MessageSquare className="h-8 w-8 mb-3 opacity-20" />
+               <p>No messages found</p>
             </div>
           ) : (
-            <div className="divide-y divide-white/5">
+            <div className="divide-y divide-border/40">
               {filteredInquiries.map((inquiry) => (
                 <div
                   key={inquiry.id}
                   onClick={() => setSelectedInquiry(inquiry)}
-                  className={`p-4 hover:bg-emerald-500/10 cursor-pointer transition-colors border-l-4 ${selectedInquiry?.id === inquiry.id ? "border-emerald-500 bg-muted/50 text-foreground" : "border-transparent"}`}
+                  className={`p-4 cursor-pointer transition-all hover:bg-muted/50 flex gap-3 ${selectedInquiry?.id === inquiry.id ? "bg-muted dark:bg-zinc-800/50" : ""}`}
                 >
-                  <div className="flex justify-between items-start mb-1">
-                    <div className="flex items-center gap-2">
-                      {getStatusIcon(inquiry.status)}
-                      <span className="font-semibold text-foreground text-sm">
+                  <div className="h-12 w-12 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-bold text-lg shrink-0 border border-emerald-200 dark:border-emerald-800/50">
+                    {inquiry.company.charAt(0).toUpperCase()}
+                  </div>
+                  <div className="flex-1 min-w-0 flex flex-col justify-center">
+                    <div className="flex justify-between items-baseline mb-0.5">
+                      <span className="font-semibold text-foreground text-[15px] truncate pr-2">
                         {inquiry.company}
                       </span>
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">
+                        {formatDistanceToNow(new Date(inquiry.created_at), { addSuffix: false })}
+                      </span>
                     </div>
-                    <span className="text-xs text-muted-foreground">
-                      {formatDistanceToNow(new Date(inquiry.created_at), {
-                        addSuffix: true,
-                      })}
-                    </span>
-                  </div>
-                  <p className="text-sm text-muted-foreground truncate mb-2">
-                    {inquiry.products?.name}
-                  </p>
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs bg-muted/50 border border-border/50 px-2 py-1 rounded">
-                      Qty: {inquiry.quantity}
-                    </span>
-                    {getStatusBadge(inquiry.status)}
+                    <p className="text-sm text-foreground/80 truncate font-medium mb-1">
+                      {inquiry.products?.name}
+                    </p>
+                    <div className="flex justify-between items-center mt-1.5">
+                      <p className="text-[13px] text-muted-foreground truncate w-full">
+                         {inquiry.quantity} Units requested
+                      </p>
+                    </div>
                   </div>
                 </div>
               ))}
             </div>
           )}
         </div>
+      </div>
 
-        {/* Selected Inquiry Detail */}
-        <div className={`lg:col-span-2 flex flex-col flex-1 lg:h-full ${selectedInquiry ? 'flex' : 'hidden lg:flex'}`}>
-          {selectedInquiry ? (
-            <Card className="flex flex-col flex-1 border-border bg-muted/50 text-foreground backdrop-blur-sm overflow-hidden">
-              <CardContent className="flex flex-col flex-1 p-4 sm:p-8 overflow-hidden">
-                {/* Header Section */}
-                <div className="flex justify-between items-start mb-6 shrink-0">
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                       <Button variant="ghost" size="sm" className="lg:hidden p-0 h-6 w-6 mr-2 text-muted-foreground" onClick={() => setSelectedInquiry(null)}>
-                         <ArrowLeft className="h-4 w-4" />
-                       </Button>
-                       <h2 className="text-lg sm:text-2xl font-bold text-foreground">
-                         {selectedInquiry.products?.name}
-                       </h2>
-                    </div>
-                    <div className="flex items-center gap-2 text-xs sm:text-sm text-muted-foreground mb-3">
-                      <span className="flex items-center gap-1.5"><Calendar className="h-3.5 w-3.5" /> {new Date(selectedInquiry.created_at).toLocaleDateString()}</span>
-                      <span className="w-1 h-1 rounded-full bg-border" />
-                      <span className="flex items-center gap-1.5 font-semibold text-emerald-600 dark:text-emerald-500 bg-emerald-500/10 px-2 py-0.5 rounded-md border border-emerald-500/20">Qty: {selectedInquiry.quantity} Units</span>
-                    </div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <div className="mb-2">
-                      {getStatusBadge(selectedInquiry.status)}
-                    </div>
-                  </div>
+      {/* Main Chat Area */}
+      <div className={`flex-1 flex flex-col h-full bg-[#E5DDD5] dark:bg-[#0b141a] relative ${!selectedInquiry ? 'hidden lg:flex' : 'flex'}`}>
+        {!selectedInquiry ? (
+           <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-card border-l border-border h-full relative z-10">
+              <div className="w-24 h-24 rounded-full bg-muted flex items-center justify-center mb-6">
+                 <MessageSquare className="h-10 w-10 text-muted-foreground" />
+              </div>
+              <h2 className="text-2xl font-bold text-foreground mb-2">OdaMarket Messages</h2>
+              <p className="text-muted-foreground max-w-md">
+                 Select a conversation on the left to view messages and quotations.
+              </p>
+           </div>
+        ) : (
+          <div className="flex flex-col h-full w-full">
+            {/* Chat Header */}
+            <div className="h-16 px-4 bg-card border-b border-border flex items-center justify-between shrink-0 z-10 shadow-sm relative">
+              <div className="flex items-center gap-3 min-w-0">
+                <Button variant="ghost" size="icon" className="lg:hidden shrink-0 -ml-2 text-foreground" onClick={() => setSelectedInquiry(null)}>
+                  <ArrowLeft className="h-5 w-5" />
+                </Button>
+                <div className="h-10 w-10 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-bold shrink-0 border border-emerald-200 dark:border-emerald-800/50">
+                  {selectedInquiry.company.charAt(0).toUpperCase()}
                 </div>
-
-                {/* Sender Info & Initial Message */}
-                <div className="bg-muted/30 border border-border rounded-xl p-4 sm:p-5 mb-6 shrink-0 flex flex-col gap-4 shadow-sm">
-                  <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4 border-b border-border/50 pb-4">
-                    <div className="flex items-start gap-4">
-                       <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20 shrink-0">
-                         <span className="text-emerald-600 dark:text-emerald-500 font-bold text-base sm:text-lg">{selectedInquiry.name.charAt(0).toUpperCase()}</span>
-                       </div>
-                       <div>
-                         <p className="text-sm sm:text-base font-semibold text-foreground tracking-tight">{selectedInquiry.name}</p>
-                         <p className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1.5 mt-1">
-                           <Building2 className="h-3.5 w-3.5" /> {selectedInquiry.company}
-                         </p>
-                         <p className="text-xs sm:text-sm text-muted-foreground flex items-center gap-1.5 mt-0.5">
-                           <Mail className="h-3.5 w-3.5" /> {selectedInquiry.email}
-                         </p>
-                       </div>
-                    </div>
-                    <div className="hidden sm:flex flex-col items-end pt-1">
-                       <span className="text-[10px] font-semibold tracking-wider uppercase text-muted-foreground mb-1.5">Inquiry Type</span>
-                       <span className="text-xs bg-muted/502.5 py-1 rounded-md border border-border text-foreground/90 font-medium tracking-wide">Product Request</span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <h4 className="text-[10px] sm:text-xs font-semibold text-muted-foreground mb-3 uppercase tracking-wider">
-                      Message Content
-                    </h4>
-                    <p className="text-foreground/90 whitespace-pre-line text-sm leading-relaxed max-h-[120px] overflow-y-auto hide-scrollbar pl-3 sm:pl-4 border-l-2 border-emerald-500/50 italic bg-black/20 p-3 sm:p-4 rounded-r-xl shadow-inner">
-                      "{selectedInquiry.message}"
-                    </p>
-                  </div>
+                <div className="flex flex-col min-w-0">
+                  <h3 className="font-semibold text-[16px] text-foreground truncate leading-tight mb-0.5">{selectedInquiry.company}</h3>
+                  <p className="text-[13px] text-muted-foreground truncate leading-tight">{selectedInquiry.name} • {selectedInquiry.products?.name}</p>
                 </div>
+              </div>
+              
+              <div className="flex items-center gap-1 sm:gap-2 shrink-0">
+                <div className="hidden sm:block">
+                  {getStatusBadge(selectedInquiry.status)}
+                </div>
+              </div>
+            </div>
 
-                <div className="flex-1 overflow-y-auto mb-4 pr-2 pb-2 space-y-4 hide-scrollbar">
-                  {inquiryMessages.map((msg) => {
-                    const isOwn = msg.sender_id === user?.id;
-                    return (
-                      <div
-                        key={msg.id}
-                        className={`flex flex-col ${isOwn ? "items-end" : "items-start"}`}
-                      >
-                        <div
-                          className={`max-w-[85%] sm:max-w-[80%] rounded-xl px-3 py-2 sm:px-4 sm:py-3 ${isOwn ? "bg-emerald-600/20 border border-emerald-500/30 text-emerald-50" : "bg-muted/50 border border-border text-foreground"}`}
-                        >
-                          <p className="whitespace-pre-line text-sm">
-                            {msg.message}
-                          </p>
+            {/* Chat Messages */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-3 z-0" style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/cubes.png')", backgroundBlendMode: "overlay" }}>
+               {/* Initial Inquiry Card */}
+               <div className="flex justify-center mb-6">
+                 <div className="max-w-[90%] sm:max-w-md bg-white dark:bg-zinc-800/95 border border-zinc-200 dark:border-zinc-700 rounded-xl p-4 shadow-sm text-center">
+                    <span className="inline-flex items-center justify-center bg-emerald-100 dark:bg-emerald-900/40 text-emerald-800 dark:text-emerald-300 text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full mb-3 border border-emerald-200 dark:border-emerald-800/50">
+                       Initial Request
+                    </span>
+                    <h4 className="font-semibold text-lg text-foreground mb-1 leading-snug">{selectedInquiry.products?.name}</h4>
+                    <p className="text-sm font-medium text-muted-foreground mb-4">{selectedInquiry.quantity} Units requested</p>
+                    
+                    <div className="bg-muted/40 p-3 rounded-lg text-left inline-block w-full border border-border">
+                       <p className="text-[14px] text-foreground/90 whitespace-pre-wrap italic">"{selectedInquiry.message}"</p>
+                    </div>
+                 </div>
+               </div>
+
+               {/* Messages Loop */}
+               {inquiryMessages.map((msg, idx) => {
+                  const isOwn = msg.sender_id === user?.id;
+                  const prevMsg = idx > 0 ? inquiryMessages[idx - 1] : null;
+                  const isConsecutive = prevMsg?.sender_id === msg.sender_id;
+                  
+                  const parsed = parseMessage(msg.message);
+
+                  return (
+                    <div key={msg.id} className={`flex flex-col ${isOwn ? "items-end" : "items-start"} ${isConsecutive ? "mt-1" : "mt-3"}`}>
+                      {parsed.type === 'quotation' ? (
+                         <>
+                            {parsed.before?.trim() && (
+                               <div className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-3 sm:px-4 py-2 sm:py-2.5 shadow-sm text-[15px] leading-relaxed mb-1 ${isOwn ? "bg-[#005c4b] text-[#e9edef] rounded-tr-sm" : "bg-white dark:bg-[#202c33] border-none text-[#111b21] dark:text-[#e9edef] rounded-tl-sm"}`}>
+                                  {parsed.before.trim()}
+                               </div>
+                            )}
+                            <QuotationCard data={parsed.data} isOwn={isOwn} />
+                            {parsed.after?.trim() && (
+                               <div className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-3 sm:px-4 py-2 sm:py-2.5 shadow-sm text-[15px] leading-relaxed mt-1 ${isOwn ? "bg-[#005c4b] text-[#e9edef] rounded-tr-sm" : "bg-white dark:bg-[#202c33] border-none text-[#111b21] dark:text-[#e9edef] rounded-tl-sm"}`}>
+                                  {parsed.after.trim().split('\n').map((line, i) => (
+                                     <span key={i}>{line}<br /></span>
+                                  ))}
+                               </div>
+                            )}
+                         </>
+                      ) : (
+                        <div className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-3 sm:px-4 py-2 sm:py-2.5 shadow-sm text-[15px] leading-relaxed ${isOwn ? "bg-[#005c4b] text-[#e9edef] rounded-tr-sm" : "bg-white dark:bg-[#202c33] border-none text-[#111b21] dark:text-[#e9edef] rounded-tl-sm"}`}>
+                           <p className="whitespace-pre-wrap">{msg.message}</p>
                         </div>
-                        <span className="text-[10px] sm:text-xs text-muted-foreground mt-1 px-1">
-                          {formatDistanceToNow(new Date(msg.created_at), {
-                            addSuffix: true,
-                          })}
-                        </span>
-                      </div>
-                    );
-                  })}
-                  <div ref={messagesEndRef} />
-                </div>
+                      )}
+                      
+                      {!isConsecutive && (
+                         <span className="text-[11px] text-muted-foreground/80 dark:text-muted-foreground/60 mt-1 px-1 font-medium select-none">
+                            {format(new Date(msg.created_at), 'HH:mm')}
+                         </span>
+                      )}
+                    </div>
+                  );
+               })}
+               <div ref={messagesEndRef} className="h-2" />
+            </div>
 
-                <div className="flex items-end gap-2 shrink-0 pt-3 border-t border-border/50 bg-background/50 p-2 sm:p-3 rounded-b-xl">
-                  <Button variant="ghost" size="icon" className="h-10 w-10 sm:h-12 sm:w-12 rounded-full shrink-0 text-muted-foreground hover:text-foreground mb-1">
-                    <Paperclip className="h-5 w-5" />
+            {/* Chat Input */}
+            <div className="bg-card px-3 sm:px-4 auto-rows-min py-3 flex items-end gap-2 border-t border-border z-10 shadow-[0_-2px_10px_rgba(0,0,0,0.02)]">
+               <Button variant="ghost" size="icon" className="h-[44px] w-[44px] rounded-full shrink-0 text-muted-foreground hover:bg-muted/80 hover:text-foreground">
+                  <Paperclip className="h-[22px] w-[22px]" />
+               </Button>
+               <div className="flex-1 bg-muted/60 dark:bg-zinc-900 border border-border/50 rounded-[22px] flex items-end overflow-hidden focus-within:ring-1 focus-within:ring-emerald-500/50 transition-shadow">
+                  <Button variant="ghost" size="icon" className="h-[44px] w-[44px] shrink-0 text-muted-foreground hover:text-foreground">
+                     <Smile className="h-[22px] w-[22px]" />
                   </Button>
-                  <div className="flex-1 relative bg-muted/40 border border-border/50 focus-within:border-emerald-500/50 focus-within:bg-muted/80 transition-colors rounded-2xl flex items-end shadow-sm p-1">
-                    <Button variant="ghost" size="icon" className="h-10 w-10 sm:h-12 sm:w-12 shrink-0 text-muted-foreground hover:text-foreground self-end mb-0.5 sm:mb-0">
-                      <Smile className="h-5 w-5" />
-                    </Button>
-                    <TextareaAutosize
-                      value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" && !e.shiftKey) {
-                          e.preventDefault();
-                          handleSendMessage();
-                        }
-                      }}
-                      placeholder="Message"
-                      minRows={1}
-                      maxRows={5}
-                      className="flex-1 min-w-0 bg-transparent border-0 ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 px-2 py-2.5 sm:py-3.5 resize-none text-foreground placeholder:text-muted-foreground shadow-none text-base outline-none"
-                    />
-                  </div>
-                  <Button
-                    onClick={handleSendMessage}
-                    disabled={!newMessage.trim() || isSending}
-                    size="icon"
-                    className="h-10 w-10 sm:h-12 sm:w-12 rounded-full shrink-0 bg-emerald-600 hover:bg-emerald-500 text-white shadow-md transition-transform active:scale-95 mb-1"
-                  >
-                    {isSending ? (
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                    ) : (
-                      <Send className="h-5 w-5 ml-0.5" />
-                    )}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card className="flex flex-col flex-1 border-border bg-muted/50 text-foreground backdrop-blur-sm items-center justify-center">
-              <CardContent className="text-center p-8">
-                <div className="w-20 h-20 rounded-full bg-muted/50 text-foreground border border-border flex items-center justify-center mx-auto mb-4">
-                  <Mail className="h-10 w-10 text-muted-foreground" />
-                </div>
-                <h3 className="text-lg font-medium text-foreground">
-                  Select an inquiry
-                </h3>
-                <p className="text-muted-foreground max-w-sm mx-auto mt-2">
-                  Choose an inquiry from the list to view details, buyer
-                  information, and respond.
-                </p>
-              </CardContent>
-            </Card>
-          )}
-        </div>
+                  <TextareaAutosize
+                    value={newMessage}
+                    onChange={(e) => setNewMessage(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage();
+                      }
+                    }}
+                    placeholder="Type a message..."
+                    minRows={1}
+                    maxRows={6}
+                    className="flex-1 min-w-0 bg-transparent border-0 ring-0 focus-visible:ring-0 focus-visible:ring-offset-0 px-2 py-[11px] resize-none text-[15px] text-foreground placeholder:text-muted-foreground shadow-none outline-none leading-snug"
+                  />
+               </div>
+               <Button
+                 onClick={handleSendMessage}
+                 disabled={!newMessage.trim() || isSending}
+                 size="icon"
+                 className="h-[44px] w-[44px] rounded-full shrink-0 bg-[#00a884] hover:bg-[#008f6f] text-white shadow-md active:scale-95 transition-all disabled:opacity-50 disabled:active:scale-100"
+               >
+                 {isSending ? (
+                   <Loader2 className="h-5 w-5 animate-spin" />
+                 ) : (
+                   <Send className="h-[20px] w-[20px] ml-0.5" />
+                 )}
+               </Button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

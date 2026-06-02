@@ -18,8 +18,6 @@ import { motion } from "motion/react";
 import { supabase } from "../lib/supabase";
 import { SwipeableProductCard } from "../components/SwipeableProductCard";
 
-import madarakaBanner from "../assets/images/madaraka_day_banner_1780143272280.png";
-
 interface MarketplaceProduct {
   id: string;
   name: string;
@@ -138,6 +136,45 @@ const featuredProducts = [
   },
 ];
 
+const CompactProductCard = ({ product }: { product: any }) => {
+  return (
+    <Link
+      to={`/products/${product.id}`}
+      className="flex flex-col h-full group overflow-hidden rounded-lg bg-card border border-border shadow-sm hover:border-emerald-500/30 transition-colors"
+    >
+      <div className="aspect-square relative bg-muted overflow-hidden">
+        <img
+          src={
+            product.image_url ||
+            "https://images.unsplash.com/photo-1559525839-b184a4d698c7?w=500&auto=format&fit=crop&q=60"
+          }
+          alt={product.name}
+          loading="lazy"
+          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+        />
+        {product.profiles?.verified && (
+          <div className="absolute top-2 left-2 bg-background/90 backdrop-blur-md rounded-full px-1.5 py-0.5 border border-border shadow-sm">
+            <CheckCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-500 fill-amber-500/20" />
+          </div>
+        )}
+      </div>
+      <div className="p-3 sm:p-4 flex flex-col flex-1">
+        <div className="text-[11px] sm:text-xs uppercase font-bold text-muted-foreground truncate mb-1">
+          {product.category}
+        </div>
+        <h3 className="text-sm font-medium leading-tight text-foreground line-clamp-2 mb-1.5 min-h-[2.5em] group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+          {product.name}
+        </h3>
+        <div className="mt-auto">
+          <p className="text-sm sm:text-base font-bold text-primary truncate">
+             {product.price ? product.price : "Req Price"}
+          </p>
+        </div>
+      </div>
+    </Link>
+  );
+};
+
 export default function HomePage() {
   const [featuredRealtimeProducts, setFeaturedRealtimeProducts] = useState<
     MarketplaceProduct[]
@@ -182,7 +219,7 @@ export default function HomePage() {
         .select("*, profiles(verified, business_name, location)")
         .eq("status", "active")
         .order("created_at", { ascending: false })
-        .limit(4);
+        .limit(16);
 
       if (error) {
         console.error("Error fetching featured products:", error);
@@ -221,23 +258,6 @@ export default function HomePage() {
 
   return (
     <div className="flex flex-col min-h-[calc(100dvh-4rem)] bg-background">
-      {/* Madaraka Day Banner */}
-      <div className="w-full relative bg-background flex justify-center pt-6 px-4 z-10">
-        <div className="w-full max-w-6xl h-[160px] sm:h-[200px] md:h-[260px] relative rounded-2xl overflow-hidden shadow-xl border border-border group">
-          <div className="absolute inset-0 bg-gradient-to-r from-black/90 via-black/50 to-transparent z-10 pointer-events-none flex flex-col justify-center p-6 sm:p-8 md:p-12 transition-opacity duration-300">
-            <h2 className="text-xl sm:text-3xl md:text-4xl font-bold text-white mb-2 max-w-lg">Happy Madaraka Day! 🇰🇪</h2>
-            <p className="text-xs sm:text-sm md:text-base text-gray-200 max-w-md font-medium leading-relaxed">
-              To all our valued clients, today we celebrate freedom, innovation, and our shared journey. Thank you for growing with ODA Market. We appreciate you!
-            </p>
-          </div>
-          <img 
-            src={madarakaBanner} 
-            alt="Happy Madaraka Day Kenya" 
-            className="w-full h-full object-cover object-[center_35%] transition-transform duration-700 group-hover:scale-105"
-          />
-        </div>
-      </div>
-
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-background">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-emerald-900/10 rounded-full blur-[120px]"></div>
@@ -412,16 +432,15 @@ export default function HomePage() {
             </Button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 sm:gap-4 md:gap-6">
             {isLoading ? (
-              Array(4).fill(null).map((_, i) => (
-                <div key={i} className="flex flex-col w-full h-[320px] rounded-xl border border-border bg-card animate-pulse">
-                  <div className="aspect-[4/3] bg-muted/60 relative w-full flex-shrink-0 rounded-t-xl" />
-                  <div className="p-4 flex flex-col flex-1 gap-3">
-                    <div className="h-5 bg-muted rounded w-3/4" />
-                    <div className="h-6 bg-muted rounded w-1/3" />
+              Array(8).fill(null).map((_, i) => (
+                <div key={i} className="flex flex-col w-full rounded-lg border border-border bg-card animate-pulse overflow-hidden">
+                  <div className="aspect-square bg-muted/60 relative w-full flex-shrink-0" />
+                  <div className="p-3 flex flex-col flex-1 gap-2">
+                    <div className="h-3 bg-muted rounded w-1/2" />
+                    <div className="h-4 bg-muted rounded w-3/4" />
                     <div className="mt-auto h-4 bg-muted rounded w-1/2" />
-                    <div className="h-9 bg-muted rounded w-full mt-2" />
                   </div>
                 </div>
               ))
@@ -436,9 +455,9 @@ export default function HomePage() {
                   initial={{ opacity: 0, scale: 0.95 }}
                   whileInView={{ opacity: 1, scale: 1 }}
                   viewport={{ once: true }}
-                  transition={{ delay: i * 0.1 }}
+                  transition={{ delay: i * 0.05 }}
                 >
-                  <SwipeableProductCard product={product as any} />
+                  <CompactProductCard product={product} />
                 </motion.div>
               ))
             )}

@@ -12,6 +12,8 @@ import {
   X,
   Users,
   ShieldCheck,
+  FolderTree,
+  FileText,
 } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { supabase } from "../../lib/supabase";
@@ -19,6 +21,7 @@ import { cn } from "../../lib/utils";
 import { Button } from "../ui/Button";
 import { NotificationBell } from "./NotificationBell";
 import { MobileBottomNav } from "./MobileBottomNav";
+import { Logo } from "../ui/Logo";
 
 export default function DashboardLayout() {
   const { user, profile, isLoading } = useAuthStore();
@@ -82,6 +85,11 @@ export default function DashboardLayout() {
             path: "/seller/dashboard/products",
           },
           {
+            icon: FileText,
+            label: "RFQ Center",
+            path: "/seller/dashboard/rfqs",
+          },
+          {
             icon: Settings,
             label: "Settings",
             path: "/seller/dashboard/settings",
@@ -103,6 +111,11 @@ export default function DashboardLayout() {
             icon: Package,
             label: "Manage Products",
             path: "/admin/dashboard/products",
+          },
+          {
+            icon: FolderTree,
+            label: "Categories",
+            path: "/admin/dashboard/categories",
           },
           {
             icon: Inbox,
@@ -129,6 +142,11 @@ export default function DashboardLayout() {
             path: "/buyer/dashboard/inquiries",
           },
           {
+            icon: FileText,
+            label: "RFQ Management",
+            path: "/buyer/dashboard/rfqs",
+          },
+          {
             icon: Settings,
             label: "Settings",
             path: "/buyer/dashboard/settings",
@@ -145,11 +163,7 @@ export default function DashboardLayout() {
       <aside className="w-64 bg-card border-r border-border hidden md:flex flex-col sticky top-0 h-[100dvh]">
         <div className="p-6 flex justify-between items-center">
           <Link to="/" className="flex items-center gap-2">
-            <span className="text-xl font-bold tracking-tight text-foreground">
-              ODA <span className={cn(
-                profile?.role === "seller" && profile?.verified ? "text-amber-600 dark:text-amber-500" : "text-emerald-600 dark:text-emerald-500"
-              )}>MARKET</span>
-            </span>
+            <Logo />
           </Link>
           <div className="flex items-center gap-2">
             <NotificationBell />
@@ -229,11 +243,7 @@ export default function DashboardLayout() {
         {/* Mobile Header */}
         <header className="md:hidden sticky top-0 z-40 flex items-center justify-between px-4 py-3 border-b border-border bg-background/95 backdrop-blur-md">
           <Link to="/" className="flex items-center gap-2">
-            <span className="text-xl font-bold tracking-tight text-foreground">
-              ODA <span className={cn(
-                profile?.role === "seller" && profile?.verified ? "text-amber-600 dark:text-amber-500" : "text-emerald-600 dark:text-emerald-500"
-              )}>MARKET</span>
-            </span>
+            <Logo />
           </Link>
           <div className="flex items-center gap-3">
             <NotificationBell />

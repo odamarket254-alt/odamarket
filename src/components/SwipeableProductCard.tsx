@@ -12,7 +12,8 @@ export interface MarketplaceProduct {
   name: string;
   description?: string;
   price?: number;
-  category: string;
+  category?: string;
+  categories?: { name: string, slug: string };
   image_url?: string;
   stock?: string;
   seller_id?: string;
@@ -131,8 +132,8 @@ export const SwipeableProductCard: React.FC<{ product: MarketplaceProduct }> = (
               <h3 className="font-semibold text-base text-foreground leading-snug line-clamp-2 transition-colors flex-1">
                 {product.name}
               </h3>
-              <Badge variant="outline" className="text-[9px] px-1.5 py-0 md:text-[10px] uppercase font-bold shrink-0 mt-0.5 pointer-events-auto">
-                 {product.category}
+              <Badge variant="outline" className="text-[9px] px-1.5 py-0 md:text-[10px] uppercase font-bold shrink-0 mt-0.5 pointer-events-auto truncate max-w-[120px]">
+                 {product.categories?.name || product.category}
               </Badge>
             </div>
             <div className="mt-1">

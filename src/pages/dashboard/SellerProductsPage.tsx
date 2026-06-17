@@ -50,14 +50,37 @@ import {
 interface Product {
   id: string;
   name: string;
-  category: string;
+  category?: string;
+  category_id?: string;
+  categories?: { name: string; slug: string };
   price: string;
+  moq: string;
   stock: string | number;
   status: "active" | "draft";
   image_url: string | null;
   seller_id?: string;
   description?: string;
+  tags?: string[];
 }
+
+interface Category {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+const getProductMetadata = (tags?: string[]) => {
+  if (!tags) return {};
+  const metaTag = tags.find(t => t && t.startsWith('{"__metadata"'));
+  if (metaTag) {
+    try {
+      return JSON.parse(metaTag).__metadata;
+    } catch(e) {
+      return {};
+    }
+  }
+  return {};
+};
 
 export default function DashboardProductsPage() {
   const { user, profile } = useAuthStore();
@@ -70,6 +93,19 @@ export default function DashboardProductsPage() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
+  const [categories, setCategories] = useState<Category[]>([]);
+
+  useEffect(() => {
+    const fetchCategories = async () => {
+      const { data } = await supabase
+        .from("categories")
+        .select("id, name, slug")
+        .eq("is_active", true)
+        .order("name", { ascending: true });
+      if (data) setCategories(data);
+    };
+    fetchCategories();
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -103,7 +139,7 @@ export default function DashboardProductsPage() {
       setIsLoading(true);
       const { data, error } = await supabase
         .from("products")
-        .select("*")
+        .select("*, categories!left(name, slug)")
         .eq("seller_id", user?.id)
         .order("created_at", { ascending: false });
 
@@ -120,9 +156,12 @@ export default function DashboardProductsPage() {
   };
 
   const filteredProducts = products.filter(
-    (product) =>
-      (product.name || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (product.category || "").toLowerCase().includes(searchQuery.toLowerCase()),
+    (product) => {
+      const pName = product.name || "";
+      const pCat = product.categories?.name || product.category || "";
+      return pName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+             pCat.toLowerCase().includes(searchQuery.toLowerCase());
+    }
   );
 
   const handleAddProduct = async (e: FormEvent<HTMLFormElement>) => {
@@ -131,16 +170,37 @@ export default function DashboardProductsPage() {
     setIsSubmitting(true);
 
     const formData = new FormData(e.currentTarget);
+    
+    // Process B2B Metadata
+    const pricing_tiers = [
+      { min_qty: formData.get("tier1_min"), price: formData.get("tier1_price") },
+      { min_qty: formData.get("tier2_min"), price: formData.get("tier2_price") },
+      { min_qty: formData.get("tier3_min"), price: formData.get("tier3_price") }
+    ].filter(t => t.min_qty && t.price);
+
+    const metadata = {
+      production_capacity: formData.get("production_capacity") as string,
+      lead_time: formData.get("lead_time") as string,
+      shipping_methods: (formData.get("shipping_methods") as string)?.split(",").map(s => s.trim()).filter(Boolean) || [],
+      certifications: (formData.get("certifications") as string)?.split(",").map(s => s.trim()).filter(Boolean) || [],
+      pricing_tiers,
+      specifications: formData.get("specifications") as string,
+      features: formData.get("features") as string,
+      packaging_details: formData.get("packaging_details") as string
+    };
+
     const newProduct = {
       seller_id: user.id,
       name: formData.get("name") as string,
-      title: formData.get("name") as string, // Backwards compatibility with title column
-      category: formData.get("category") as string,
+      title: formData.get("name") as string, // Backwards compatibility
+      category_id: formData.get("category_id") as string || null,
       price: formData.get("price") as string,
+      moq: formData.get("moq") as string || "1",
       stock: formData.get("stock") as string,
       status: formData.get("status") as "active" | "draft",
       description: formData.get("description") as string,
       image_url: imagePreview || null,
+      tags: [JSON.stringify({ __metadata: metadata })]
     };
 
     try {
@@ -216,7 +276,7 @@ export default function DashboardProductsPage() {
             <Plus className="h-4 w-4" />
             Add Product
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[500px] w-[95vw] max-h-[90vh] overflow-y-auto bg-[#0a0a0a] border-border text-foreground p-4 sm:p-6 rounded-2xl sm:rounded-xl">
+          <DialogContent className="sm:max-w-[500px] w-[95vw] max-h-[90vh] overflow-y-auto bg-background border-border text-foreground p-4 sm:p-6 rounded-2xl sm:rounded-xl">
             <DialogHeader>
               <DialogTitle>{editingProduct ? "Edit Product" : "Add New Product"}</DialogTitle>
               <DialogDescription className="text-muted-foreground">
@@ -274,17 +334,21 @@ export default function DashboardProductsPage() {
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="category" className="text-foreground/80">
+                  <Label htmlFor="category_id" className="text-foreground/80">
                     Category
                   </Label>
-                  <Input
-                    id="category"
-                    name="category"
-                    required
-                    defaultValue={editingProduct?.category || ""}
-                    placeholder="e.g. Agriculture"
-                    className="bg-background"
-                  />
+                  <Select name="category_id" defaultValue={editingProduct?.category_id || ""}>
+                    <SelectTrigger className="bg-background">
+                      <SelectValue placeholder="Select a category" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover border-border text-popover-foreground max-h-60">
+                      {categories.map((c) => (
+                        <SelectItem key={c.id} value={c.id}>
+                          {c.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="price" className="text-foreground/80">
@@ -300,34 +364,79 @@ export default function DashboardProductsPage() {
                   />
                 </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="stock" className="text-foreground/80">
-                    Stock Availability
-                  </Label>
-                  <Input
-                    id="stock"
-                    name="stock"
-                    required
-                    defaultValue={editingProduct?.stock || ""}
-                    placeholder="e.g. 500 mt"
-                    className="bg-background"
-                  />
+                  <Label htmlFor="stock" className="text-foreground/80">Stock Availability</Label>
+                  <Input id="stock" name="stock" required defaultValue={editingProduct?.stock || ""} placeholder="e.g. 500 mt" className="bg-background" />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="status" className="text-foreground/80">
-                    Status
-                  </Label>
+                  <Label htmlFor="moq" className="text-foreground/80">Min Order Qty (MOQ)</Label>
+                  <Input id="moq" name="moq" required defaultValue={editingProduct?.moq || ""} placeholder="e.g. 10 mt" className="bg-background" />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="status" className="text-foreground/80">Status</Label>
                   <Select name="status" defaultValue={editingProduct?.status || "active"}>
                     <SelectTrigger className="bg-background">
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
-                    <SelectContent className="bg-[#0a0a0a] border-border text-foreground">
+                    <SelectContent className="bg-popover border-border text-popover-foreground">
                       <SelectItem value="active">Active (Visible)</SelectItem>
                       <SelectItem value="draft">Draft (Hidden)</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
+
+              <div className="space-y-3 pt-2 border-t border-border/50">
+                <h4 className="text-sm font-semibold text-foreground">B2B Logistics & Specs</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="production_capacity" className="text-foreground/80">Production Capacity</Label>
+                    <Input id="production_capacity" name="production_capacity" defaultValue={getProductMetadata(editingProduct?.tags)?.production_capacity || ""} placeholder="e.g. 50,000 units/mo" className="bg-background" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="lead_time" className="text-foreground/80">Lead Time</Label>
+                    <Input id="lead_time" name="lead_time" defaultValue={getProductMetadata(editingProduct?.tags)?.lead_time || ""} placeholder="e.g. 15-30 days" className="bg-background" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="shipping_methods" className="text-foreground/80">Shipping Methods</Label>
+                    <Input id="shipping_methods" name="shipping_methods" defaultValue={getProductMetadata(editingProduct?.tags)?.shipping_methods?.join(", ") || ""} placeholder="e.g. Sea freight, Air freight" className="bg-background" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="certifications" className="text-foreground/80">Certifications</Label>
+                    <Input id="certifications" name="certifications" defaultValue={getProductMetadata(editingProduct?.tags)?.certifications?.join(", ") || ""} placeholder="e.g. ISO 9001, CE" className="bg-background" />
+                  </div>
+                </div>
+                 <div className="space-y-2">
+                    <Label htmlFor="specifications" className="text-foreground/80">Specifications</Label>
+                    <Textarea id="specifications" name="specifications" defaultValue={getProductMetadata(editingProduct?.tags)?.specifications || ""} placeholder="List technical specifications..." className="bg-background min-h-[80px]" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="features" className="text-foreground/80">Features</Label>
+                    <Textarea id="features" name="features" defaultValue={getProductMetadata(editingProduct?.tags)?.features || ""} placeholder="Key product features..." className="bg-background min-h-[80px]" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="packaging_details" className="text-foreground/80">Packaging Details</Label>
+                    <Textarea id="packaging_details" name="packaging_details" defaultValue={getProductMetadata(editingProduct?.tags)?.packaging_details || ""} placeholder="Packaging and delivery details..." className="bg-background min-h-[80px]" />
+                  </div>
+              </div>
+
+              <div className="space-y-3 pt-2 border-t border-border/50">
+                <h4 className="text-sm font-semibold text-foreground">Wholesale Pricing Tiers (Optional)</h4>
+                {[1, 2, 3].map((tier, i) => (
+                  <div key={tier} className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1">
+                      <Label className="text-xs text-foreground/60">Tier {tier} Min Qty</Label>
+                      <Input name={`tier${tier}_min`} defaultValue={getProductMetadata(editingProduct?.tags)?.pricing_tiers?.[i]?.min_qty || ""} placeholder={`e.g. ${tier === 1 ? '100' : tier === 2 ? '500' : '1000'}`} className="h-8 text-sm bg-background" />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-foreground/60">Tier {tier} Price</Label>
+                      <Input name={`tier${tier}_price`} defaultValue={getProductMetadata(editingProduct?.tags)?.pricing_tiers?.[i]?.price || ""} placeholder="e.g. Ksh 40,000" className="h-8 text-sm bg-background" />
+                    </div>
+                  </div>
+                ))}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="description" className="text-foreground/80">
@@ -427,7 +536,7 @@ export default function DashboardProductsPage() {
                       {product.name}
                     </h3>
                     <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
-                      <span className="truncate">{product.category}</span>
+                      <span className="truncate">{product.categories?.name || product.category}</span>
                       <span className="w-1 h-1 rounded-full bg-zinc-600 shrink-0" />
                       <span>{product.stock} in stock</span>
                       <span className="w-1 h-1 rounded-full bg-zinc-600 shrink-0" />
@@ -462,7 +571,7 @@ export default function DashboardProductsPage() {
                       </DropdownMenuTrigger>
                       <DropdownMenuContent
                         align="end"
-                        className="w-40 bg-[#0a0a0a] border-border text-foreground"
+                        className="w-40 bg-popover border-border text-popover-foreground"
                       >
                         <DropdownMenuItem 
                           className="focus:bg-muted/50 focus:text-foreground cursor-pointer gap-2"
@@ -520,7 +629,7 @@ export default function DashboardProductsPage() {
 
       {/* Delete Confirmation Dialog */}
       <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-        <DialogContent className="sm:max-w-[400px] bg-[#0a0a0a] border-border text-foreground p-6 rounded-xl">
+        <DialogContent className="sm:max-w-[400px] bg-background border-border text-foreground p-6 rounded-xl">
           <DialogHeader>
             <DialogTitle>Delete Product</DialogTitle>
             <DialogDescription className="text-muted-foreground">

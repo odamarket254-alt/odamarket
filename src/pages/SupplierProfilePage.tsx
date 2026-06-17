@@ -6,7 +6,16 @@ import { useAuthStore } from "../store/useAuthStore";
 import { Card, CardContent } from "../components/ui/Card";
 import { Badge } from "../components/ui/Badge";
 import { Button } from "../components/ui/Button";
-import { MapPin, ShieldCheck, Mail, Building2, Package, Star, Calendar, Sparkles } from "lucide-react";
+import {
+  MapPin,
+  ShieldCheck,
+  Mail,
+  Building2,
+  Package,
+  Star,
+  Calendar,
+  Sparkles,
+} from "lucide-react";
 import { toast } from "sonner";
 import { motion } from "motion/react";
 import {
@@ -53,6 +62,26 @@ export default function SupplierProfilePage() {
   useEffect(() => {
     if (id) {
       fetchSupplierDetails(id);
+
+      const channel = supabase
+        .channel(`supplier-products-${id}`)
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "products",
+            filter: `seller_id=eq.${id}`,
+          },
+          () => {
+            fetchSupplierDetails(id);
+          },
+        )
+        .subscribe();
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
     }
   }, [id]);
 
@@ -64,6 +93,8 @@ export default function SupplierProfilePage() {
         .from("profiles")
         .select("*")
         .eq("id", supplierId)
+        .eq("role", "seller")
+        .eq("verified", true)
         .single();
 
       if (profileError) throw profileError;
@@ -78,7 +109,7 @@ export default function SupplierProfilePage() {
         .order("created_at", { ascending: false });
 
       if (productsError) throw productsError;
-      
+
       // We limit to max 12 products for the profile view
       setProducts(productsData?.slice(0, 12) || []);
     } catch (error) {
@@ -119,9 +150,7 @@ export default function SupplierProfilePage() {
         <p className="text-muted-foreground mb-8">
           The supplier you are looking for does not exist or has been removed.
         </p>
-        <Button render={<Link to="/products" />}>
-          Browse All Products
-        </Button>
+        <Button render={<Link to="/products" />}>Browse All Products</Button>
       </div>
     );
   }
@@ -137,10 +166,10 @@ export default function SupplierProfilePage() {
           <div className="flex flex-col sm:flex-row items-start sm:items-end gap-6 -mt-12 sm:-mt-16 mb-6">
             <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-background bg-muted flex items-center justify-center shrink-0 shadow-xl overflow-hidden relative z-10">
               {supplier.logo_url ? (
-                <img 
-                  src={supplier.logo_url} 
-                  alt={supplier.business_name} 
-                  className="w-full h-full object-cover" 
+                <img
+                  src={supplier.logo_url}
+                  alt={supplier.business_name}
+                  className="w-full h-full object-cover"
                 />
               ) : (
                 <span className="text-4xl text-emerald-600 dark:text-emerald-500 font-bold uppercase">
@@ -148,7 +177,7 @@ export default function SupplierProfilePage() {
                 </span>
               )}
             </div>
-            
+
             <div className="flex-1 space-y-2 relative z-10">
               <div className="flex items-center gap-2">
                 <h1 className="text-2xl sm:text-4xl font-bold text-foreground">
@@ -160,24 +189,24 @@ export default function SupplierProfilePage() {
               </div>
               <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1.5">
-                  <Building2 className="h-4 w-4" /> 
+                  <Building2 className="h-4 w-4" />
                   {supplier.company_type || "Business"}
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <MapPin className="h-4 w-4" /> 
+                  <MapPin className="h-4 w-4" />
                   {supplier.location || "Global Location"}
                 </span>
                 <span className="flex items-center gap-1.5">
-                  <Calendar className="h-4 w-4" /> 
+                  <Calendar className="h-4 w-4" />
                   Joined {new Date(supplier.created_at).getFullYear()}
                 </span>
               </div>
             </div>
-            
+
             <div className="shrink-0 w-full sm:w-auto relative z-10">
               {user ? (
                 <Dialog>
-                  <DialogTrigger 
+                  <DialogTrigger
                     render={
                       <Button className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/20" />
                     }
@@ -187,33 +216,48 @@ export default function SupplierProfilePage() {
                   </DialogTrigger>
                   <DialogContent className="sm:max-w-[425px] bg-background border-border text-foreground">
                     <DialogHeader>
-                      <DialogTitle>Contact {supplier.business_name}</DialogTitle>
+                      <DialogTitle>
+                        Contact {supplier.business_name}
+                      </DialogTitle>
                       <DialogDescription>
-                        Send a direct message to this supplier. They will receive it in their inbox.
+                        Send a direct message to this supplier. They will
+                        receive it in their inbox.
                       </DialogDescription>
                     </DialogHeader>
                     <div className="grid gap-4 py-4">
                       <div className="space-y-2">
-                        <Label htmlFor="subject" className="text-foreground">Subject</Label>
-                        <Input id="subject" placeholder="Inquiry about your products" className="bg-muted/50 border-border text-foreground" />
+                        <Label htmlFor="subject" className="text-foreground">
+                          Subject
+                        </Label>
+                        <Input
+                          id="subject"
+                          placeholder="Inquiry about your products"
+                          className="bg-muted/50 border-border text-foreground"
+                        />
                       </div>
                       <div className="space-y-2">
                         <div className="flex items-center justify-between">
-                          <Label htmlFor="message" className="text-foreground">Message</Label>
+                          <Label htmlFor="message" className="text-foreground">
+                            Message
+                          </Label>
                         </div>
-                        <Textarea 
-                          id="message" 
+                        <Textarea
+                          id="message"
                           value={contactMessage}
                           onChange={(e) => setContactMessage(e.target.value)}
-                          placeholder="Hello, I would like to know more about..." 
-                          className="min-h-[120px] bg-muted/50 border-border text-foreground resize-none" 
+                          placeholder="Hello, I would like to know more about..."
+                          className="min-h-[120px] bg-muted/50 border-border text-foreground resize-none"
                         />
                       </div>
                     </div>
                     <DialogFooter>
-                      <Button 
-                        type="submit" 
-                        onClick={() => toast.success("Message sent! The supplier will respond shortly.")}
+                      <Button
+                        type="submit"
+                        onClick={() =>
+                          toast.success(
+                            "Message sent! The supplier will respond shortly.",
+                          )
+                        }
                         className="w-full bg-emerald-600 hover:bg-emerald-500 text-white"
                       >
                         Send Message
@@ -222,9 +266,13 @@ export default function SupplierProfilePage() {
                   </DialogContent>
                 </Dialog>
               ) : (
-                <Button 
+                <Button
                   className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/20"
-                  onClick={() => toast.error("Authentication required", { description: "Please log in to contact this supplier." })}
+                  onClick={() =>
+                    toast.error("Authentication required", {
+                      description: "Please log in to contact this supplier.",
+                    })
+                  }
                 >
                   <Mail className="h-4 w-4 mr-2" />
                   Contact Supplier
@@ -234,7 +282,9 @@ export default function SupplierProfilePage() {
           </div>
 
           <div className="max-w-3xl">
-            <h3 className="text-lg font-semibold text-foreground mb-3 border-b border-border/50 pb-2">About the Company</h3>
+            <h3 className="text-lg font-semibold text-foreground mb-3 border-b border-border/50 pb-2">
+              About the Company
+            </h3>
             <p className="text-muted-foreground leading-relaxed">
               {supplier.bio || "This supplier hasn't added a bio yet."}
             </p>
@@ -249,7 +299,10 @@ export default function SupplierProfilePage() {
             <Package className="h-5 w-5 text-emerald-600 dark:text-emerald-500" />
             Products by {supplier.business_name}
           </h2>
-          <Badge variant="outline" className="text-emerald-600 dark:text-emerald-500 border-emerald-500/30 bg-emerald-500/10">
+          <Badge
+            variant="outline"
+            className="text-emerald-600 dark:text-emerald-500 border-emerald-500/30 bg-emerald-500/10"
+          >
             {products.length} Items Listed
           </Badge>
         </div>
@@ -257,8 +310,12 @@ export default function SupplierProfilePage() {
         {products.length === 0 ? (
           <div className="text-center py-12 bg-muted/30 rounded-xl border border-border">
             <Package className="h-10 w-10 text-muted-foreground mx-auto mb-4 opacity-50" />
-            <h3 className="text-lg font-medium text-foreground mb-1">No products found</h3>
-            <p className="text-muted-foreground">This supplier hasn't listed any products yet.</p>
+            <h3 className="text-lg font-medium text-foreground mb-1">
+              No products found
+            </h3>
+            <p className="text-muted-foreground">
+              This supplier hasn't listed any products yet.
+            </p>
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -270,14 +327,16 @@ export default function SupplierProfilePage() {
                 transition={{ duration: 0.3, delay: idx * 0.05 }}
               >
                 <SwipeableProductCard
-                  product={{
-                    ...product,
-                    profiles: {
-                      business_name: supplier.business_name,
-                      verified: supplier.verified,
-                      location: supplier.location || 'Global Location',
-                    }
-                  } as any}
+                  product={
+                    {
+                      ...product,
+                      profiles: {
+                        business_name: supplier.business_name,
+                        verified: supplier.verified,
+                        location: supplier.location || "Global Location",
+                      },
+                    } as any
+                  }
                 />
               </motion.div>
             ))}

@@ -27,20 +27,42 @@ const ProductsPage = lazy(() => import("./pages/ProductsPage"));
 const ProductDetailsPage = lazy(() => import("./pages/ProductDetailsPage"));
 const ContactPage = lazy(() => import("./pages/ContactPage"));
 const SupplierProfilePage = lazy(() => import("./pages/SupplierProfilePage"));
+const CategoriesPage = lazy(() => import("./pages/CategoriesPage"));
+const SuppliersPage = lazy(() => import("./pages/SuppliersPage"));
+const PublicRFQPage = lazy(() => import("./pages/PublicRFQPage"));
 
 // Lazy Loaded Dashboard Pages
 const DashboardHome = lazy(() => import("./pages/dashboard/DashboardHome"));
 const InquiriesPage = lazy(() => import("./pages/dashboard/InquiriesPage"));
-const SupportMessagesPage = lazy(() => import("./pages/dashboard/SupportMessagesPage"));
-const DashboardProductsPage = lazy(() => import("./pages/dashboard/SellerProductsPage"));
+const SupportMessagesPage = lazy(
+  () => import("./pages/dashboard/SupportMessagesPage"),
+);
+const DashboardProductsPage = lazy(
+  () => import("./pages/dashboard/SellerProductsPage"),
+);
+const BuyerRFQsPage = lazy(() =>
+  import("./pages/dashboard/BuyerRFQsPage").then((module) => ({
+    default: module.BuyerRFQsPage,
+  })),
+);
+const SellerRFQsPage = lazy(() =>
+  import("./pages/dashboard/SellerRFQsPage").then((module) => ({
+    default: module.SellerRFQsPage,
+  })),
+);
 const SettingsPage = lazy(() => import("./pages/dashboard/SettingsPage"));
 const UsersPage = lazy(() => import("./pages/dashboard/UsersPage"));
+const AdminCategoriesPage = lazy(
+  () => import("./pages/dashboard/AdminCategoriesPage"),
+);
 
 function LoadingFallback() {
   return (
     <div className="h-screen w-full flex flex-col items-center justify-center bg-background text-foreground">
       <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-      <p className="text-sm text-muted-foreground animate-pulse">Loading Odamarket...</p>
+      <p className="text-sm text-muted-foreground animate-pulse">
+        Loading Odamarket...
+      </p>
     </div>
   );
 }
@@ -105,54 +127,61 @@ export default function App() {
   return (
     <BrowserRouter>
       <ErrorBoundary>
-      <Suspense fallback={<LoadingFallback />}>
-        <Routes>
-          <Route element={<RootLayout />}>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/register" element={<RegisterPage />} />
-            <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-            <Route path="/reset-password" element={<ResetPasswordPage />} />
-            <Route path="/products" element={<ProductsPage />} />
-            <Route path="/products/:id" element={<ProductDetailsPage />} />
-            <Route path="/suppliers/:id" element={<SupplierProfilePage />} />
-            <Route path="/contact" element={<ContactPage />} />
-          </Route>
-
-          {/* Role Routing Interceptor */}
-          <Route path="/dashboard" element={<RoleRedirect />} />
-
-          {/* Buyer Routes */}
-          <Route element={<ProtectedRoute allowedRoles={["buyer"]} />}>
-            <Route path="/buyer/dashboard" element={<DashboardLayout />}>
-              <Route index element={<DashboardHome />} />
-              <Route path="inquiries" element={<InquiriesPage />} />
-              <Route path="settings" element={<SettingsPage />} />
+        <Suspense fallback={<LoadingFallback />}>
+          <Routes>
+            <Route element={<RootLayout />}>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/register" element={<RegisterPage />} />
+              <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+              <Route path="/reset-password" element={<ResetPasswordPage />} />
+              <Route path="/products" element={<ProductsPage />} />
+              <Route path="/products/:id" element={<ProductDetailsPage />} />
+              <Route path="/c/:categorySlug" element={<ProductsPage />} />
+              <Route path="/categories" element={<CategoriesPage />} />
+              <Route path="/suppliers" element={<SuppliersPage />} />
+              <Route path="/suppliers/:id" element={<SupplierProfilePage />} />
+              <Route path="/rfq" element={<PublicRFQPage />} />
+              <Route path="/contact" element={<ContactPage />} />
             </Route>
-          </Route>
 
-          {/* Seller Routes */}
-          <Route element={<ProtectedRoute allowedRoles={["seller"]} />}>
-            <Route path="/seller/dashboard" element={<DashboardLayout />}>
-              <Route index element={<DashboardHome />} />
-              <Route path="inquiries" element={<InquiriesPage />} />
-              <Route path="products" element={<DashboardProductsPage />} />
-              <Route path="settings" element={<SettingsPage />} />
-            </Route>
-          </Route>
+            {/* Role Routing Interceptor */}
+            <Route path="/dashboard" element={<RoleRedirect />} />
 
-          {/* Admin Routes */}
-          <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
-            <Route path="/admin/dashboard" element={<DashboardLayout />}>
-              <Route index element={<DashboardHome />} />
-              <Route path="users" element={<UsersPage />} />
-              <Route path="products" element={<DashboardProductsPage />} />
-              <Route path="settings" element={<SettingsPage />} />
-              <Route path="support" element={<SupportMessagesPage />} />
+            {/* Buyer Routes */}
+            <Route element={<ProtectedRoute allowedRoles={["buyer"]} />}>
+              <Route path="/buyer/dashboard" element={<DashboardLayout />}>
+                <Route index element={<DashboardHome />} />
+                <Route path="inquiries" element={<InquiriesPage />} />
+                <Route path="rfqs" element={<BuyerRFQsPage />} />
+                <Route path="settings" element={<SettingsPage />} />
+              </Route>
             </Route>
-          </Route>
-        </Routes>
-      </Suspense>
+
+            {/* Seller Routes */}
+            <Route element={<ProtectedRoute allowedRoles={["seller"]} />}>
+              <Route path="/seller/dashboard" element={<DashboardLayout />}>
+                <Route index element={<DashboardHome />} />
+                <Route path="inquiries" element={<InquiriesPage />} />
+                <Route path="products" element={<DashboardProductsPage />} />
+                <Route path="rfqs" element={<SellerRFQsPage />} />
+                <Route path="settings" element={<SettingsPage />} />
+              </Route>
+            </Route>
+
+            {/* Admin Routes */}
+            <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
+              <Route path="/admin/dashboard" element={<DashboardLayout />}>
+                <Route index element={<DashboardHome />} />
+                <Route path="users" element={<UsersPage />} />
+                <Route path="products" element={<DashboardProductsPage />} />
+                <Route path="categories" element={<AdminCategoriesPage />} />
+                <Route path="settings" element={<SettingsPage />} />
+                <Route path="support" element={<SupportMessagesPage />} />
+              </Route>
+            </Route>
+          </Routes>
+        </Suspense>
       </ErrorBoundary>
       <Toaster position="top-center" richColors />
     </BrowserRouter>

@@ -1,6 +1,17 @@
 import React, { useState, useEffect } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
-import { Menu, Search, X, ChevronRight, LogIn, UserPlus } from "lucide-react";
+import {
+  Menu,
+  Search,
+  X,
+  ChevronRight,
+  LogIn,
+  UserPlus,
+  Home,
+  Grid,
+  Store,
+  MessageCircle,
+} from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
@@ -16,6 +27,8 @@ import { supabase } from "../../lib/supabase";
 import { cn } from "../../lib/utils";
 import { NotificationBell } from "./NotificationBell";
 import { MobileBottomNav } from "./MobileBottomNav";
+import { ThemeToggle } from "../theme-toggle";
+import { Logo } from "../ui/Logo";
 
 export default function RootLayout() {
   const { user, profile } = useAuthStore();
@@ -23,6 +36,15 @@ export default function RootLayout() {
   const [searchQuery, setSearchQuery] = useState("");
   const location = useLocation();
   const navigate = useNavigate();
+
+  const authRoutes = [
+    "/login",
+    "/signup",
+    "/register",
+    "/forgot-password",
+    "/reset-password",
+  ];
+  const isAuthRoute = authRoutes.includes(location.pathname);
 
   useEffect(() => {
     setIsMobileMenuOpen(false);
@@ -38,7 +60,7 @@ export default function RootLayout() {
   const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setSearchQuery(value);
-    
+
     if (value.trim()) {
       navigate(`/products?q=${encodeURIComponent(value)}`, { replace: true });
     } else if (location.pathname === "/products") {
@@ -71,176 +93,185 @@ export default function RootLayout() {
 
   return (
     <div className="min-h-[100dvh] flex flex-col font-sans bg-background text-foreground">
-      <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur-md">
-        <div className="container mx-auto px-4 py-2 md:py-0 md:h-16 flex flex-col md:flex-row md:items-center justify-between gap-2 md:gap-4">
-          <div className="flex items-center justify-between w-full md:w-auto">
-            <div className="flex items-center gap-2 sm:gap-4">
-              <Link to="/" className="flex items-center gap-2">
-                <span className="text-xl font-bold tracking-tight text-foreground">
-                  ODA <span className={cn(
-                    profile?.role === "seller" && profile?.verified ? "text-amber-600 dark:text-amber-500" : "text-emerald-600 dark:text-emerald-500"
-                  )}>MARKET</span>
-                </span>
+      {!isAuthRoute && (
+        <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur-md">
+          <div className="container mx-auto h-16 md:h-20 px-4 flex items-center justify-between">
+            {/* Logo */}
+            <div className="flex items-center shrink-0">
+              <Link to="/" className="flex items-center">
+                <Logo />
               </Link>
             </div>
-            
-            <div className="flex items-center gap-1 md:hidden">
-              {user && <NotificationBell />}
-              {user ? (
-                <Link to={`/${profile?.role || "buyer"}/dashboard`} className={cn(
-                  "relative h-8 w-8 rounded-full flex items-center justify-center border mr-1",
-                  profile?.logo_url ? "p-0 overflow-hidden border-border" : "",
-                  !profile?.logo_url && profile?.role === "seller" && profile?.verified
-                    ? "bg-amber-500/20 hover:bg-amber-500/30 border-amber-500/30"
-                    : !profile?.logo_url ? "bg-emerald-500/20 hover:bg-emerald-500/30 border-emerald-500/30" : ""
-                )}>
-                  {profile?.logo_url ? (
-                    <img src={profile.logo_url} alt="Profile" className="h-full w-full object-cover" />
-                  ) : (
-                    <span className={cn(
-                      "font-medium text-xs",
-                      profile?.role === "seller" && profile?.verified ? "text-amber-600 dark:text-amber-500" : "text-emerald-600 dark:text-emerald-400"
-                    )}>
-                      {profile?.business_name
-                        ? profile.business_name.charAt(0).toUpperCase()
-                        : user.email?.charAt(0).toUpperCase()}
-                    </span>
-                  )}
-                </Link>
-              ) : null}
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-muted-foreground hover:text-foreground h-9 w-9"
-                onClick={() => setIsMobileMenuOpen(true)}
-                aria-label="Open navigation menu"
-              >
-                <Menu className="h-5 w-5" />
-              </Button>
-            </div>
-          </div>
 
-          <div className="flex-1 max-w-2xl w-full">
-            <form 
-              className="relative w-full group"
-              onSubmit={(e) => e.preventDefault()}
-            >
-              <div className="absolute inset-y-0 left-0 flex items-center pl-3 pointer-events-none text-muted-foreground group-focus-within:text-emerald-600 dark:group-focus-within:text-emerald-600 dark:text-emerald-500 transition-colors">
-                <Search className="h-4 w-4" />
-              </div>
-              <Input
-                type="search"
-                value={searchQuery}
-                onChange={handleSearch}
-                placeholder="Search products, suppliers..."
-                className="w-full pl-10 bg-muted/80 text-foreground border-border placeholder:text-muted-foreground focus-visible:ring-emerald-600 dark:focus-visible:ring-emerald-500 rounded-full h-9 md:h-10 shadow-sm text-sm"
-              />
-            </form>
-          </div>
-
-          <div className="hidden md:flex items-center gap-2 sm:gap-4">
-            <nav className="hidden md:flex items-center gap-6 text-sm font-medium text-muted-foreground mr-4">
+            {/* Center Navigation (Desktop) */}
+            <nav className="hidden md:flex items-center gap-8">
               <Link
                 to="/products"
-                className="hover:text-emerald-600 dark:text-emerald-500 transition-colors"
+                className="text-[14px] font-medium text-muted-foreground hover:text-foreground transition-colors duration-200"
               >
                 Products
               </Link>
-              <Link to="/contact" className="hover:text-emerald-600 dark:text-emerald-500 transition-colors">
+              <Link
+                to="/suppliers"
+                className="text-[14px] font-medium text-muted-foreground hover:text-foreground transition-colors duration-200"
+              >
+                Suppliers
+              </Link>
+              <Link
+                to="/rfq"
+                className="text-[14px] font-medium text-muted-foreground hover:text-foreground transition-colors duration-200"
+              >
+                RFQ
+              </Link>
+              <Link
+                to="/categories"
+                className="text-[14px] font-medium text-muted-foreground hover:text-foreground transition-colors duration-200"
+              >
+                Categories
+              </Link>
+              <Link
+                to="/contact"
+                className="text-[14px] font-medium text-muted-foreground hover:text-foreground transition-colors duration-200"
+              >
                 Contact Us
               </Link>
             </nav>
 
-            {user && <NotificationBell />}
-            {user ? (
-              <DropdownMenu>
-                <DropdownMenuTrigger
-                  render={
-                    <Button
-                      variant="ghost"
-                      className={cn(
-                        "relative h-9 w-9 rounded-full flex items-center justify-center border",
-                        profile?.logo_url ? "p-0 overflow-hidden border-border" : "",
-                        !profile?.logo_url && profile?.role === "seller" && profile?.verified
-                          ? "bg-amber-500/20 hover:bg-amber-500/30 border-amber-500/30"
-                          : !profile?.logo_url ? "bg-emerald-500/20 hover:bg-emerald-500/30 border-emerald-500/30" : ""
-                      )}
-                    />
-                  }
-                >
-                  {profile?.logo_url ? (
-                    <img src={profile.logo_url} alt="Profile" className="h-full w-full object-cover" />
-                  ) : (
-                    <span className={cn(
-                      "font-medium text-sm",
-                      profile?.role === "seller" && profile?.verified ? "text-amber-600 dark:text-amber-400" : "text-emerald-600 dark:text-emerald-400"
-                    )}>
-                      {profile?.business_name
-                        ? profile.business_name.charAt(0).toUpperCase()
-                        : user.email?.charAt(0).toUpperCase()}
-                    </span>
-                  )}
-                </DropdownMenuTrigger>
-                <DropdownMenuContent
-                  className="w-56 bg-background border-border text-foreground"
-                  align="end"
-                >
-                  <div className="flex flex-col space-y-1 p-2">
-                    <p className="text-sm font-medium leading-none">
-                      {profile?.business_name || "User"}
-                    </p>
-                    <p className="text-xs leading-none text-muted-foreground">
-                      {user.email}
-                    </p>
-                  </div>
-                  <DropdownMenuSeparator className="bg-border" />
-                  <DropdownMenuItem
-                    render={
-                      <Link to={`/${profile?.role || "buyer"}/dashboard`} />
-                    }
-                    className="focus:bg-muted/50 cursor-pointer"
-                  >
-                    Dashboard
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    render={
-                      <Link
-                        to={`/${profile?.role || "buyer"}/dashboard/inquiries`}
-                      />
-                    }
-                    className="focus:bg-muted/50 cursor-pointer"
-                  >
-                    Inquiries
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator className="bg-border" />
-                  <DropdownMenuItem
-                    onClick={handleSignOut}
-                    className="cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10"
-                  >
-                    Log out
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            ) : (
-              <div className="flex items-center gap-4">
+            {/* Right Actions */}
+            <div className="flex items-center shrink-0 gap-2 sm:gap-4">
+              <ThemeToggle />
+              
+              {/* Mobile Toggle */}
+              <div className="md:hidden flex items-center gap-2">
+                {user && <NotificationBell />}
                 <Button
                   variant="ghost"
-                  render={<Link to="/login" />}
-                  className="hidden sm:inline-flex text-muted-foreground hover:text-foreground hover:bg-muted/50 text-foreground"
+                  size="icon"
+                  className="text-muted-foreground hover:text-foreground h-9 w-9 rounded-full"
+                  onClick={() => setIsMobileMenuOpen(true)}
+                  aria-label="Open navigation menu"
                 >
-                  Sign In
-                </Button>
-                <Button
-                  render={<Link to="/register" />}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-foreground shadow-lg shadow-emerald-900/20 rounded-full px-6"
-                >
-                  Join Market
+                  <Menu className="h-5 w-5" />
                 </Button>
               </div>
-            )}
+
+              {/* Desktop Auth / User Menu */}
+              <div className="hidden md:flex items-center gap-4">
+                {user ? (
+                  <div className="flex items-center gap-4">
+                    <NotificationBell />
+                    <DropdownMenu>
+                      <DropdownMenuTrigger
+                        render={
+                          <Button
+                            variant="ghost"
+                            className={cn(
+                              "relative h-10 w-10 rounded-full flex items-center justify-center border",
+                              profile?.logo_url
+                                ? "p-0 overflow-hidden border-border"
+                                : "",
+                              !profile?.logo_url &&
+                                profile?.role === "seller" &&
+                                profile?.verified
+                                ? "bg-amber-500/20 hover:bg-amber-500/30 border-amber-500/30"
+                                : !profile?.logo_url
+                                  ? "bg-emerald-500/20 hover:bg-emerald-500/30 border-emerald-500/30"
+                                  : "",
+                            )}
+                          />
+                        }
+                      >
+                        {profile?.logo_url ? (
+                          <img
+                            src={profile.logo_url}
+                            alt="Profile"
+                            className="h-full w-full object-cover"
+                          />
+                        ) : (
+                          <span
+                            className={cn(
+                              "font-bold text-[15px]",
+                              profile?.role === "seller" && profile?.verified
+                                ? "text-amber-600 dark:text-amber-400"
+                                : "text-emerald-600 dark:text-emerald-400",
+                            )}
+                          >
+                            {profile?.business_name
+                              ? profile.business_name.charAt(0).toUpperCase()
+                              : user.email?.charAt(0).toUpperCase()}
+                          </span>
+                        )}
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent
+                        className="w-56 bg-background border-border text-foreground rounded-xl shadow-xl mt-2"
+                        align="end"
+                      >
+                        <div className="flex flex-col space-y-1 p-3 border-b border-border">
+                          <p className="text-sm font-semibold truncate leading-tight">
+                            {profile?.business_name || "User"}
+                          </p>
+                          <p className="text-xs truncate text-muted-foreground leading-tight">
+                            {user.email}
+                          </p>
+                        </div>
+                        <div className="p-1">
+                          <DropdownMenuItem
+                            render={
+                              <Link
+                                to={`/${profile?.role || "buyer"}/dashboard`}
+                                className="w-full text-sm font-medium py-2 rounded-md hover:bg-muted/50 cursor-pointer"
+                              />
+                            }
+                          >
+                            <Grid className="w-4 h-4 mr-2 text-muted-foreground" />{" "}
+                            Dashboard
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            render={
+                              <Link
+                                to={`/${profile?.role || "buyer"}/dashboard/inquiries`}
+                                className="w-full text-sm font-medium py-2 rounded-md hover:bg-muted/50 cursor-pointer"
+                              />
+                            }
+                          >
+                            <MessageCircle className="w-4 h-4 mr-2 text-muted-foreground" />{" "}
+                            Inquiries
+                          </DropdownMenuItem>
+                        </div>
+                        <DropdownMenuSeparator className="bg-border" />
+                        <div className="p-1">
+                          <DropdownMenuItem
+                            onClick={handleSignOut}
+                            className="w-full text-sm font-medium py-2 rounded-md text-red-500 hover:text-red-600 hover:bg-red-500/10 cursor-pointer"
+                          >
+                            Log out
+                          </DropdownMenuItem>
+                        </div>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                ) : (
+                  <>
+                    <Button
+                      variant="ghost"
+                      render={<Link to="/login" />}
+                      className="text-muted-foreground hover:text-foreground font-medium h-[40px] px-4 rounded-[12px] transition-all"
+                    >
+                      Sign In
+                    </Button>
+                    <Button
+                      render={<Link to="/register" />}
+                      className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold h-[40px] px-5 rounded-[12px] shadow-sm transition-all"
+                    >
+                      Join Market
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
+      )}
 
       <AnimatePresence>
         {isMobileMenuOpen && (
@@ -273,11 +304,7 @@ export default function RootLayout() {
                   className="flex items-center gap-2"
                   onClick={() => setIsMobileMenuOpen(false)}
                 >
-                  <span className="text-xl font-bold tracking-tight text-foreground">
-                    ODA <span className={cn(
-                      profile?.role === "seller" && profile?.verified ? "text-amber-600 dark:text-amber-500" : "text-emerald-600 dark:text-emerald-500"
-                    )}>MARKET</span>
-                  </span>
+                  <Logo />
                 </Link>
                 <Button
                   variant="ghost"
@@ -291,7 +318,7 @@ export default function RootLayout() {
               </div>
 
               <div className="p-4 border-b border-border">
-                <form 
+                <form
                   className="relative w-full group"
                   onSubmit={(e) => {
                     e.preventDefault();
@@ -317,20 +344,44 @@ export default function RootLayout() {
               <div className="flex-1 overflow-y-auto py-4">
                 <nav className="flex flex-col gap-2 px-3">
                   <Link
-                    to="/products"
-                    className="flex items-center justify-between px-4 py-3.5 rounded-xl text-foreground/80 hover:text-foreground hover:bg-muted/50 text-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                    to="/"
+                    className="flex items-center space-x-3 px-4 py-3.5 rounded-xl text-foreground/80 hover:text-foreground hover:bg-muted/50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
+                    <div className="bg-emerald-500/10 p-2 rounded-lg text-emerald-600 dark:text-emerald-400">
+                      <Home className="h-5 w-5" />
+                    </div>
+                    <span className="font-medium text-lg">Home</span>
+                  </Link>
+                  <Link
+                    to="/categories"
+                    className="flex items-center space-x-3 px-4 py-3.5 rounded-xl text-foreground/80 hover:text-foreground hover:bg-muted/50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <div className="bg-emerald-500/10 p-2 rounded-lg text-emerald-600 dark:text-emerald-400">
+                      <Grid className="h-5 w-5" />
+                    </div>
+                    <span className="font-medium text-lg">Categories</span>
+                  </Link>
+                  <Link
+                    to="/products"
+                    className="flex items-center space-x-3 px-4 py-3.5 rounded-xl text-foreground/80 hover:text-foreground hover:bg-muted/50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                    onClick={() => setIsMobileMenuOpen(false)}
+                  >
+                    <div className="bg-emerald-500/10 p-2 rounded-lg text-emerald-600 dark:text-emerald-400">
+                      <Store className="h-5 w-5" />
+                    </div>
                     <span className="font-medium text-lg">Products</span>
-                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
                   </Link>
                   <Link
                     to="/contact"
-                    className="flex items-center justify-between px-4 py-3.5 rounded-xl text-foreground/80 hover:text-foreground hover:bg-muted/50 text-foreground transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                    className="flex items-center space-x-3 px-4 py-3.5 rounded-xl text-foreground/80 hover:text-foreground hover:bg-muted/50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
                     onClick={() => setIsMobileMenuOpen(false)}
                   >
+                    <div className="bg-emerald-500/10 p-2 rounded-lg text-emerald-600 dark:text-emerald-400">
+                      <MessageCircle className="h-5 w-5" />
+                    </div>
                     <span className="font-medium text-lg">Contact Us</span>
-                    <ChevronRight className="h-5 w-5 text-muted-foreground" />
                   </Link>
                 </nav>
               </div>
@@ -339,12 +390,20 @@ export default function RootLayout() {
                 {user ? (
                   <>
                     <div className="flex items-center gap-3 px-2 mb-2">
-                      <div className={cn(
-                        "h-10 w-10 rounded-full flex items-center justify-center border shrink-0",
-                        profile?.logo_url ? "p-0 overflow-hidden border-border" : "bg-emerald-500/20 border-emerald-500/30"
-                      )}>
+                      <div
+                        className={cn(
+                          "h-10 w-10 rounded-full flex items-center justify-center border shrink-0",
+                          profile?.logo_url
+                            ? "p-0 overflow-hidden border-border"
+                            : "bg-emerald-500/20 border-emerald-500/30",
+                        )}
+                      >
                         {profile?.logo_url ? (
-                          <img src={profile.logo_url} alt="Profile" className="h-full w-full object-cover" />
+                          <img
+                            src={profile.logo_url}
+                            alt="Profile"
+                            className="h-full w-full object-cover"
+                          />
                         ) : (
                           <span className="font-medium text-emerald-600 dark:text-emerald-400 text-base">
                             {profile?.business_name
@@ -410,112 +469,122 @@ export default function RootLayout() {
         <Outlet />
       </main>
 
-      <footer className="bg-background text-muted-foreground py-12 pb-24 md:pb-12 border-t border-border">
-        <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-8">
-          <div className="space-y-4">
-            <Link to="/" className="flex items-center gap-2">
-              <span className="text-xl font-bold tracking-tight text-foreground">
-                ODA Market
+      {!isAuthRoute && (
+        <footer className="bg-background text-muted-foreground py-12 pb-24 md:pb-12 border-t border-border">
+          <div className="container mx-auto px-4 grid grid-cols-1 md:grid-cols-4 gap-8">
+            <div className="space-y-4">
+              <Link to="/" className="flex items-center gap-2">
+                <span className="text-xl font-bold tracking-tight text-foreground">
+                  ODA Market
+                </span>
+              </Link>
+              <p className="text-sm leading-relaxed max-w-xs">
+                The premier B2B marketplace connecting trusted African suppliers
+                with global buyers.
+              </p>
+            </div>
+            <div>
+              <h4 className="text-foreground font-medium mb-4">Categories</h4>
+              <ul className="space-y-2 text-sm">
+                <li>
+                  <Link
+                    to="/c/agriculture-farming"
+                    className="hover:text-emerald-600 dark:text-emerald-400 transition-colors"
+                  >
+                    Agriculture & Farming
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/c/food-beverage"
+                    className="hover:text-emerald-600 dark:text-emerald-400 transition-colors"
+                  >
+                    Food & Beverage
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/c/construction-building"
+                    className="hover:text-emerald-600 dark:text-emerald-400 transition-colors"
+                  >
+                    Construction & Building
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/c/industrial-equipment"
+                    className="hover:text-emerald-600 dark:text-emerald-400 transition-colors"
+                  >
+                    Industrial Equipment
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="/categories"
+                    className="hover:text-emerald-600 dark:text-emerald-400 transition-colors font-medium mt-2 inline-block"
+                  >
+                    View All Categories &rarr;
+                  </Link>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="text-foreground font-medium mb-4">Company</h4>
+              <ul className="space-y-2 text-sm">
+                <li>
+                  <Link
+                    to="#"
+                    className="hover:text-emerald-600 dark:text-emerald-400 transition-colors"
+                  >
+                    About Us
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="#"
+                    className="hover:text-emerald-600 dark:text-emerald-400 transition-colors"
+                  >
+                    Careers
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="#"
+                    className="hover:text-emerald-600 dark:text-emerald-400 transition-colors"
+                  >
+                    Terms of Service
+                  </Link>
+                </li>
+                <li>
+                  <Link
+                    to="#"
+                    className="hover:text-emerald-600 dark:text-emerald-400 transition-colors"
+                  >
+                    Privacy Policy
+                  </Link>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="text-foreground font-medium mb-4">Contact</h4>
+              <ul className="space-y-2 text-sm">
+                <li>info@odamarket.co.ke</li>
+                <li>0792867386</li>
+                <li>Nairobi, Kenya</li>
+              </ul>
+            </div>
+          </div>
+          <div className="container mx-auto px-4 mt-12 pt-8 border-t border-border text-sm flex flex-col md:flex-row justify-between items-center text-[11px] tracking-widest uppercase">
+            <p>© {new Date().getFullYear()} ODA Market</p>
+            <div className="flex gap-6 mt-4 md:mt-0">
+              <span className="text-emerald-600 dark:text-emerald-500 font-bold italic tracking-normal">
+                #AfricaTrade{new Date().getFullYear()}
               </span>
-            </Link>
-            <p className="text-sm leading-relaxed max-w-xs">
-              The premier B2B marketplace connecting trusted African suppliers
-              with global buyers.
-            </p>
+            </div>
           </div>
-          <div>
-            <h4 className="text-foreground font-medium mb-4">Categories</h4>
-            <ul className="space-y-2 text-sm">
-              <li>
-                <Link
-                  to="/products?category=Agriculture"
-                  className="hover:text-emerald-600 dark:text-emerald-400 transition-colors"
-                >
-                  Agriculture
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="/products?category=Livestock"
-                  className="hover:text-emerald-600 dark:text-emerald-400 transition-colors"
-                >
-                  Livestock
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="/products?category=Construction"
-                  className="hover:text-emerald-600 dark:text-emerald-400 transition-colors"
-                >
-                  Construction
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="/products?category=Manufacturing"
-                  className="hover:text-emerald-600 dark:text-emerald-400 transition-colors"
-                >
-                  Manufacturing
-                </Link>
-              </li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="text-foreground font-medium mb-4">Company</h4>
-            <ul className="space-y-2 text-sm">
-              <li>
-                <Link
-                  to="#"
-                  className="hover:text-emerald-600 dark:text-emerald-400 transition-colors"
-                >
-                  About Us
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="#"
-                  className="hover:text-emerald-600 dark:text-emerald-400 transition-colors"
-                >
-                  Careers
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="#"
-                  className="hover:text-emerald-600 dark:text-emerald-400 transition-colors"
-                >
-                  Terms of Service
-                </Link>
-              </li>
-              <li>
-                <Link
-                  to="#"
-                  className="hover:text-emerald-600 dark:text-emerald-400 transition-colors"
-                >
-                  Privacy Policy
-                </Link>
-              </li>
-            </ul>
-          </div>
-          <div>
-            <h4 className="text-foreground font-medium mb-4">Contact</h4>
-            <ul className="space-y-2 text-sm">
-              <li>info@odamarket.co.ke</li>
-              <li>0792867386</li>
-              <li>Nairobi, Kenya</li>
-            </ul>
-          </div>
-        </div>
-        <div className="container mx-auto px-4 mt-12 pt-8 border-t border-border text-sm flex flex-col md:flex-row justify-between items-center text-[11px] tracking-widest uppercase">
-          <p>© {new Date().getFullYear()} ODA Market</p>
-          <div className="flex gap-6 mt-4 md:mt-0">
-            <span className="text-emerald-600 dark:text-emerald-500 font-bold italic tracking-normal">
-              #AfricaTrade{new Date().getFullYear()}
-            </span>
-          </div>
-        </div>
-      </footer>
-      <MobileBottomNav />
+        </footer>
+      )}
+      {!isAuthRoute && <MobileBottomNav />}
     </div>
   );
 }

@@ -158,7 +158,7 @@ export default function DashboardLayout() {
   const navItems = getNavItems();
 
   return (
-    <div className="min-h-[100dvh] flex bg-background font-sans text-foreground">
+    <div className="min-h-[100dvh] flex bg-background font-sans text-foreground w-full max-w-[100vw] overflow-x-hidden">
       {/* Sidebar */}
       <aside className="w-64 bg-card border-r border-border hidden md:flex flex-col sticky top-0 h-[100dvh]">
         <div className="p-6 flex justify-between items-center">
@@ -170,12 +170,14 @@ export default function DashboardLayout() {
           </div>
         </div>
 
-        <div className={cn(
-          "px-6 py-4 border-b",
-          profile?.role === "seller" && profile?.verified 
-            ? "border-amber-500/20 bg-amber-500/5" 
-            : "border-border"
-        )}>
+        <div
+          className={cn(
+            "px-6 py-4 border-b",
+            profile?.role === "seller" && profile?.verified
+              ? "border-amber-500/20 bg-amber-500/5"
+              : "border-border",
+          )}
+        >
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-foreground truncate flex items-center gap-1.5">
@@ -184,13 +186,17 @@ export default function DashboardLayout() {
                   <ShieldCheck className="h-4 w-4 text-amber-600 dark:text-amber-500 shrink-0" />
                 )}
               </p>
-              <p className={cn(
-                "text-xs capitalize",
-                profile?.role === "seller" && profile?.verified 
-                  ? "text-amber-500/80 font-medium" 
-                  : "text-muted-foreground"
-              )}>
-                {profile?.role === "seller" && profile?.verified ? "Premium Seller" : `${profile?.role || "User"} Profile`}
+              <p
+                className={cn(
+                  "text-xs capitalize",
+                  profile?.role === "seller" && profile?.verified
+                    ? "text-amber-500/80 font-medium"
+                    : "text-muted-foreground",
+                )}
+              >
+                {profile?.role === "seller" && profile?.verified
+                  ? "Premium Seller"
+                  : `${profile?.role || "User"} Profile`}
               </p>
             </div>
           </div>
@@ -200,7 +206,7 @@ export default function DashboardLayout() {
           {navItems.map((item) => {
             const isActive = location.pathname === item.path;
             const Icon = item.icon;
-            
+
             const isPremium = profile?.role === "seller" && profile?.verified;
 
             return (
@@ -210,14 +216,20 @@ export default function DashboardLayout() {
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
                   isActive
-                    ? (isPremium ? "bg-amber-500/10 text-amber-600 dark:text-amber-500" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400")
+                    ? isPremium
+                      ? "bg-amber-500/10 text-amber-600 dark:text-amber-500"
+                      : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
                     : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
                 )}
               >
                 <Icon
                   className={cn(
                     "h-5 w-5",
-                    isActive ? (isPremium ? "text-amber-600 dark:text-amber-500" : "text-emerald-600 dark:text-emerald-500") : "text-muted-foreground",
+                    isActive
+                      ? isPremium
+                        ? "text-amber-600 dark:text-amber-500"
+                        : "text-emerald-600 dark:text-emerald-500"
+                      : "text-muted-foreground",
                   )}
                 />
                 {item.label}
@@ -285,10 +297,14 @@ export default function DashboardLayout() {
                 aria-modal="true"
                 aria-label="Mobile navigation"
               >
-                <div className={cn(
-                  "flex items-center justify-between p-4 border-b",
-                  profile?.role === "seller" && profile?.verified ? "border-amber-500/20 bg-amber-500/5" : "border-border"
-                )}>
+                <div
+                  className={cn(
+                    "flex items-center justify-between p-4 border-b",
+                    profile?.role === "seller" && profile?.verified
+                      ? "border-amber-500/20 bg-amber-500/5"
+                      : "border-border",
+                  )}
+                >
                   <div className="flex flex-col">
                     <span className="text-sm font-medium text-foreground truncate flex items-center gap-1.5">
                       {profile?.business_name || "My Business"}
@@ -296,11 +312,17 @@ export default function DashboardLayout() {
                         <ShieldCheck className="h-4 w-4 text-amber-600 dark:text-amber-500 shrink-0" />
                       )}
                     </span>
-                    <span className={cn(
-                      "text-xs capitalize",
-                      profile?.role === "seller" && profile?.verified ? "text-amber-500/80 font-medium" : "text-muted-foreground"
-                    )}>
-                      {profile?.role === "seller" && profile?.verified ? "Premium Seller" : `${profile?.role || "User"} Profile`}
+                    <span
+                      className={cn(
+                        "text-xs capitalize",
+                        profile?.role === "seller" && profile?.verified
+                          ? "text-amber-500/80 font-medium"
+                          : "text-muted-foreground",
+                      )}
+                    >
+                      {profile?.role === "seller" && profile?.verified
+                        ? "Premium Seller"
+                        : `${profile?.role || "User"} Profile`}
                     </span>
                   </div>
                   <Button
@@ -318,7 +340,8 @@ export default function DashboardLayout() {
                   {navItems.map((item) => {
                     const isActive = location.pathname === item.path;
                     const Icon = item.icon;
-                    const isPremium = profile?.role === "seller" && profile?.verified;
+                    const isPremium =
+                      profile?.role === "seller" && profile?.verified;
                     return (
                       <Link
                         key={item.path}
@@ -327,7 +350,9 @@ export default function DashboardLayout() {
                         className={cn(
                           "flex items-center gap-4 px-4 py-3.5 rounded-xl text-base font-medium transition-all focus:outline-none",
                           isActive
-                            ? (isPremium ? "bg-amber-500/10 text-amber-600 dark:text-amber-500 focus:ring-2 focus:ring-amber-500" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 focus:ring-2 focus:ring-emerald-500")
+                            ? isPremium
+                              ? "bg-amber-500/10 text-amber-600 dark:text-amber-500 focus:ring-2 focus:ring-amber-500"
+                              : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 focus:ring-2 focus:ring-emerald-500"
                             : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
                         )}
                       >
@@ -335,7 +360,9 @@ export default function DashboardLayout() {
                           className={cn(
                             "h-6 w-6",
                             isActive
-                              ? (isPremium ? "text-amber-600 dark:text-amber-500" : "text-emerald-600 dark:text-emerald-500")
+                              ? isPremium
+                                ? "text-amber-600 dark:text-amber-500"
+                                : "text-emerald-600 dark:text-emerald-500"
                               : "text-muted-foreground",
                           )}
                         />

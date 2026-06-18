@@ -286,28 +286,29 @@ export default function HomePage() {
     <div className="flex flex-col min-h-[calc(100dvh-4rem)] bg-background">
       {/* Hero Section */}
       <section className="relative overflow-hidden bg-background">
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiMxNmEzNGEiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM0djIwaC0ydi0yMGgtMjB2LTJoMjB2LTIwaDJ2MjBoMjB2MnoiLz48L2c+PC9nPjwvc3ZnPg==')] opacity-[0.15] mix-blend-overlay pointer-events-none"></div>
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-emerald-900/10 rounded-full blur-[120px]"></div>
         <div className="absolute top-20 right-40 w-32 h-32 border border-emerald-500/10 rounded-full"></div>
         <div className="absolute bottom-20 left-40 w-64 h-64 border border-amber-500/10 rounded-full"></div>
 
-        <div className="container relative mx-auto px-4 py-12 sm:py-16 md:py-24 lg:py-32">
+        <div className="container relative mx-auto px-4 py-10 sm:py-16 md:py-24">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
             className="text-center max-w-4xl mx-auto"
           >
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-[10px] sm:text-xs font-semibold mb-6 uppercase tracking-wider">
+            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-600 dark:text-emerald-400 text-xs font-bold mb-6 uppercase tracking-wider backdrop-blur-sm">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
               Africa's Fastest Growing B2B Network
             </div>
-            <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-bold tracking-tight text-foreground mb-4 sm:mb-6 leading-[1.1] sm:leading-[1.05]">
+            <h1 className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold tracking-tight text-foreground mb-5 leading-[1.05]">
               Buy From Trusted <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 via-amber-400 to-emerald-600 dark:from-emerald-400 dark:via-amber-200 dark:to-emerald-500">
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-500 via-emerald-400 to-emerald-600 dark:from-emerald-400 dark:via-emerald-300 dark:to-emerald-500">
                 African Suppliers
               </span>
             </h1>
-            <p className="text-base sm:text-lg md:text-xl text-muted-foreground mb-8 sm:mb-10 max-w-2xl mx-auto leading-relaxed px-2 sm:px-0">
+            <p className="text-base sm:text-lg md:text-xl text-muted-foreground mb-8 max-w-2xl mx-auto font-medium leading-relaxed px-2 sm:px-0">
               Connect your business across Africa. Source products, manage
               inquiries, and scale your operations with verified suppliers and
               structured quotes.
@@ -322,79 +323,98 @@ export default function HomePage() {
                   navigate("/products");
                 }
               }}
-              className="flex items-center gap-2 p-1.5 sm:p-2 bg-card text-foreground backdrop-blur-xl border border-border/80 rounded-2xl w-full max-w-2xl mx-auto shadow-2xl flex-col sm:flex-row"
+              className="flex items-center p-2 bg-card/90 supports-[backdrop-filter]:bg-card/70 text-foreground backdrop-blur-2xl border border-white/10 rounded-[16px] w-full max-w-2xl mx-auto shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex-col sm:flex-row mb-5"
             >
-              <div className="flex-1 flex items-center px-4 gap-3 w-full border-b sm:border-b-0 sm:border-r border-border/50 pb-2 sm:pb-0">
-                <Search className="w-5 h-5 text-muted-foreground shrink-0" />
+              <div className="flex-1 flex items-center px-4 w-full border-b sm:border-b-0 sm:border-r border-border/50 pb-2 sm:pb-0 h-[56px] sm:h-auto">
+                <Search className="w-5 h-5 text-muted-foreground shrink-0 mr-3" />
                 <Input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="What are you sourcing today?"
-                  className="w-full bg-transparent border-none outline-none text-foreground/90 placeholder:text-muted-foreground h-10 sm:h-12 shadow-none focus-visible:ring-0 px-0 text-sm sm:text-base"
+                  className="w-full bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground h-full shadow-none focus-visible:ring-0 px-0 text-base md:text-lg font-medium"
                 />
               </div>
               <Button
                 type="submit"
                 size="lg"
-                className="h-10 sm:h-12 px-8 text-sm bg-emerald-600 hover:bg-emerald-500 text-primary-foreground font-bold rounded-xl shadow-lg shadow-emerald-900/20 hover:scale-105 transition-transform w-[95%] sm:w-auto mx-auto mb-1.5 sm:mb-0"
+                className="h-[56px] px-8 text-base bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-[12px] shadow-lg shadow-emerald-500/25 hover:scale-[1.02] transition-all w-full sm:w-auto mt-2 sm:mt-0"
               >
                 Search Market
               </Button>
             </form>
+            
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mt-2">
+              <Link 
+                to="/categories"
+                className="inline-flex items-center justify-center h-12 px-8 text-sm font-semibold text-foreground bg-secondary hover:bg-secondary/80 rounded-[12px] border border-border/50 transition-all"
+              >
+                 Browse Categories
+              </Link>
+            </div>
           </motion.div>
         </div>
       </section>
 
       {/* Stats/Trust Bar */}
-      <section className="bg-background border-y border-border/50">
-        <div className="container mx-auto px-4 py-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-y-8 sm:gap-y-0 sm:gap-x-8 sm:divide-x divide-border/50">
-            <div className="flex flex-col items-center justify-center text-center px-2">
-              <TrendingUp className="h-6 w-6 text-[#00C896] mb-2" />
-              <h3 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">
-                <AnimatedNumber value={activeSuppliersCount !== null && activeSuppliersCount > 250 ? activeSuppliersCount : 250} />
-              </h3>
-              <p className="text-sm sm:text-base text-muted-foreground font-semibold mt-1">
-                Active Suppliers
-              </p>
-            </div>
-            <div className="flex flex-col items-center justify-center text-center border-l sm:border-l-0 border-border/50 px-2">
-              <ShieldCheck className="h-6 w-6 text-emerald-600 dark:text-emerald-500 mb-2" />
-              <h3 className="text-xl sm:text-2xl font-bold text-foreground">
-                100%
-              </h3>
-              <p className="text-xs sm:text-sm text-muted-foreground font-medium">
-                Verified Businesses
-              </p>
-            </div>
-            <div className="flex flex-col items-center justify-center text-center px-2">
-              <MapPin className="h-6 w-6 text-emerald-600 dark:text-emerald-500 mb-2" />
-              <h3 className="text-xl sm:text-2xl font-bold text-foreground">
-                54
-              </h3>
-              <p className="text-xs sm:text-sm text-muted-foreground font-medium">
-                African Countries
-              </p>
-            </div>
-            <div className="flex flex-col items-center justify-center text-center border-l sm:border-l-0 border-border/50 px-2">
-              <UserCheck className="h-6 w-6 text-emerald-600 dark:text-emerald-500 mb-2" />
-              <h3 className="text-xl sm:text-2xl font-bold text-foreground">
-                50k+
-              </h3>
-              <p className="text-xs sm:text-sm text-muted-foreground font-medium">
-                Successful Quotes
-              </p>
+      <section className="bg-background pb-8 pt-2 sm:pt-4">
+        <div className="container mx-auto px-4">
+          <div className="bg-card/50 backdrop-blur-sm border border-border/60 rounded-2xl shadow-sm p-6 sm:p-8">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-y-8 sm:gap-y-0 sm:gap-x-8 sm:divide-x divide-border/40">
+              <div className="flex flex-col items-center justify-center text-center px-2">
+                <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center mb-3">
+                  <TrendingUp className="h-6 w-6 text-emerald-500" />
+                </div>
+                <h3 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">
+                  <AnimatedNumber value={activeSuppliersCount !== null && activeSuppliersCount > 250 ? activeSuppliersCount : 250} />
+                </h3>
+                <p className="text-sm text-muted-foreground font-semibold mt-1 uppercase tracking-wide">
+                  Active Suppliers
+                </p>
+              </div>
+              <div className="flex flex-col items-center justify-center text-center px-2">
+                <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center mb-3">
+                  <ShieldCheck className="h-6 w-6 text-emerald-500" />
+                </div>
+                <h3 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">
+                  100%
+                </h3>
+                <p className="text-sm text-muted-foreground font-semibold mt-1 uppercase tracking-wide">
+                  Verified Businesses
+                </p>
+              </div>
+              <div className="flex flex-col items-center justify-center text-center px-2">
+                <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center mb-3">
+                  <MapPin className="h-6 w-6 text-emerald-500" />
+                </div>
+                <h3 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">
+                  54
+                </h3>
+                <p className="text-sm text-muted-foreground font-semibold mt-1 uppercase tracking-wide">
+                  African Countries
+                </p>
+              </div>
+              <div className="flex flex-col items-center justify-center text-center px-2">
+                <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center mb-3">
+                  <UserCheck className="h-6 w-6 text-emerald-500" />
+                </div>
+                <h3 className="text-3xl sm:text-4xl font-extrabold text-foreground tracking-tight">
+                  50k+
+                </h3>
+                <p className="text-sm text-muted-foreground font-semibold mt-1 uppercase tracking-wide">
+                  Successful Quotes
+                </p>
+              </div>
             </div>
           </div>
         </div>
       </section>
 
       {/* Categories */}
-      <section className="py-20 bg-background relative">
+      <section className="py-12 sm:py-16 md:py-20 bg-background relative">
         <div className="container mx-auto px-4 relative z-10">
-          <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-4">
+          <div className="flex flex-col md:flex-row md:items-end justify-between mb-8 sm:mb-10 gap-3 sm:gap-4">
             <div>
-              <h2 className="text-3xl font-bold text-foreground mb-2">
+              <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2 tracking-tight">
                 Explore Categories
               </h2>
               <p className="text-muted-foreground">
@@ -485,11 +505,11 @@ export default function HomePage() {
       </section>
 
       {/* Featured Products */}
-      <section className="py-20 bg-background">
+      <section className="py-12 sm:py-16 md:py-20 bg-background border-t border-border/40">
         <div className="container mx-auto px-4">
-          <div className="flex items-end justify-between mb-10">
+          <div className="flex flex-col sm:flex-row items-start sm:items-end justify-between mb-8 sm:mb-10 gap-3 sm:gap-4">
             <div>
-              <h2 className="text-3xl font-bold text-foreground mb-2">
+              <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2 tracking-tight">
                 Featured Products
               </h2>
               <p className="text-muted-foreground">
@@ -554,15 +574,15 @@ export default function HomePage() {
       </section>
 
       {/* CTA Section */}
-      <section className="py-24 bg-background relative overflow-hidden border-t border-border/50">
+      <section className="py-16 md:py-24 bg-background relative overflow-hidden border-t border-border/50">
         <div className="absolute inset-0 bg-emerald-900/10 mix-blend-screen" />
         <div className="absolute top-0 right-0 w-96 h-96 bg-emerald-500/10 rounded-full blur-[100px]" />
 
         <div className="container mx-auto px-4 relative z-10 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-500 text-xs font-semibold mb-6 uppercase tracking-wider">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-500 text-xs font-bold mb-6 uppercase tracking-wider">
             Unlock Wholesale Prices
           </div>
-          <h2 className="text-3xl md:text-5xl font-bold text-foreground mb-6 max-w-2xl mx-auto">
+          <h2 className="text-3xl md:text-5xl font-extrabold tracking-tight text-foreground mb-6 max-w-2xl mx-auto">
             Ready to expand your market reach?
           </h2>
           <p className="text-lg text-muted-foreground mb-10 max-w-xl mx-auto">

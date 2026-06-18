@@ -92,10 +92,10 @@ export default function RootLayout() {
   };
 
   return (
-    <div className="min-h-[100dvh] flex flex-col font-sans bg-background text-foreground">
+    <div className="min-h-[100dvh] flex flex-col font-sans bg-background text-foreground overflow-x-hidden w-full max-w-[100vw]">
       {!isAuthRoute && (
-        <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur-md">
-          <div className="container mx-auto h-16 md:h-20 px-4 flex items-center justify-between">
+        <header className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/80 supports-[backdrop-filter]:bg-background/60 backdrop-blur-xl saturate-150">
+          <div className="container mx-auto h-[72px] md:h-[80px] px-4 sm:px-6 flex items-center justify-between">
             {/* Logo */}
             <div className="flex items-center shrink-0">
               <Link to="/" className="flex items-center">
@@ -140,7 +140,7 @@ export default function RootLayout() {
             {/* Right Actions */}
             <div className="flex items-center shrink-0 gap-2 sm:gap-4">
               <ThemeToggle />
-              
+
               {/* Mobile Toggle */}
               <div className="md:hidden flex items-center gap-2">
                 {user && <NotificationBell />}

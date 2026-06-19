@@ -243,10 +243,9 @@ export default function HomePage() {
       const { data, error } = await supabase
         .from("products")
         .select(
-          "*, profiles!inner(verified, business_name, location), categories(name, slug)",
+          "*, profiles(verified, business_name, location), categories(name, slug)",
         )
         .eq("status", "active")
-        .eq("profiles.verified", true)
         .order("created_at", { ascending: false })
         .limit(16);
 

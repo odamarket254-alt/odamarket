@@ -116,9 +116,8 @@ export default function ProductsPage() {
       setIsLoading(true);
       let query = supabase
         .from("products")
-        .select("*, profiles!inner(verified), categories!inner(name, slug)")
+        .select(selectedCategory ? "*, profiles(*), categories!inner(name, slug)" : "*, profiles(*), categories(name, slug)")
         .eq("status", "active")
-        .eq("profiles.verified", true)
         .order("created_at", { ascending: false })
         .limit(50);
 

@@ -233,9 +233,8 @@ export default function ProductDetailsPage() {
       // Fetch Product Setup
       const { data, error } = await supabase
         .from("products")
-        .select("*, profiles!inner(*), categories(name, slug)")
+        .select("*, profiles(*), categories(name, slug)")
         .eq("id", id)
-        .eq("profiles.verified", true)
         .single();
 
       if (error) throw error;

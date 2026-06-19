@@ -94,7 +94,6 @@ export default function SupplierProfilePage() {
         .select("*")
         .eq("id", supplierId)
         .eq("role", "seller")
-        .eq("verified", true)
         .single();
 
       if (profileError) throw profileError;

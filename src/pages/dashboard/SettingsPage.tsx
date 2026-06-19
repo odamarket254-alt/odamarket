@@ -33,15 +33,16 @@ export default function SettingsPage() {
     bio: "",
   });
 
-  // Read local storage to see if they recently requested
+  // Sync verification requested status from profile
   useEffect(() => {
-    if (user?.id) {
-      const requested = localStorage.getItem(`verification_requested_${user.id}`);
-      if (requested === "true") {
+    if (profile?.id) {
+      if ((profile as any).verification_requested) {
         setHasRequested(true);
+      } else {
+        setHasRequested(false);
       }
     }
-  }, [user?.id]);
+  }, [profile]);
 
   // Sync form with profile
   useEffect(() => {
@@ -78,7 +79,6 @@ export default function SettingsPage() {
                 icon: <ShieldCheck className="h-5 w-5 text-amber-600 dark:text-amber-500" />
               });
               setHasRequested(false);
-              localStorage.removeItem(`verification_requested_${profile.id}`);
             } else {
               toast.error("Your verification badge has been revoked.");
             }
@@ -98,20 +98,21 @@ export default function SettingsPage() {
     if (!user?.id) return;
     setIsRequesting(true);
     
-    // Simulate a network request
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    
-    // In a real app we might insert into a verification_requests table
-    const requests = JSON.parse(localStorage.getItem("verification_requests") || "[]");
-    if (!requests.includes(user.id)) {
-      requests.push(user.id);
-      localStorage.setItem("verification_requests", JSON.stringify(requests));
+    try {
+      const { error } = await supabase
+        .from("profiles")
+        .update({ verification_requested: true })
+        .eq("id", user.id);
+
+      if (error) throw error;
+      
+      setHasRequested(true);
+      toast.success("Verification request submitted successfully. An admin will review your profile shortly.");
+    } catch (err: any) {
+      toast.error(err.message || "Failed to submit verification request");
+    } finally {
+      setIsRequesting(false);
     }
-    
-    localStorage.setItem(`verification_requested_${user.id}`, "true");
-    setHasRequested(true);
-    setIsRequesting(false);
-    toast.success("Verification request submitted successfully. An admin will review your profile shortly.");
   };
 
   const handleSaveProfile = async () => {

@@ -367,7 +367,18 @@ export default function DashboardProductsPage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="stock" className="text-foreground/80">Stock Availability</Label>
-                  <Input id="stock" name="stock" required defaultValue={editingProduct?.stock || ""} placeholder="e.g. 500 mt" className="bg-background" />
+                  <Select name="stock" defaultValue={editingProduct?.stock || "In Stock"}>
+                    <SelectTrigger className="bg-background">
+                      <SelectValue placeholder="Select availability" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-popover border-border text-popover-foreground">
+                      <SelectItem value="In Stock">In Stock</SelectItem>
+                      <SelectItem value="Limited Stock">Limited Stock</SelectItem>
+                      <SelectItem value="Made to Order">Made to Order</SelectItem>
+                      <SelectItem value="Pre-order">Pre-order</SelectItem>
+                      <SelectItem value="Out of Stock">Out of Stock</SelectItem>
+                    </SelectContent>
+                  </Select>
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="moq" className="text-foreground/80">Min Order Qty (MOQ)</Label>

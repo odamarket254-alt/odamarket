@@ -107,18 +107,17 @@ export default function DashboardHome() {
             { count: uCount },
             { count: pCount },
             { count: iCount },
+            { count: vCount }
           ] = await Promise.all([
             supabase.from("profiles").select("*", { count: "exact", head: true }),
             supabase.from("products").select("*", { count: "exact", head: true }),
             supabase.from("inquiries").select("*", { count: "exact", head: true }),
+            supabase.from("profiles").select("*", { count: "exact", head: true }).eq("verification_requested", true).eq("verified", false),
           ]);
           setAdminUsers(uCount || 0);
           setAdminProducts(pCount || 0);
           setAdminInquiries(iCount || 0);
-          
-          // Read pending verification requests
-          const requests = JSON.parse(localStorage.getItem("verification_requests") || "[]");
-          setAdminVerifications(requests.length);
+          setAdminVerifications(vCount || 0);
         }
       } finally {
         setIsLoading(false);

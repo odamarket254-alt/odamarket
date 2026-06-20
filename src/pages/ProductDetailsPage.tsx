@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { VerifiedBadge } from "../components/ui/VerifiedBadge";
 import { useParams, Link } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
 import { Button } from "../components/ui/Button";
@@ -924,18 +925,13 @@ export default function ProductDetailsPage() {
                   </div>
                 </div>
 
-                <div className="absolute top-3 right-4">
-                  {product.isVerified && (
-                    <Badge className="bg-[#FEF3C7] text-[#D97706] hover:bg-[#FEF3C7] border-none px-2.5 py-1 text-xs font-bold flex items-center gap-1.5 shadow-sm">
-                      <ShieldCheck className="h-3.5 w-3.5" /> Gold Supplier
-                    </Badge>
-                  )}
-                </div>
-
                 <div className="pt-10">
-                  <h3 className="text-xl font-bold text-foreground mb-1 leading-tight">
-                    {product.supplier}
-                  </h3>
+                  <div className="flex items-center gap-2 mb-1">
+                    <h3 className="text-xl font-bold text-foreground leading-tight">
+                      {product.supplier}
+                    </h3>
+                    {product.isVerified && <VerifiedBadge showText={false} className="shrink-0 px-1 py-1" iconClassName="w-4 h-4 ml-[2px] mr-[2px]" />}
+                  </div>
                   <div className="flex items-center gap-1.5 text-muted-foreground text-sm mb-4">
                     <Globe2 className="h-4 w-4" /> {product.location}
                   </div>
@@ -1002,9 +998,7 @@ export default function ProductDetailsPage() {
                 <li className="flex justify-between items-center pb-2 border-b border-border/50">
                   <span>Verification Status</span>
                   {product.isVerified ? (
-                    <span className="font-medium text-[#00B074] flex items-center gap-1">
-                      <ShieldCheck className="h-4 w-4" /> Verified
-                    </span>
+                    <VerifiedBadge />
                   ) : (
                     <span className="font-medium text-muted-foreground flex items-center gap-1">
                       <Shield className="h-4 w-4" /> Unverified

@@ -7,6 +7,8 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuthStore } from "../store/useAuthStore";
 
+import { VerifiedBadge } from "./ui/VerifiedBadge";
+
 export interface MarketplaceProduct {
   id: string;
   name: string;
@@ -99,12 +101,6 @@ export const SwipeableProductCard: React.FC<{ product: MarketplaceProduct }> = (
       >
         <Card className="overflow-hidden h-full border-border bg-card text-card-foreground hover:border-primary/30 shadow-sm transition-all duration-300 flex flex-col w-full">
           <div className="aspect-[4/3] overflow-hidden relative bg-muted flex-shrink-0">
-            {product.profiles?.verified && (
-              <div className="absolute top-3 left-3 z-20 flex items-center gap-1 bg-background/90 backdrop-blur-md px-2.5 py-1 rounded-full border border-border shadow-sm">
-                <CheckCircle className="w-3 h-3 text-amber-600 dark:text-amber-500 fill-amber-500/20" />
-                <span className="text-[10px] font-bold text-foreground tracking-wide uppercase">Verified</span>
-              </div>
-            )}
             <button
               onClick={(e) => {
                 e.stopPropagation(); // prevent navigation
@@ -129,9 +125,14 @@ export const SwipeableProductCard: React.FC<{ product: MarketplaceProduct }> = (
           </div>
           <CardContent className="p-4 flex flex-col flex-1 pointer-events-none">
             <div className="mb-2 flex items-start justify-between gap-1">
-              <h3 className="font-semibold text-base text-foreground leading-snug line-clamp-2 transition-colors flex-1">
-                {product.name}
-              </h3>
+              <div className="flex bg-transparent flex-row items-center space-x-1 flex-1">
+                <h3 className="font-semibold text-base text-foreground leading-snug line-clamp-2 transition-colors">
+                  {product.name}
+                </h3>
+                  {product.profiles?.verified && (
+                    <VerifiedBadge showText={false} className="shrink-0 px-1 py-1" iconClassName="w-4 h-4 ml-[2px] mr-[2px]" />
+                  )}
+              </div>
               <Badge variant="outline" className="text-[9px] px-1.5 py-0 md:text-[10px] uppercase font-bold shrink-0 mt-0.5 pointer-events-auto truncate max-w-[120px]">
                  {product.categories?.name || product.category}
               </Badge>

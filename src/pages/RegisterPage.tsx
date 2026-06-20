@@ -850,7 +850,7 @@ function InputWrapper({
       <div className="relative">
         {icon && (
           <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-[#A0A8A3] group-focus-within/field:text-[#00C46A] transition-colors z-10">
-            {React.cloneElement(icon as React.ReactElement, {
+            {React.cloneElement(icon as React.ReactElement<{ className?: string }>, {
               className: "w-5 h-5",
             })}
           </div>

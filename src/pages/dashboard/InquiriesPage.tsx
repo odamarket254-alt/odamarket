@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Card, CardContent } from "../../components/ui/Card";
 import { Badge } from "../../components/ui/Badge";
+import { VerifiedBadge } from "../../components/ui/VerifiedBadge";
 import { 
   Mail, Clock, CheckCircle, Search, Filter, Send, ArrowLeft, 
   Calendar, Building2, Paperclip, Smile, Loader2, FileText, 
@@ -29,6 +30,14 @@ interface Inquiry {
   created_at: string;
   products?: {
     name: string;
+  };
+  seller?: {
+    business_name?: string;
+    verified?: boolean;
+  };
+  buyer?: {
+    business_name?: string;
+    verified?: boolean;
   };
 }
 
@@ -245,7 +254,7 @@ export default function InquiriesPage() {
       setIsLoading(true);
       const { data, error } = await supabase
         .from("inquiries")
-        .select("*, products(name)")
+        .select("*, products(name), seller:profiles!seller_id(business_name, verified), buyer:profiles!buyer_id(business_name, verified)")
         .or(`seller_id.eq.${user?.id},buyer_id.eq.${user?.id}`)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -287,6 +296,21 @@ export default function InquiriesPage() {
         return <Badge className="bg-muted text-foreground/80 border border-border">Closed</Badge>;
       default:
         return <Badge>{status}</Badge>;
+    }
+  };
+
+  const getOtherParty = (inquiry: Inquiry) => {
+    const isSeller = inquiry.seller_id === user?.id;
+    if (isSeller) {
+      return {
+        name: inquiry.company || inquiry.name || "Unknown Buyer",
+        verified: inquiry.buyer?.verified || false
+      };
+    } else {
+      return {
+        name: inquiry.seller?.business_name || "Unknown Seller",
+        verified: inquiry.seller?.verified || false
+      };
     }
   };
 
@@ -333,13 +357,16 @@ export default function InquiriesPage() {
                   className={`p-4 cursor-pointer transition-all hover:bg-muted/50 flex gap-3 ${selectedInquiry?.id === inquiry.id ? "bg-muted dark:bg-zinc-800/50" : ""}`}
                 >
                   <div className="h-12 w-12 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-bold text-lg shrink-0 border border-emerald-200 dark:border-emerald-800/50">
-                    {inquiry.company.charAt(0).toUpperCase()}
+                    {getOtherParty(inquiry).name.charAt(0).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0 flex flex-col justify-center">
                     <div className="flex justify-between items-baseline mb-0.5">
-                      <span className="font-semibold text-foreground text-[15px] truncate pr-2">
-                        {inquiry.company}
-                      </span>
+                      <div className="flex items-center gap-1.5 truncate pr-2">
+                        <span className="font-semibold text-foreground text-[15px] truncate">
+                          {getOtherParty(inquiry).name}
+                        </span>
+                        {getOtherParty(inquiry).verified && <VerifiedBadge showText={false} className="shrink-0 px-1 py-1" iconClassName="w-3 h-3 ml-[2px] mr-[2px]" />}
+                      </div>
                       <span className="text-xs text-muted-foreground whitespace-nowrap">
                         {formatDistanceToNow(new Date(inquiry.created_at), { addSuffix: false })}
                       </span>
@@ -381,10 +408,13 @@ export default function InquiriesPage() {
                   <ArrowLeft className="h-5 w-5" />
                 </Button>
                 <div className="h-10 w-10 rounded-full bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400 font-bold shrink-0 border border-emerald-200 dark:border-emerald-800/50">
-                  {selectedInquiry.company.charAt(0).toUpperCase()}
+                  {getOtherParty(selectedInquiry).name.charAt(0).toUpperCase()}
                 </div>
                 <div className="flex flex-col min-w-0">
-                  <h3 className="font-semibold text-[16px] text-foreground truncate leading-tight mb-0.5">{selectedInquiry.company}</h3>
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <h3 className="font-semibold text-[16px] text-foreground truncate leading-tight">{getOtherParty(selectedInquiry).name}</h3>
+                    {getOtherParty(selectedInquiry).verified && <VerifiedBadge showText={false} className="shrink-0 px-1 py-1" iconClassName="w-3.5 h-3.5 ml-[2px] mr-[2px]" />}
+                  </div>
                   <p className="text-[13px] text-muted-foreground truncate leading-tight">{selectedInquiry.name} • {selectedInquiry.products?.name}</p>
                 </div>
               </div>

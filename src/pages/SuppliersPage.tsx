@@ -1,7 +1,8 @@
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
-import { Store, MapPin, ShieldCheck } from "lucide-react";
+import { Store, MapPin } from "lucide-react";
+import { VerifiedBadge } from "../components/ui/VerifiedBadge";
 
 export default function SuppliersPage() {
   const [suppliers, setSuppliers] = useState<any[]>([]);
@@ -27,6 +28,43 @@ export default function SuppliersPage() {
       }
     }
     fetchSuppliers();
+
+    // Listen to real-time profile updates
+    const channel = supabase
+      .channel('public:profiles:suppliers')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'profiles' },
+        (payload) => {
+          if (payload.eventType === 'INSERT' && payload.new.role === 'seller' && payload.new.verified === true) {
+            setSuppliers(current => [payload.new, ...current]);
+          } else if (payload.eventType === 'UPDATE') {
+            setSuppliers(current => {
+              const isCurrentlyInList = current.some(s => s.id === payload.new.id);
+              const shouldBeInList = payload.new.role === 'seller' && payload.new.verified === true;
+              
+              if (isCurrentlyInList && shouldBeInList) {
+                // Update
+                return current.map(s => s.id === payload.new.id ? payload.new : s);
+              } else if (isCurrentlyInList && !shouldBeInList) {
+                // Remove
+                return current.filter(s => s.id !== payload.new.id);
+              } else if (!isCurrentlyInList && shouldBeInList) {
+                // Add
+                return [payload.new, ...current];
+              }
+              return current;
+            });
+          } else if (payload.eventType === 'DELETE') {
+            setSuppliers(current => current.filter(s => s.id !== payload.old.id));
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return (
@@ -74,15 +112,14 @@ export default function SuppliersPage() {
                     <Store className="h-6 w-6 text-primary" />
                   )}
                 </div>
-                <div className="flex bg-emerald-50 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 px-2.5 py-1 rounded-full text-xs font-medium items-center gap-1 shrink-0">
-                  <ShieldCheck className="h-3.5 w-3.5" />
-                  Verified
-                </div>
               </div>
 
-              <h3 className="text-lg font-semibold mb-1 group-hover:text-primary transition-colors">
-                {supplier.business_name || "Unnamed Supplier"}
-              </h3>
+              <div className="flex items-center gap-1.5 mb-1">
+                <h3 className="text-lg font-semibold group-hover:text-primary transition-colors">
+                  {supplier.business_name || "Unnamed Supplier"}
+                </h3>
+                <VerifiedBadge showText={false} className="shrink-0 px-1 py-1" iconClassName="w-4 h-4 ml-[2px] mr-[2px]" />
+              </div>
 
               {supplier.address && (
                 <div className="flex items-center text-muted-foreground text-sm mb-4">

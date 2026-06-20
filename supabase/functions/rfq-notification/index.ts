@@ -78,12 +78,12 @@ serve(async (req) => {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: \`Bearer \${RESEND_API_KEY}\`,
+        Authorization: `Bearer ${RESEND_API_KEY}`,
       },
       body: JSON.stringify({
         from: "OdaMarket RFQ <rfq@odamarket.com>",
         to: [supplierEmail],
-        subject: \`New B2B RFQ: \${record.title}\`,
+        subject: `New B2B RFQ: ${record.title}`,
         html: emailTemplate,
       }),
     });

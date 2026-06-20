@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { VerifiedBadge } from "../components/ui/VerifiedBadge";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
@@ -139,11 +140,6 @@ const CompactProductCard = ({ product }: { product: any }) => {
           loading="lazy"
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
         />
-        {product.profiles?.verified && (
-          <div className="absolute top-2 left-2 bg-background/90 backdrop-blur-md rounded-full px-1.5 py-0.5 border border-border shadow-sm">
-            <CheckCircle className="w-3.5 h-3.5 text-amber-600 dark:text-amber-500 fill-amber-500/20" />
-          </div>
-        )}
       </div>
       <div className="p-3 sm:p-4 flex flex-col flex-1">
         <div className="text-[11px] sm:text-xs uppercase font-bold text-muted-foreground truncate mb-1">
@@ -151,9 +147,14 @@ const CompactProductCard = ({ product }: { product: any }) => {
             ? product.categories.name
             : product.category || "Uncategorized"}
         </div>
-        <h3 className="text-sm font-medium leading-tight text-foreground line-clamp-2 mb-1.5 min-h-[2.5em] group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
-          {product.name}
-        </h3>
+        <div className="flex items-center gap-1 mb-1.5 min-h-[2.5em]">
+          <h3 className="text-sm font-medium leading-tight text-foreground line-clamp-2 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+            {product.name}
+          </h3>
+          {product.profiles?.verified && (
+            <VerifiedBadge showText={false} className="shrink-0 px-1 py-1" iconClassName="w-3.5 h-3.5" />
+          )}
+        </div>
         <div className="mt-auto">
           <p className="text-sm sm:text-base font-bold text-primary truncate">
             {product.price ? product.price : "Req Price"}

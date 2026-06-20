@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { VerifiedBadge } from "../components/ui/VerifiedBadge";
 import { SwipeableProductCard } from "../components/SwipeableProductCard";
 import { useAuthStore } from "../store/useAuthStore";
 import { Card, CardContent } from "../components/ui/Card";
@@ -182,9 +183,7 @@ export default function SupplierProfilePage() {
                 <h1 className="text-2xl sm:text-4xl font-bold text-foreground">
                   {supplier.business_name || "Unknown Supplier"}
                 </h1>
-                {supplier.verified && (
-                  <ShieldCheck className="h-6 w-6 text-emerald-600 dark:text-emerald-500" />
-                )}
+                {supplier.verified && <VerifiedBadge />}
               </div>
               <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
                 <span className="flex items-center gap-1.5">

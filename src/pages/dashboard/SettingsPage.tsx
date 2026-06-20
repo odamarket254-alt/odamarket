@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { VerifiedBadge } from "../../components/ui/VerifiedBadge";
 import { useAuthStore } from "../../store/useAuthStore";
 import { supabase } from "../../lib/supabase";
 import { toast } from "sonner";
@@ -13,7 +14,7 @@ import {
   CardHeader,
   CardTitle,
 } from "../../components/ui/Card";
-import { ShieldCheck, ShieldAlert, Loader2, CheckCircle2, User, Pencil, Save, X } from "lucide-react";
+import { ShieldCheck, ShieldAlert, BadgeCheck, Loader2, CheckCircle2, User, Pencil, Save, X } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { ThemeToggle } from "../../components/theme-toggle";
 
@@ -180,10 +181,13 @@ export default function SettingsPage() {
                       </div>
                     )}
                   </div>
-                  <div>
-                    <h4 className="text-lg font-semibold text-foreground tracking-tight">
-                      {profile.business_name || "Unnamed Business"}
-                    </h4>
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-lg font-semibold text-foreground tracking-tight">
+                        {profile.business_name || "Unnamed Business"}
+                      </h4>
+                      {profile.verified && <VerifiedBadge textClassName="text-[10px]" />}
+                    </div>
                     <p className="text-sm font-medium text-emerald-600 dark:text-emerald-500 capitalize">{profile.role}</p>
                   </div>
                 </div>
@@ -365,15 +369,15 @@ export default function SettingsPage() {
                     <div className={cn(
                         "h-20 w-20 rounded-2xl flex-shrink-0 flex items-center justify-center border shadow-sm",
                         profile.verified 
-                          ? "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-500" 
+                          ? "bg-blue-50 border-blue-200/60 text-blue-700 dark:bg-blue-500/10 dark:border-blue-500/20 dark:text-blue-400" 
                           : "bg-muted border-border text-muted-foreground"
                       )}>
-                        {profile.verified ? <ShieldCheck className="h-10 w-10" /> : <ShieldAlert className="h-10 w-10" />}
+                        {profile.verified ? <BadgeCheck className="h-10 w-10" /> : <ShieldAlert className="h-10 w-10" />}
                     </div>
                     
                     <div className="flex-1 space-y-3">
                       <div>
-                        <h4 className={cn("text-lg font-semibold", profile.verified ? "text-amber-600 dark:text-amber-500" : "text-foreground")}>
+                        <h4 className={cn("text-lg font-semibold", profile.verified ? "text-blue-700 dark:text-blue-400" : "text-foreground")}>
                           {profile.verified ? "Premium Verified Seller" : "Unverified Account"}
                         </h4>
                         <p className="text-sm text-muted-foreground mt-1 max-w-xl">

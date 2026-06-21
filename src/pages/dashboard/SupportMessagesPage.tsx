@@ -18,6 +18,8 @@ interface SupportMessage {
   created_at: string;
 }
 
+import { Timestamp } from "../../components/ui/Timestamp";
+
 export default function SupportMessagesPage() {
   const [messages, setMessages] = useState<SupportMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -154,7 +156,12 @@ export default function SupportMessagesPage() {
                       {msg.status === 'resolved' && <CheckCircle className="h-3 w-3 text-emerald-600 dark:text-emerald-500" />}
                       {msg.status.toUpperCase()}
                     </span>
-                    <span>{formatDistanceToNow(new Date(msg.created_at), { addSuffix: true })}</span>
+                    <Timestamp 
+                      date={msg.created_at} 
+                      className="items-end text-right"
+                      relativeClassName="text-[10px] text-muted-foreground whitespace-nowrap"
+                      fullClassName="text-[9px] text-muted-foreground/60 whitespace-nowrap"
+                    />
                   </div>
                 </div>
               ))}
@@ -192,9 +199,12 @@ export default function SupportMessagesPage() {
                      </div>
                   </div>
                   <div className="text-right shrink-0 flex flex-col items-end gap-2">
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(selectedMessage.created_at).toLocaleString()}
-                    </span>
+                    <Timestamp 
+                      date={selectedMessage.created_at} 
+                      className="items-end"
+                      relativeClassName="text-sm text-foreground"
+                      fullClassName="text-xs text-muted-foreground mt-0.5"
+                    />
                     <Badge variant={selectedMessage.status === 'resolved' ? "secondary" : selectedMessage.status === 'unread' ? "default" : "outline"}>
                       {selectedMessage.status.toUpperCase()}
                     </Badge>

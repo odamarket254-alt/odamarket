@@ -18,6 +18,7 @@ import {
 import { useAuthStore } from "../../store/useAuthStore";
 import { supabase } from "../../lib/supabase";
 import { cn } from "../../lib/utils";
+import { Timestamp } from "../../components/ui/Timestamp";
 
 export default function DashboardHome() {
   const { profile, user } = useAuthStore();
@@ -432,9 +433,12 @@ export default function DashboardHome() {
                             {activity.message || "Details"}
                           </p>
                         </div>
-                        <div className="ml-auto font-medium text-xs text-muted-foreground">
-                          {new Date(activity.created_at).toLocaleDateString()}
-                        </div>
+                        <Timestamp 
+                          date={activity.created_at} 
+                          className="ml-auto items-end text-right"
+                          relativeClassName="text-xs font-medium text-muted-foreground whitespace-nowrap"
+                          fullClassName="text-[10px] text-muted-foreground/60 whitespace-nowrap"
+                        />
                       </div>
                     );
                   })}

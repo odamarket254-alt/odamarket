@@ -10,6 +10,7 @@ import { supabase } from "./lib/supabase";
 import { useAuthStore } from "./store/useAuthStore";
 import { Loader2 } from "lucide-react";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import OneSignal from 'react-onesignal';
 
 // Layouts
 import RootLayout from "./components/layout/RootLayout";
@@ -69,6 +70,16 @@ function LoadingFallback() {
 
 export default function App() {
   const { setUser, setProfile, setLoading } = useAuthStore();
+
+  useEffect(() => {
+    try {
+      OneSignal.init({
+        appId: "39cacdbe-4c1c-40fe-b763-4462f792edae",
+      });
+    } catch (error) {
+      console.warn("OneSignal initialization error:", error);
+    }
+  }, []);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {

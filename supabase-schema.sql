@@ -70,6 +70,18 @@ CREATE TABLE inquiries (
   quantity TEXT NOT NULL,
   status inquiry_status DEFAULT 'new',
   created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW(),
+  expires_at TIMESTAMPTZ
+);
+
+-- INQUIRY MESSAGES
+CREATE TABLE inquiry_messages (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  inquiry_id UUID REFERENCES inquiries(id) ON DELETE CASCADE,
+  sender_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+  message TEXT NOT NULL,
+  is_read BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -101,6 +113,7 @@ ALTER TABLE categories ENABLE ROW LEVEL SECURITY;
 ALTER TABLE products ENABLE ROW LEVEL SECURITY;
 ALTER TABLE product_images ENABLE ROW LEVEL SECURITY;
 ALTER TABLE inquiries ENABLE ROW LEVEL SECURITY;
+ALTER TABLE inquiry_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE favorites ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 
@@ -127,6 +140,17 @@ CREATE POLICY "Sellers can manage product images" ON product_images FOR ALL USIN
 CREATE POLICY "Sellers can view received inquiries" ON inquiries FOR SELECT USING (auth.uid() = seller_id);
 CREATE POLICY "Buyers can view sent inquiries" ON inquiries FOR SELECT USING (auth.uid() = buyer_id);
 CREATE POLICY "Buyers can create inquiries" ON inquiries FOR INSERT WITH CHECK (auth.uid() = buyer_id);
+
+-- Inquiry Messages: Viewable if part of the inquiry
+CREATE POLICY "Users can view messages for their inquiries" ON inquiry_messages FOR SELECT USING (
+  EXISTS (SELECT 1 FROM inquiries WHERE inquiries.id = inquiry_id AND (inquiries.seller_id = auth.uid() OR inquiries.buyer_id = auth.uid()))
+);
+CREATE POLICY "Users can insert messages" ON inquiry_messages FOR INSERT WITH CHECK (
+  EXISTS (SELECT 1 FROM inquiries WHERE inquiries.id = inquiry_id AND (inquiries.seller_id = auth.uid() OR inquiries.buyer_id = auth.uid())) AND sender_id = auth.uid()
+);
+CREATE POLICY "Users can update read status" ON inquiry_messages FOR UPDATE USING (
+  EXISTS (SELECT 1 FROM inquiries WHERE inquiries.id = inquiry_id AND (inquiries.seller_id = auth.uid() OR inquiries.buyer_id = auth.uid()))
+);
 
 -- Favorites: Only buyers manage their own favorites
 CREATE POLICY "Buyers manage own favorites" ON favorites FOR ALL USING (auth.uid() = buyer_id);

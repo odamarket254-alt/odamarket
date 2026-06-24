@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Outlet, Link, useLocation, useNavigate } from "react-router-dom";
 import {
   Menu,
@@ -30,12 +30,27 @@ import { MobileBottomNav } from "./MobileBottomNav";
 import { ThemeToggle } from "../theme-toggle";
 import { Logo } from "../ui/Logo";
 
+// Prefetch function mapping
+const prefetchMap: Record<string, () => void> = {
+  "/products": () => import("../../pages/ProductsPage"),
+  "/suppliers": () => import("../../pages/SuppliersPage"),
+  "/categories": () => import("../../pages/CategoriesPage"),
+  "/login": () => import("../../pages/LoginPage"),
+  "/register": () => import("../../pages/RegisterPage"),
+};
+
 export default function RootLayout() {
   const { user, profile } = useAuthStore();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const location = useLocation();
   const navigate = useNavigate();
+
+  const handlePrefetch = useCallback((path: string) => {
+    if (prefetchMap[path]) {
+      prefetchMap[path]();
+    }
+  }, []);
 
   const authRoutes = [
     "/login",
@@ -107,12 +122,14 @@ export default function RootLayout() {
             <nav className="hidden md:flex items-center gap-8">
               <Link
                 to="/products"
+                onMouseEnter={() => handlePrefetch("/products")}
                 className="text-[14px] font-medium text-muted-foreground hover:text-foreground transition-colors duration-200"
               >
                 Products
               </Link>
               <Link
                 to="/suppliers"
+                onMouseEnter={() => handlePrefetch("/suppliers")}
                 className="text-[14px] font-medium text-muted-foreground hover:text-foreground transition-colors duration-200"
               >
                 Suppliers
@@ -125,6 +142,7 @@ export default function RootLayout() {
               </Link>
               <Link
                 to="/categories"
+                onMouseEnter={() => handlePrefetch("/categories")}
                 className="text-[14px] font-medium text-muted-foreground hover:text-foreground transition-colors duration-200"
               >
                 Categories

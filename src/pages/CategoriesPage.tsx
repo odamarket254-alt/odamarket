@@ -83,8 +83,8 @@ export default function CategoriesPage() {
                 <Link
                   to={`/c/${category.slug}`}
                   className={cn(
-                    "flex flex-col h-full rounded-2xl border border-border shadow-sm transition-all group overflow-hidden relative",
-                    category.image_url ? "aspect-square justify-end border-transparent" : "items-center text-center p-3 sm:p-6 bg-card hover:border-emerald-500/50 hover:shadow-lg hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20"
+                    "flex flex-col h-full rounded-3xl border border-border bg-card shadow-[0_2px_10px_rgb(0,0,0,0.02)] transition-all duration-300 group overflow-hidden relative",
+                    category.image_url ? "aspect-square justify-end border-transparent hover:shadow-xl hover:shadow-emerald-900/5 hover:-translate-y-1" : "items-center text-center p-4 sm:p-6 hover:border-emerald-500/40 hover:shadow-xl hover:shadow-emerald-900/5 hover:-translate-y-1"
                   )}
                 >
                   {category.image_url ? (

@@ -7,6 +7,20 @@ import { VerifiedBadge } from "../components/ui/VerifiedBadge";
 export default function SuppliersPage() {
   const [suppliers, setSuppliers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [visibleCount, setVisibleCount] = useState(12);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (
+        window.innerHeight + document.documentElement.scrollTop >=
+        document.documentElement.offsetHeight - 500
+      ) {
+        setVisibleCount((prev) => Math.min(prev + 12, suppliers.length));
+      }
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [suppliers.length]);
 
   useEffect(() => {
     async function fetchSuppliers() {
@@ -68,71 +82,76 @@ export default function SuppliersPage() {
   }, []);
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="flex items-center justify-between mb-8">
+    <div className="container mx-auto px-4 py-8 lg:py-12">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-10 gap-4">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight mb-2">
+          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-foreground mb-3">
             Verified Suppliers
           </h1>
-          <p className="text-muted-foreground">
-            Discover and connect with trusted suppliers.
+          <p className="text-lg text-muted-foreground font-medium">
+            Discover and connect with trusted B2B suppliers across the platform.
           </p>
         </div>
       </div>
 
       {loading ? (
-        <div className="flex justify-center p-12">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+        <div className="flex flex-col items-center justify-center p-20">
+          <div className="w-10 h-10 rounded-full border-[3px] border-emerald-500 border-t-transparent animate-spin mb-4"></div>
+          <p className="font-medium text-muted-foreground animate-pulse">Loading suppliers...</p>
         </div>
       ) : suppliers.length === 0 ? (
-        <div className="text-center py-12 bg-muted/30 rounded-lg border border-border">
-          <Store className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-          <h3 className="text-lg font-medium">No verified suppliers found</h3>
-          <p className="text-muted-foreground">
+        <div className="text-center py-20 bg-card rounded-3xl border border-border/40 shadow-[0_2px_10px_rgb(0,0,0,0.02)]">
+          <div className="w-20 h-20 bg-muted rounded-full flex items-center justify-center mx-auto mb-6">
+            <Store className="h-10 w-10 text-muted-foreground/60" />
+          </div>
+          <h3 className="text-xl font-bold tracking-tight mb-2">No verified suppliers yet</h3>
+          <p className="text-muted-foreground font-medium max-w-sm mx-auto">
             Check back later for new supplier listings.
           </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {suppliers.map((supplier) => (
+          {suppliers.slice(0, visibleCount).map((supplier) => (
             <Link
               key={supplier.id}
               to={`/suppliers/${supplier.id}`}
-              className="bg-card border border-border rounded-xl p-6 transition-all hover:shadow-md group"
+              className="bg-card border border-border/60 rounded-3xl p-6 transition-all duration-300 shadow-[0_2px_10px_rgb(0,0,0,0.02)] hover:shadow-xl hover:shadow-emerald-900/5 hover:-translate-y-1 hover:border-emerald-500/40 relative group"
             >
-              <div className="flex items-start justify-between mb-4">
-                <div className="h-12 w-12 bg-primary/10 rounded-lg flex items-center justify-center overflow-hidden shrink-0">
+              <div className="flex flex-col h-full relative z-10">
+                <div className="h-16 w-16 bg-muted/80 rounded-2xl flex items-center justify-center overflow-hidden shrink-0 border border-border/50 shadow-sm mb-5">
                   {supplier.logo_url ? (
                     <img
                       src={supplier.logo_url}
                       alt={supplier.business_name || ""}
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                     />
                   ) : (
-                    <Store className="h-6 w-6 text-primary" />
+                    <span className="text-xl font-extrabold tracking-tight uppercase text-muted-foreground">
+                      {supplier.business_name ? supplier.business_name.charAt(0) : "S"}
+                    </span>
                   )}
                 </div>
-              </div>
 
-              <div className="flex items-center gap-1.5 mb-1">
-                <h3 className="text-lg font-semibold group-hover:text-primary transition-colors">
-                  {supplier.business_name || "Unnamed Supplier"}
-                </h3>
-                <VerifiedBadge showText={false} className="shrink-0 px-1 py-1" iconClassName="w-4 h-4 ml-[2px] mr-[2px]" />
-              </div>
-
-              {supplier.address && (
-                <div className="flex items-center text-muted-foreground text-sm mb-4">
-                  <MapPin className="h-3.5 w-3.5 mr-1" />
-                  {supplier.address}
+                <div className="flex items-start gap-2 mb-2 w-full">
+                  <h3 className="text-xl font-bold group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors tracking-tight line-clamp-1 flex-1 min-w-0">
+                    {supplier.business_name || "Unnamed Supplier"}
+                  </h3>
+                  <VerifiedBadge showText={false} className="shrink-0 scale-90 -mt-0.5" />
                 </div>
-              )}
 
-              {supplier.bio && (
-                <p className="text-sm text-muted-foreground line-clamp-2 mb-4">
-                  {supplier.bio}
-                </p>
-              )}
+                {supplier.address && (
+                  <div className="flex items-center text-muted-foreground text-sm font-medium mb-4">
+                    <MapPin className="h-4 w-4 mr-1.5 opacity-70 text-emerald-500" />
+                    <span className="truncate">{supplier.address}</span>
+                  </div>
+                )}
+
+                {supplier.bio && (
+                  <p className="text-sm text-foreground/80 line-clamp-2 mt-auto">
+                    {supplier.bio}
+                  </p>
+                )}
+              </div>
             </Link>
           ))}
         </div>

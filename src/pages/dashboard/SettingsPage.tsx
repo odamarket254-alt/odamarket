@@ -17,6 +17,29 @@ import {
 import { ShieldCheck, ShieldAlert, BadgeCheck, Loader2, CheckCircle2, User, Pencil, Save, X } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { ThemeToggle } from "../../components/theme-toggle";
+import { useSoundSettings } from "../../hooks/useMessageSound";
+
+function SoundToggle() {
+  const { soundEnabled, setSoundEnabled } = useSoundSettings();
+  return (
+    <button
+      role="switch"
+      aria-checked={soundEnabled}
+      onClick={() => setSoundEnabled(!soundEnabled)}
+      className={cn(
+        "relative inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        soundEnabled ? "bg-primary" : "bg-input"
+      )}
+    >
+      <span
+        className={cn(
+          "pointer-events-none block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform",
+          soundEnabled ? "translate-x-4" : "translate-x-0"
+        )}
+      />
+    </button>
+  );
+}
 
 export default function SettingsPage() {
   const { profile, user, setProfile } = useAuthStore();
@@ -429,13 +452,20 @@ export default function SettingsPage() {
           
           <div className="md:col-span-3">
             <Card className="border-border bg-card/50 backdrop-blur-sm overflow-hidden">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
+              <CardContent className="p-0">
+                <div className="p-6 flex items-center justify-between border-b border-border/50">
                   <div className="space-y-1">
                     <p className="text-base font-medium text-foreground tracking-tight">Appearance Interface</p>
                     <p className="text-sm text-muted-foreground">Toggle the application theme between light and dark modes.</p>
                   </div>
                   <ThemeToggle />
+                </div>
+                <div className="p-6 flex items-center justify-between">
+                  <div className="space-y-1">
+                    <p className="text-base font-medium text-foreground tracking-tight">Message Sound Alerts</p>
+                    <p className="text-sm text-muted-foreground">Play a notification sound when a new message arrives.</p>
+                  </div>
+                  <SoundToggle />
                 </div>
               </CardContent>
             </Card>

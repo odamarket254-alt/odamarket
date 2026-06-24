@@ -27,7 +27,7 @@ export interface MarketplaceProduct {
   };
 }
 
-export const SwipeableProductCard: React.FC<{ product: MarketplaceProduct }> = ({ product }) => {
+export const SwipeableProductCard = React.memo(({ product }: { product: MarketplaceProduct }) => {
   const navigate = useNavigate();
   const { user, profile } = useAuthStore();
   const controls = useAnimation();
@@ -99,64 +99,74 @@ export const SwipeableProductCard: React.FC<{ product: MarketplaceProduct }> = (
         className="relative z-10 w-full h-full cursor-pointer flex flex-col"
         whileDrag={{ cursor: "grabbing" }}
       >
-        <Card className="overflow-hidden h-full border-border bg-card text-card-foreground hover:border-primary/30 shadow-sm transition-all duration-300 flex flex-col w-full">
+        <Card className="overflow-hidden h-full border-border bg-card text-card-foreground hover:border-emerald-500/40 shadow-[0_2px_10px_rgb(0,0,0,0.02)] hover:shadow-xl hover:shadow-emerald-900/5 transition-all duration-300 flex flex-col w-full rounded-2xl group-hover:-translate-y-1">
           <div className="aspect-[4/3] overflow-hidden relative bg-muted flex-shrink-0">
             <button
               onClick={(e) => {
                 e.stopPropagation(); // prevent navigation
                 toast.success("Product added to favorites!");
               }}
-              className="absolute top-3 right-3 z-20 p-2 rounded-full bg-background/60 backdrop-blur-md hover:bg-background/90 text-muted-foreground hover:text-red-500 transition-colors border border-border/50"
+              className="absolute top-3 right-3 z-20 p-2.5 rounded-full bg-background/70 backdrop-blur-md hover:bg-background/95 text-muted-foreground hover:text-red-500 transition-colors border border-border/50 shadow-sm"
               aria-label="Save product"
             >
               <Bookmark className="w-4 h-4" />
             </button>
             <img
               src={
-                product.image_url ||
-                "https://images.unsplash.com/photo-1559525839-b184a4d698c7?w=500&auto=format&fit=crop&q=60"
+                product.image_url
+                  ? (product.image_url.includes('unsplash.com') ? `${product.image_url}&auto=format&fit=crop&w=500&q=80` : product.image_url)
+                  : "https://images.unsplash.com/photo-1559525839-b184a4d698c7?w=500&auto=format&fit=crop&q=80"
               }
               alt={product.name}
               loading="lazy"
+              width="500"
+              height="400"
               draggable={false}
-              className="object-cover w-full h-full group-hover:scale-105 transition-transform duration-500 opacity-95 group-hover:opacity-100"
+              className="object-cover w-full h-full group-hover:scale-110 transition-transform duration-700 opacity-95 group-hover:opacity-100"
             />
-            <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
+            <div className="absolute inset-0 z-10 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
           </div>
-          <CardContent className="p-4 flex flex-col flex-1 pointer-events-none">
-            <div className="mb-2 flex items-start justify-between gap-1">
-              <div className="flex bg-transparent flex-row items-center space-x-1 flex-1">
-                <h3 className="font-semibold text-base text-foreground leading-snug line-clamp-2 transition-colors">
-                  {product.name}
-                </h3>
-                  {product.profiles?.verified && (
-                    <VerifiedBadge showText={false} className="shrink-0 px-1 py-1" iconClassName="w-4 h-4 ml-[2px] mr-[2px]" />
-                  )}
+          <CardContent className="p-5 flex flex-col flex-1 pointer-events-none">
+            <div className="mb-3 flex items-start justify-between gap-2">
+              <div className="flex bg-transparent flex-col items-start space-y-1 flex-1">
+                <Badge variant="outline" className="text-[10px] px-2 py-0.5 uppercase font-bold shrink-0 pointer-events-auto truncate max-w-[140px] border-emerald-500/20 text-emerald-700 dark:text-emerald-400 bg-emerald-500/5">
+                   {product.categories?.name || product.category}
+                </Badge>
+                <div className="flex items-center gap-1.5 w-full pt-1">
+                  <h3 className="font-semibold text-base text-foreground leading-snug line-clamp-2 transition-colors group-hover:text-emerald-600 dark:group-hover:text-emerald-400">
+                    {product.name}
+                  </h3>
+                    {product.profiles?.verified && (
+                      <VerifiedBadge showText={false} className="shrink-0 scale-90" />
+                    )}
+                </div>
               </div>
-              <Badge variant="outline" className="text-[9px] px-1.5 py-0 md:text-[10px] uppercase font-bold shrink-0 mt-0.5 pointer-events-auto truncate max-w-[120px]">
-                 {product.categories?.name || product.category}
-              </Badge>
             </div>
-            <div className="mt-1">
-               <p className="text-primary font-bold text-lg">
+            <div className="mt-1 mb-4">
+               <p className="text-emerald-600 dark:text-emerald-500 font-bold text-lg tracking-tight">
                 {product.price ? product.price : "Price on Request"}
                </p>
             </div>
             
-            <div className="mt-auto space-y-2 pt-3 border-t border-border/50 pointer-events-auto">
+            <div className="mt-auto space-y-3 pt-4 border-t border-border/60 pointer-events-auto">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-foreground truncate max-w-[70%] text-muted-foreground">
-                  {product.profiles?.business_name || `Supplier ${product.seller_id?.slice(0, 5)}`}
+                <span className="text-[13px] font-medium text-foreground truncate max-w-[65%] text-muted-foreground flex items-center gap-1.5">
+                  <div className="w-5 h-5 rounded-full bg-muted overflow-hidden flex items-center justify-center shrink-0 border border-border/50">
+                     <span className="text-[9px] font-bold text-muted-foreground">
+                        {product.profiles?.business_name ? product.profiles.business_name.charAt(0).toUpperCase() : 'S'}
+                     </span>
+                  </div>
+                  <span className="truncate">{product.profiles?.business_name || `Supplier ${product.seller_id?.slice(0, 5)}`}</span>
                 </span>
-                <span className="text-[10px] text-muted-foreground flex items-center gap-1 bg-muted px-2 py-0.5 rounded-full">
-                  <MapPin className="w-3 h-3" />
-                  <span className="truncate max-w-[60px]">{product.profiles?.location || "Global"}</span>
+                <span className="text-[11px] font-medium text-muted-foreground flex items-center gap-1 bg-secondary/50 px-2 py-1 rounded-full border border-border/50">
+                  <MapPin className="w-3 h-3 text-emerald-500/70" />
+                  <span className="truncate max-w-[70px]">{product.profiles?.location || "Global"}</span>
                 </span>
               </div>
               
-              <div className="text-[10px] text-muted-foreground text-center mt-2 opacity-60">
-                <span className="hidden sm:inline">Swipe horizontally for quick actions</span>
-                <span className="sm:hidden">Swipe for quick actions</span>
+              <div className="text-[10px] text-muted-foreground text-center mt-3 opacity-50 font-medium tracking-wide pb-1">
+                <span className="hidden sm:inline">← SWIPE FOR QUICK ACTIONS →</span>
+                <span className="sm:hidden">← SWIPE FOR ACTIONS →</span>
               </div>
             </div>
           </CardContent>
@@ -164,4 +174,6 @@ export const SwipeableProductCard: React.FC<{ product: MarketplaceProduct }> = (
       </motion.div>
     </div>
   );
-}
+});
+
+SwipeableProductCard.displayName = "SwipeableProductCard";

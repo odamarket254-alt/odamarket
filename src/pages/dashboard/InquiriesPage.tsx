@@ -14,9 +14,10 @@ import { Input } from "../../components/ui/Input";
 import { Button } from "../../components/ui/Button";
 import { supabase } from "../../lib/supabase";
 import { useAuthStore } from "../../store/useAuthStore";
-import { formatDistanceToNow, format } from "date-fns";
+import { formatDistanceToNow, format, isToday, isYesterday } from "date-fns";
 import { toast } from "sonner";
 import { useSearchParams } from "react-router-dom";
+import { useMessageSound } from "../../hooks/useMessageSound";
 
 interface Inquiry {
   id: string;
@@ -43,10 +44,12 @@ interface Inquiry {
   seller?: {
     business_name?: string;
     verified?: boolean;
+    logo_url?: string;
   };
   buyer?: {
     business_name?: string;
     verified?: boolean;
+    logo_url?: string;
   };
 }
 
@@ -198,12 +201,20 @@ export default function InquiriesPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSending, setIsSending] = useState(false);
   const [search, setSearch] = useState("");
-  const [filterTab, setFilterTab] = useState<"all" | "unread" | "active" | "archived">("all");
+  const [filterTab, setFilterTab] = useState<"all" | "unread" | "active" | "archived" | "pending" | "closed">("all");
   const [isTyping, setIsTyping] = useState(false);
+  const [isDesktop, setIsDesktop] = useState(window.innerWidth >= 1024);
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const myTypingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const activeChannelRef = useRef<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const { playSound } = useMessageSound();
+
+  useEffect(() => {
+    const handleResize = () => setIsDesktop(window.innerWidth >= 1024);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   useEffect(() => {
     if (!user) return;
@@ -212,7 +223,23 @@ export default function InquiriesPage() {
       .channel(`inquiries-changes-${Math.random()}`)
       .on(
         "postgres_changes",
-        { event: "*", schema: "public", table: "inquiries" },
+        { event: "UPDATE", schema: "public", table: "inquiries" },
+        (payload) => { 
+          const updated = payload.new as any;
+          const previous = payload.old as any;
+          const isBuyer = user.id === updated.buyer_id;
+          
+          if (isBuyer && updated.buyer_unread_count && (!previous.buyer_unread_count || updated.buyer_unread_count > previous.buyer_unread_count)) {
+            playSound();
+          } else if (!isBuyer && updated.seller_unread_count && (!previous.seller_unread_count || updated.seller_unread_count > previous.seller_unread_count)) {
+            playSound();
+          }
+          fetchInquiries(); 
+        }
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "inquiries" },
         () => { fetchInquiries(); }
       )
       .subscribe();
@@ -296,6 +323,7 @@ export default function InquiriesPage() {
           setInquiryMessages((prev) => [...prev, newMessage]); 
           
           if (user && newMessage.sender_id !== user.id) {
+            playSound();
             setIsTyping(false);
             if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
             markAsRead(selectedInquiry);
@@ -348,7 +376,7 @@ export default function InquiriesPage() {
       setIsLoading(true);
       const { data, error } = await supabase
         .from("inquiries")
-        .select("*, products(name), seller:profiles!seller_id(business_name, verified), buyer:profiles!buyer_id(business_name, verified)")
+        .select("*, products(name), seller:profiles!seller_id(business_name, verified, logo_url), buyer:profiles!buyer_id(business_name, verified, logo_url)")
         .or(`seller_id.eq.${user?.id},buyer_id.eq.${user?.id}`)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -433,13 +461,17 @@ export default function InquiriesPage() {
     const isSeller = inquiry.seller_id === user?.id;
     if (isSeller) {
       return {
-        name: inquiry.company || inquiry.name || "Unknown Buyer",
-        verified: inquiry.buyer?.verified || false
+        name: inquiry.name || "Unknown",
+        company: inquiry.buyer?.business_name || inquiry.company,
+        verified: inquiry.buyer?.verified || false,
+        logo_url: inquiry.buyer?.logo_url
       };
     } else {
       return {
         name: inquiry.seller?.business_name || "Unknown Seller",
-        verified: inquiry.seller?.verified || false
+        company: inquiry.seller?.business_name,
+        verified: inquiry.seller?.verified || false,
+        logo_url: inquiry.seller?.logo_url
       };
     }
   };
@@ -452,10 +484,14 @@ export default function InquiriesPage() {
     
     if (!matchesSearch) return false;
 
-    // Simulate filters based on status since we might not have a dedicated unread/archived column
-    if (filterTab === "unread") return i.status === "new" || i.status === "pending";
-    if (filterTab === "active") return i.status !== "closed";
-    if (filterTab === "archived") return i.status === "closed";
+    if (filterTab === "unread") {
+      const unreadCount = user?.id === i.buyer_id ? i.buyer_unread_count || 0 : i.seller_unread_count || 0;
+      return unreadCount > 0;
+    }
+    if (filterTab === "active") return i.status !== "closed" && i.status !== "archived";
+    if (filterTab === "pending") return i.status === "pending";
+    if (filterTab === "closed") return i.status === "closed";
+    if (filterTab === "archived") return i.status === "archived" || i.status === "closed";
     
     return true; // "all"
   });
@@ -464,11 +500,11 @@ export default function InquiriesPage() {
     <div className="flex flex-col h-[calc(100dvh-64px)] lg:h-[calc(100dvh-64px)] -mx-4 sm:mx-0 sm:h-full lg:flex-row overflow-hidden bg-background">
       {/* Sidebar List */}
       <AnimatePresence initial={false}>
-        {(!selectedInquiry || window.innerWidth >= 1024) && (
+        {(!selectedInquiry || isDesktop) && (
           <motion.div 
-            initial={{ x: -300, opacity: 0 }}
+            initial={{ x: -100, opacity: 0 }}
             animate={{ x: 0, opacity: 1 }}
-            exit={{ x: -300, opacity: 0 }}
+            exit={{ x: -100, opacity: 0 }}
             transition={{ type: "spring", bounce: 0, duration: 0.4 }}
             className={`w-full lg:w-[350px] xl:w-[400px] flex-col border-r border-border bg-card z-10 flex`}
           >
@@ -489,14 +525,14 @@ export default function InquiriesPage() {
                 />
               </div>
               <div className="flex items-center gap-2 overflow-x-auto hide-scrollbar pb-1">
-                {(["all", "unread", "active", "archived"] as const).map((tab) => (
+                {(["all", "unread", "active", "pending", "closed", "archived"] as const).map((tab) => (
                   <Badge 
                     key={tab} 
                     variant={filterTab === tab ? "default" : "secondary"}
-                    className={`cursor-pointer rounded-full px-4 text-xs tracking-wide capitalize ${filterTab === tab ? "bg-blue-600 hover:bg-blue-700 text-white shadow-sm" : "bg-muted/60 text-muted-foreground hover:bg-muted font-medium border border-border/50"}`}
+                    className={`cursor-pointer rounded-full px-4 text-xs tracking-wide capitalize whitespace-nowrap ${filterTab === tab ? "bg-blue-600 hover:bg-blue-700 text-white shadow-sm" : "bg-muted/60 text-muted-foreground hover:bg-muted font-medium border border-border/50"}`}
                     onClick={() => setFilterTab(tab)}
                   >
-                    {tab}
+                    {tab === "pending" ? "Pending Quotes" : tab}
                   </Badge>
                 ))}
               </div>
@@ -527,8 +563,12 @@ export default function InquiriesPage() {
                     className={`p-4 cursor-pointer transition-all flex gap-3 relative ${selectedInquiry?.id === inquiry.id ? "bg-blue-50 dark:bg-blue-900/20" : "hover:bg-muted/50"}`}
                   >
                     <div className="relative shrink-0">
-                      <div className={`h-12 w-12 rounded-full flex items-center justify-center font-bold text-lg border ${selectedInquiry?.id === inquiry.id ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800/50" : "bg-muted text-muted-foreground border-border"}`}>
-                        {getOtherParty(inquiry).name.charAt(0).toUpperCase()}
+                      <div className={`h-12 w-12 rounded-full flex items-center justify-center font-bold text-lg border overflow-hidden ${selectedInquiry?.id === inquiry.id ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800/50" : "bg-muted text-muted-foreground border-border"}`}>
+                        {getOtherParty(inquiry).logo_url ? (
+                          <img src={getOtherParty(inquiry).logo_url} alt="Profile" className="h-full w-full object-cover" />
+                        ) : (
+                          getOtherParty(inquiry).name.charAt(0).toUpperCase()
+                        )}
                       </div>
                       {isOnline && (
                         <div className="absolute bottom-0 right-0 w-3.5 h-3.5 bg-green-500 border-2 border-card rounded-full" />
@@ -537,8 +577,13 @@ export default function InquiriesPage() {
                     <div className="flex-1 min-w-0 flex flex-col justify-center">
                       <div className="flex justify-between items-baseline mb-0.5">
                         <div className="flex items-center gap-1.5 truncate pr-2">
-                          <span className={`font-semibold text-[15px] truncate ${unreadCount > 0 && selectedInquiry?.id !== inquiry.id ? "text-foreground" : "text-foreground/90"}`}>
+                          <span className={`font-semibold text-[15px] truncate flex items-center gap-1.5 ${unreadCount > 0 && selectedInquiry?.id !== inquiry.id ? "text-foreground" : "text-foreground/90"}`}>
                             {getOtherParty(inquiry).name}
+                            {getOtherParty(inquiry).company && (
+                              <span className="text-muted-foreground font-normal text-[12px] truncate max-w-[120px]">
+                                ({getOtherParty(inquiry).company})
+                              </span>
+                            )}
                           </span>
                           {getOtherParty(inquiry).verified && <VerifiedBadge showText={false} className="shrink-0 px-1 py-1" iconClassName="w-3 h-3 ml-[2px] mr-[2px]" />}
                         </div>
@@ -554,10 +599,11 @@ export default function InquiriesPage() {
                           {(inquiry.last_message_sender_id === user?.id || (!inquiry.last_message_sender_id && inquiry.buyer_id === user?.id)) && (
                             <CheckCheck className={`inline-block w-3.5 h-3.5 mr-1 ${unreadCount === 0 ? "text-blue-500" : "text-muted-foreground/50"}`} />
                           )}
+                          <span className="font-medium opacity-80 mr-1 text-[11px] uppercase tracking-wider hidden sm:inline-block">RFQ #{inquiry.id.split('-').shift()?.toUpperCase()} &bull;</span>
                           {lastMessageText}
                         </p>
                         {unreadCount > 0 && selectedInquiry?.id !== inquiry.id && (
-                          <span className="h-5 min-w-5 shrink-0 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center px-1.5">
+                          <span className="h-5 min-w-5 shrink-0 rounded-full bg-blue-600 text-white text-[10px] font-bold flex items-center justify-center px-1.5 shadow-sm">
                             {unreadCount}
                           </span>
                         )}
@@ -593,22 +639,59 @@ export default function InquiriesPage() {
                 <Button variant="ghost" size="icon" className="lg:hidden shrink-0 -ml-2 text-foreground" onClick={() => setSelectedInquiry(null)}>
                   <ArrowLeft className="h-5 w-5" />
                 </Button>
-                <div className="h-10 w-10 rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-700 dark:text-blue-400 font-bold shrink-0 border border-blue-200 dark:border-blue-800/50">
-                  {getOtherParty(selectedInquiry).name.charAt(0).toUpperCase()}
+                <div className="h-10 w-10 overflow-hidden rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-700 dark:text-blue-400 font-bold shrink-0 border border-blue-200 dark:border-blue-800/50">
+                  {getOtherParty(selectedInquiry).logo_url ? (
+                    <img src={getOtherParty(selectedInquiry).logo_url} alt="Profile" className="h-full w-full object-cover" />
+                  ) : (
+                    getOtherParty(selectedInquiry).name.charAt(0).toUpperCase()
+                  )}
                 </div>
                 <div className="flex flex-col min-w-0">
                   <div className="flex items-center gap-1.5 mb-0.5">
                     <h3 className="font-semibold text-[16px] text-foreground truncate leading-tight">{getOtherParty(selectedInquiry).name}</h3>
                     {getOtherParty(selectedInquiry).verified && <VerifiedBadge showText={false} className="shrink-0 px-1 py-1" iconClassName="w-3.5 h-3.5 ml-[2px] mr-[2px]" />}
                   </div>
-                  <p className="text-xs text-green-600 dark:text-green-500 font-medium truncate leading-tight">
-                    {Math.random() > 0.5 ? "Online" : "Last seen recently"}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    {getOtherParty(selectedInquiry).company && (
+                      <span className="text-xs text-muted-foreground font-medium truncate leading-tight flex items-center gap-1">
+                        <Building2 className="w-3 h-3" />
+                        {getOtherParty(selectedInquiry).company}
+                      </span>
+                    )}
+                    <span className="w-1 h-1 rounded-full bg-border"></span>
+                    <p className="text-xs text-green-600 dark:text-green-500 font-medium truncate leading-tight">
+                      {Math.random() > 0.5 ? "Online" : "Last seen recently"}
+                    </p>
+                  </div>
                 </div>
               </div>
               
               <div className="flex items-center gap-1 sm:gap-2 shrink-0">
-                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-blue-600">
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="text-muted-foreground hover:text-blue-600"
+                  onClick={() => {
+                    toast.custom((t) => (
+                      <motion.div
+                        initial={{ opacity: 0, y: 50, scale: 0.3 }}
+                        animate={{ opacity: 1, y: 0, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.5, transition: { duration: 0.2 } }}
+                        transition={{ type: "spring", bounce: 0.5, duration: 0.5 }}
+                        className="bg-blue-600 dark:bg-blue-600 text-white p-4 rounded-xl shadow-xl flex items-center gap-4 w-[320px] pointer-events-auto"
+                      >
+                        <div className="bg-white/20 p-2.5 rounded-full relative shrink-0">
+                          <Phone className="w-5 h-5 animate-pulse" />
+                          <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-400 border border-blue-600 rounded-full animate-bounce"></span>
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-bold text-sm tracking-wide">Calls Coming Soon! 🚀</p>
+                          <p className="text-white/90 text-xs mt-0.5 leading-tight">Voice & Video calls will be available shortly on ODA Market.</p>
+                        </div>
+                      </motion.div>
+                    ), { duration: 4000 });
+                  }}
+                >
                   <Phone className="h-5 w-5" />
                 </Button>
                 <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
@@ -665,63 +748,118 @@ export default function InquiriesPage() {
                </div>
 
                {/* Messages Loop */}
-               {inquiryMessages.map((msg, idx) => {
-                  const isOwn = msg.sender_id === user?.id;
-                  const prevMsg = idx > 0 ? inquiryMessages[idx - 1] : null;
-                  const isConsecutive = prevMsg?.sender_id === msg.sender_id;
-                  const isRead = msg.is_read;
-                  
-                  const parsed = parseMessage(msg.message);
+               {Object.entries(
+                 inquiryMessages.reduce((groups, msg) => {
+                   const date = format(new Date(msg.created_at), 'yyyy-MM-dd');
+                   if (!groups[date]) groups[date] = [];
+                   groups[date].push(msg);
+                   return groups;
+                 }, {} as Record<string, InquiryMessage[]>)
+               ).map(([date, msgs], groupIdx) => {
+                 const dateObj = new Date(date + "T00:00:00");
+                 let dateLabel = format(dateObj, "MMMM d, yyyy");
+                 // Using timezone aware today check can be tricky with string dates, fallback to just date parsing
+                 if (isToday(new Date(msgs[0]?.created_at))) dateLabel = "Today";
+                 else if (isYesterday(new Date(msgs[0]?.created_at))) dateLabel = "Yesterday";
 
-                  return (
-                    <div key={msg.id} className={`flex flex-col ${isOwn ? "items-end" : "items-start"} ${isConsecutive ? "mt-1" : "mt-3"}`}>
-                      {parsed.type === 'quotation' ? (
-                         <>
-                            {parsed.before?.trim() && (
-                               <div className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-2.5 shadow-sm text-[15px] leading-relaxed mb-1 ${isOwn ? "bg-blue-600 text-white rounded-tr-sm" : "bg-white dark:bg-zinc-800 border border-border/50 text-foreground rounded-tl-sm"}`}>
-                                  {parsed.before.trim()}
-                               </div>
+                 return (
+                   <div key={date} className="flex flex-col gap-3">
+                     <div className="flex justify-center my-2 relative z-10 w-full">
+                       <span className="bg-white/80 dark:bg-zinc-800/80 backdrop-blur-sm border border-border/50 text-muted-foreground font-medium text-[11px] uppercase tracking-wider px-3 py-1 rounded-full shadow-sm">
+                         {dateLabel}
+                       </span>
+                     </div>
+                     {msgs.map((msg, idx) => {
+                        const isOwn = msg.sender_id === user?.id;
+                        const prevMsg = idx > 0 ? msgs[idx - 1] : null;
+                        const isConsecutive = prevMsg?.sender_id === msg.sender_id;
+                        const isRead = msg.is_read;
+                        
+                        const parsed = parseMessage(msg.message);
+
+                        return (
+                          <div key={msg.id} className={`flex w-full ${isOwn ? "justify-end" : "justify-start"} ${isConsecutive ? "mt-1" : "mt-2"}`}>
+                            {!isOwn && (
+                              <div className="w-8 shrink-0 mr-2 flex flex-col justify-end mb-5">
+                                {!isConsecutive && (
+                                  <div className="h-8 w-8 rounded-full overflow-hidden bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-700 dark:text-blue-400 font-bold text-xs shrink-0 border border-blue-200 dark:border-blue-800/50">
+                                     {getOtherParty(selectedInquiry).logo_url ? (
+                                       <img src={getOtherParty(selectedInquiry).logo_url} alt="Profile" className="h-full w-full object-cover" />
+                                     ) : (
+                                       getOtherParty(selectedInquiry).name.charAt(0).toUpperCase()
+                                     )}
+                                  </div>
+                                )}
+                              </div>
                             )}
-                            <QuotationCard data={parsed.data} isOwn={isOwn} />
-                            {parsed.after?.trim() && (
-                               <div className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-2.5 shadow-sm text-[15px] leading-relaxed mt-1 ${isOwn ? "bg-blue-600 text-white rounded-tr-sm" : "bg-white dark:bg-zinc-800 border border-border/50 text-foreground rounded-tl-sm"}`}>
-                                  {parsed.after.trim().split('\n').map((line, i) => (
-                                     <span key={i}>{line}<br /></span>
-                                  ))}
-                               </div>
-                            )}
-                         </>
-                      ) : (
-                        <div className={`max-w-[85%] sm:max-w-[75%] rounded-2xl px-4 py-2.5 shadow-sm text-[15px] leading-relaxed ${isOwn ? "bg-blue-600 text-white rounded-tr-sm" : "bg-white dark:bg-zinc-800 border border-border/50 text-foreground rounded-tl-sm"}`}>
-                           <p className="whitespace-pre-wrap">{msg.message}</p>
-                        </div>
-                      )}
-                      
-                      {!isConsecutive && (
-                         <div className={`mt-1.5 px-1 flex items-center gap-1.5 ${isOwn ? "justify-end" : "justify-start"}`}>
-                           <Timestamp 
-                             date={msg.created_at} 
-                             className="inline-flex"
-                             relativeClassName="text-[11px] text-muted-foreground/80 dark:text-muted-foreground/60 font-medium select-none"
-                             fullClassName="hidden"
-                           />
-                           {isOwn && (
-                             <CheckCheck className={`w-3.5 h-3.5 ${isRead ? "text-blue-500" : "text-muted-foreground/50"}`} />
-                           )}
-                         </div>
-                      )}
-                    </div>
-                  );
+                            <div className={`flex flex-col ${isOwn ? "items-end" : "items-start"} max-w-[85%] sm:max-w-[75%]`}>
+                              {!isOwn && !isConsecutive && (
+                                <span className="text-[13px] font-semibold text-muted-foreground ml-1 mb-1">
+                                  {getOtherParty(selectedInquiry).name}
+                                </span>
+                              )}
+                              {parsed.type === 'quotation' ? (
+                                 <>
+                                    {parsed.before?.trim() && (
+                                       <div className={`w-full rounded-2xl px-4 py-2.5 shadow-sm text-[15px] leading-relaxed mb-1 ${isOwn ? "bg-blue-600 text-white rounded-tr-sm" : "bg-white dark:bg-zinc-800 border border-border/50 text-foreground rounded-tl-sm"}`}>
+                                          {parsed.before.trim()}
+                                       </div>
+                                    )}
+                                    <QuotationCard data={parsed.data} isOwn={isOwn} />
+                                    {parsed.after?.trim() && (
+                                       <div className={`w-full rounded-2xl px-4 py-2.5 shadow-sm text-[15px] leading-relaxed mt-1 ${isOwn ? "bg-blue-600 text-white rounded-tr-sm" : "bg-white dark:bg-zinc-800 border border-border/50 text-foreground rounded-tl-sm"}`}>
+                                          {parsed.after.trim().split('\n').map((line, i) => (
+                                             <span key={i}>{line}<br /></span>
+                                          ))}
+                                       </div>
+                                    )}
+                                 </>
+                              ) : (
+                                <div className={`w-full rounded-2xl px-4 py-2.5 shadow-sm text-[15px] leading-relaxed ${isOwn ? "bg-blue-600 text-white rounded-tr-sm" : "bg-white dark:bg-zinc-800 border border-border/50 text-foreground rounded-tl-sm"}`}>
+                                   <p className="whitespace-pre-wrap">{msg.message}</p>
+                                </div>
+                              )}
+                              
+                              {!isConsecutive && (
+                                 <div className={`mt-1.5 px-1 flex items-center gap-1.5 ${isOwn ? "justify-end" : "justify-start"}`}>
+                                   <Timestamp 
+                                     date={msg.created_at} 
+                                     className="inline-flex"
+                                     relativeClassName="text-[11px] text-muted-foreground/80 dark:text-muted-foreground/60 font-medium select-none"
+                                     fullClassName="hidden"
+                                   />
+                                   {isOwn && (
+                                     <CheckCheck className={`w-3.5 h-3.5 ${isRead ? "text-blue-500" : "text-muted-foreground/50"}`} />
+                                   )}
+                                 </div>
+                              )}
+                            </div>
+                          </div>
+                        );
+                     })}
+                   </div>
+                 );
                })}
 
                {/* Typing Indicator */}
                {isTyping && (
-                  <div className="flex flex-col items-start mt-3">
-                     <div className="bg-white dark:bg-zinc-800 border border-border/50 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm w-fit">
-                        <div className="flex gap-1 animate-pulse">
-                           <div className="w-1.5 h-1.5 bg-muted-foreground/40 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
-                           <div className="w-1.5 h-1.5 bg-muted-foreground/40 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
-                           <div className="w-1.5 h-1.5 bg-muted-foreground/40 rounded-full animate-bounce"></div>
+                  <div className="flex w-full justify-start mt-2">
+                     <div className="w-8 shrink-0 mr-2 flex flex-col justify-end mb-5">
+                       <div className="h-8 w-8 rounded-full overflow-hidden bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-700 dark:text-blue-400 font-bold text-xs shrink-0 border border-blue-200 dark:border-blue-800/50">
+                          {getOtherParty(selectedInquiry).logo_url ? (
+                            <img src={getOtherParty(selectedInquiry).logo_url} alt="Profile" className="h-full w-full object-cover" />
+                          ) : (
+                            getOtherParty(selectedInquiry).name.charAt(0).toUpperCase()
+                          )}
+                       </div>
+                     </div>
+                     <div className="flex flex-col items-start max-w-[85%] sm:max-w-[75%]">
+                        <div className="bg-white dark:bg-zinc-800 border border-border/50 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm w-fit">
+                           <div className="flex gap-1 animate-pulse">
+                              <div className="w-1.5 h-1.5 bg-muted-foreground/40 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
+                              <div className="w-1.5 h-1.5 bg-muted-foreground/40 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
+                              <div className="w-1.5 h-1.5 bg-muted-foreground/40 rounded-full animate-bounce"></div>
+                           </div>
                         </div>
                      </div>
                   </div>

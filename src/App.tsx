@@ -73,9 +73,11 @@ export default function App() {
 
   useEffect(() => {
     try {
-      OneSignal.init({
-        appId: "39cacdbe-4c1c-40fe-b763-4462f792edae",
-      });
+      setTimeout(() => {
+        OneSignal.init({
+          appId: "39cacdbe-4c1c-40fe-b763-4462f792edae",
+        });
+      }, 2000);
     } catch (error) {
       console.warn("OneSignal initialization error:", error);
     }

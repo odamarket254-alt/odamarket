@@ -158,13 +158,13 @@ export default function SupplierProfilePage() {
   return (
     <div className="container mx-auto px-4 py-8 lg:py-12 max-w-6xl">
       {/* Supplier Header Card */}
-      <Card className="border-border bg-card shadow-sm overflow-hidden mb-10">
-        <div className="h-32 bg-emerald-900/40 relative">
-          <div className="absolute inset-0 bg-gradient-to-t from-background to-transparent" />
+      <Card className="border border-border/40 bg-card shadow-[0_4px_20px_rgb(0,0,0,0.03)] overflow-hidden mb-12 rounded-3xl">
+        <div className="h-40 bg-emerald-900/10 relative overflow-hidden">
+          <div className="absolute inset-0 bg-gradient-to-t from-background/90 to-transparent" />
         </div>
-        <CardContent className="pt-0 relative px-6 sm:px-10 pb-10">
-          <div className="flex flex-col sm:flex-row items-start sm:items-end gap-6 -mt-12 sm:-mt-16 mb-6">
-            <div className="w-24 h-24 sm:w-32 sm:h-32 rounded-full border-4 border-background bg-muted flex items-center justify-center shrink-0 shadow-xl overflow-hidden relative z-10">
+        <CardContent className="pt-0 relative px-6 sm:px-12 pb-12">
+          <div className="flex flex-col md:flex-row items-center md:items-end gap-6 md:gap-8 -mt-20 mb-8 text-center md:text-left">
+            <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full border-[6px] border-background bg-muted flex items-center justify-center shrink-0 shadow-lg overflow-hidden relative z-10">
               {supplier.logo_url ? (
                 <img
                   src={supplier.logo_url}
@@ -172,36 +172,36 @@ export default function SupplierProfilePage() {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <span className="text-4xl text-emerald-600 dark:text-emerald-500 font-bold uppercase">
+                <span className="text-5xl text-emerald-600 dark:text-emerald-500 font-extrabold uppercase tracking-tight">
                   {supplier.business_name?.charAt(0) || "S"}
                 </span>
               )}
             </div>
 
-            <div className="flex-1 space-y-2 relative z-10">
-              <div className="flex items-center gap-2">
-                <h1 className="text-2xl sm:text-4xl font-bold text-foreground">
+            <div className="flex-1 space-y-3 relative z-10">
+              <div className="flex flex-col md:flex-row items-center md:items-center gap-3">
+                <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-foreground">
                   {supplier.business_name || "Unknown Supplier"}
                 </h1>
-                {supplier.verified && <VerifiedBadge />}
+                {supplier.verified && <VerifiedBadge className="scale-110 origin-left" />}
               </div>
-              <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
-                <span className="flex items-center gap-1.5">
-                  <Building2 className="h-4 w-4" />
+              <div className="flex flex-wrap justify-center md:justify-start items-center gap-x-6 gap-y-2 text-[15px] font-medium text-muted-foreground">
+                <span className="flex items-center gap-1.5 bg-secondary/50 px-3 py-1 rounded-full border border-border/50">
+                  <Building2 className="h-4 w-4 opacity-70" />
                   {supplier.company_type || "Business"}
                 </span>
-                <span className="flex items-center gap-1.5">
-                  <MapPin className="h-4 w-4" />
+                <span className="flex items-center gap-1.5 bg-secondary/50 px-3 py-1 rounded-full border border-border/50">
+                  <MapPin className="h-4 w-4 opacity-70" />
                   {supplier.location || "Global Location"}
                 </span>
-                <span className="flex items-center gap-1.5">
-                  <Calendar className="h-4 w-4" />
+                <span className="flex items-center gap-1.5 bg-secondary/50 px-3 py-1 rounded-full border border-border/50">
+                  <Calendar className="h-4 w-4 opacity-70" />
                   Joined {new Date(supplier.created_at).getFullYear()}
                 </span>
               </div>
             </div>
 
-            <div className="shrink-0 w-full sm:w-auto relative z-10">
+            <div className="shrink-0 w-full md:w-auto relative z-10 pt-4 md:pt-0">
               {user ? (
                 <Dialog>
                   <DialogTrigger

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, memo, useMemo, useCallback } from "react";
 import { VerifiedBadge } from "../components/ui/VerifiedBadge";
 import { Link, useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/Button";
@@ -36,7 +36,7 @@ import { motion } from "motion/react";
 import { supabase } from "../lib/supabase";
 import { cn } from "../lib/utils";
 
-function AnimatedNumber({ value }: { value: number }) {
+const AnimatedNumber = memo(({ value }: { value: number }) => {
   const [displayValue, setDisplayValue] = useState(0);
   const elementRef = useRef<HTMLSpanElement>(null);
 
@@ -69,7 +69,9 @@ function AnimatedNumber({ value }: { value: number }) {
   }, [value]);
 
   return <span ref={elementRef}>{displayValue}{value >= 250 ? "+" : ""}</span>;
-}
+});
+
+AnimatedNumber.displayName = "AnimatedNumber";
 
 interface MarketplaceProduct {
   id: string;
@@ -124,46 +126,56 @@ const getIconByName = (name?: string) => {
   return <Icon className="w-6 h-6 sm:w-8 sm:h-8" />;
 };
 
-const CompactProductCard = ({ product }: { product: any }) => {
+const CompactProductCard = memo(({ product }: { product: any }) => {
   return (
     <Link
       to={`/products/${product.id}`}
-      className="flex flex-col h-full group overflow-hidden rounded-lg bg-card border border-border shadow-sm hover:border-emerald-500/30 transition-colors"
+      className="flex flex-col h-full group overflow-hidden rounded-xl bg-card border border-border shadow-[0_2px_10px_rgb(0,0,0,0.02)] hover:border-emerald-500/30 hover:shadow-lg hover:shadow-emerald-900/5 transition-all duration-300 hover:-translate-y-1 block"
     >
       <div className="aspect-square relative bg-muted overflow-hidden">
         <img
           src={
-            product.image_url ||
-            "https://images.unsplash.com/photo-1559525839-b184a4d698c7?w=500&auto=format&fit=crop&q=60"
+            product.image_url
+              ? (product.image_url.includes('unsplash.com') ? `${product.image_url}&auto=format&fit=crop&w=400&q=80` : product.image_url)
+              : "https://images.unsplash.com/photo-1559525839-b184a4d698c7?w=400&auto=format&fit=crop&q=80"
           }
           alt={product.name}
           loading="lazy"
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          width="400"
+          height="400"
+          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 opacity-95 group-hover:opacity-100"
         />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />
       </div>
-      <div className="p-3 sm:p-4 flex flex-col flex-1">
-        <div className="text-[11px] sm:text-xs uppercase font-bold text-muted-foreground truncate mb-1">
+      <div className="p-3 sm:p-4 flex flex-col flex-1 border-t border-border/50">
+        <div className="text-[10px] sm:text-[11px] uppercase font-bold text-muted-foreground truncate mb-1.5 tracking-wide text-emerald-600/80 dark:text-emerald-400/80">
           {typeof product.categories === "object" && product.categories !== null
             ? product.categories.name
             : product.category || "Uncategorized"}
         </div>
-        <div className="flex items-center gap-1 mb-1.5 min-h-[2.5em]">
-          <h3 className="text-sm font-medium leading-tight text-foreground line-clamp-2 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+        <div className="flex items-start gap-1 mb-2.5 min-h-[2.5em] w-full">
+          <h3 className="text-sm font-semibold leading-[1.3] text-foreground line-clamp-2 group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors w-full">
             {product.name}
           </h3>
           {product.profiles?.verified && (
-            <VerifiedBadge showText={false} className="shrink-0 px-1 py-1" iconClassName="w-3.5 h-3.5" />
+            <VerifiedBadge showText={false} className="shrink-0 px-1 py-1 mt-0.5" iconClassName="w-3.5 h-3.5" />
           )}
         </div>
-        <div className="mt-auto">
-          <p className="text-sm sm:text-base font-bold text-primary truncate">
-            {product.price ? product.price : "Req Price"}
+        <div className="mt-auto pt-2 border-t border-border/40">
+          <p className="text-sm sm:text-[15px] font-bold text-emerald-600 dark:text-emerald-500 truncate tracking-tight">
+            {product.price ? product.price : "Price on Request"}
           </p>
         </div>
       </div>
     </Link>
   );
-};
+});
+
+CompactProductCard.displayName = "CompactProductCard";
+
+// Simple memory cache
+const cache: Record<string, { data: any, timestamp: number }> = {};
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 export default function HomePage() {
   const [featuredRealtimeProducts, setFeaturedRealtimeProducts] = useState<
@@ -195,7 +207,7 @@ export default function HomePage() {
           filter: "status=eq.active",
         },
         () => {
-          fetchFeaturedProducts();
+          fetchFeaturedProducts(true);
         },
       )
       .subscribe();
@@ -211,7 +223,7 @@ export default function HomePage() {
           filter: "role=eq.seller",
         },
         () => {
-          fetchSuppliersCount();
+          fetchSuppliersCount(true);
         },
       )
       .subscribe();
@@ -222,8 +234,13 @@ export default function HomePage() {
     };
   }, []);
 
-  const fetchSuppliersCount = async () => {
+  const fetchSuppliersCount = async (force = false) => {
     try {
+      if (!force && cache["suppliersCount"] && Date.now() - cache["suppliersCount"].timestamp < CACHE_TTL) {
+        setActiveSuppliersCount(cache["suppliersCount"].data);
+        return;
+      }
+      
       const { count, error } = await supabase
         .from("profiles")
         .select("id", { count: "exact", head: true })
@@ -231,6 +248,7 @@ export default function HomePage() {
         .eq("verified", true);
 
       if (!error && count !== null) {
+        cache["suppliersCount"] = { data: count, timestamp: Date.now() };
         setActiveSuppliersCount(count);
       }
     } catch (err) {
@@ -238,13 +256,19 @@ export default function HomePage() {
     }
   };
 
-  const fetchFeaturedProducts = async () => {
+  const fetchFeaturedProducts = async (force = false) => {
     try {
+      if (!force && cache["featuredProducts"] && Date.now() - cache["featuredProducts"].timestamp < CACHE_TTL) {
+        setFeaturedRealtimeProducts(cache["featuredProducts"].data);
+        setIsLoading(false);
+        return;
+      }
+      
       setIsLoading(true);
       const { data, error } = await supabase
         .from("products")
         .select(
-          "*, profiles(verified, business_name, location), categories(name, slug)",
+          "id, name, price, stock, image_url, created_at, seller_id, profiles(verified, business_name, location), categories(name, slug)",
         )
         .eq("status", "active")
         .order("created_at", { ascending: false })
@@ -253,7 +277,8 @@ export default function HomePage() {
       if (error) {
         console.error("Error fetching featured products:", error);
       } else if (data) {
-        setFeaturedRealtimeProducts(data);
+        cache["featuredProducts"] = { data, timestamp: Date.now() };
+        setFeaturedRealtimeProducts(data as any);
       }
     } catch (err) {
       console.error(err);
@@ -262,19 +287,28 @@ export default function HomePage() {
     }
   };
 
-  const fetchCategories = async () => {
+  const fetchCategories = async (force = false) => {
     try {
+      if (!force && cache["categories"] && Date.now() - cache["categories"].timestamp < CACHE_TTL) {
+        setCategories(cache["categories"].data);
+        setCatsLoading(false);
+        return;
+      }
+      
       setCatsLoading(true);
       const { data, error } = await supabase
         .from("categories")
-        .select("*")
+        .select("id, name, slug, icon, image_url")
         .eq("is_active", true)
         .eq("level", 0)
         .order("sort_order", { ascending: true })
         .limit(16);
 
       if (error) throw error;
-      if (data) setCategories(data);
+      if (data) {
+        cache["categories"] = { data, timestamp: Date.now() };
+        setCategories(data);
+      }
     } catch (err) {
       console.error(err);
     } finally {
@@ -323,10 +357,10 @@ export default function HomePage() {
                   navigate("/products");
                 }
               }}
-              className="flex items-center p-2 bg-card/90 supports-[backdrop-filter]:bg-card/70 text-foreground backdrop-blur-2xl border border-white/10 rounded-[16px] w-full max-w-2xl mx-auto shadow-[0_8px_30px_rgb(0,0,0,0.12)] flex-col sm:flex-row mb-5"
+              className="flex flex-col sm:flex-row items-center p-2 bg-card/95 supports-[backdrop-filter]:bg-card/75 backdrop-blur-2xl border border-border/60 rounded-[18px] w-full max-w-3xl mx-auto shadow-2xl shadow-emerald-900/5 mb-6"
             >
-              <div className="flex-1 flex items-center px-4 w-full border-b sm:border-b-0 sm:border-r border-border/50 pb-2 sm:pb-0 h-[56px] sm:h-auto">
-                <Search className="w-5 h-5 text-muted-foreground shrink-0 mr-3" />
+              <div className="flex-1 flex items-center px-4 md:px-6 w-full border-b sm:border-b-0 sm:border-r border-border/50 py-2 sm:py-0 h-[60px] sm:h-auto">
+                <Search className="w-6 h-6 text-emerald-600/70 shrink-0 mr-4" />
                 <Input
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -337,16 +371,16 @@ export default function HomePage() {
               <Button
                 type="submit"
                 size="lg"
-                className="h-[56px] px-8 text-base bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-[12px] shadow-lg shadow-emerald-500/25 hover:scale-[1.02] transition-all w-full sm:w-auto mt-2 sm:mt-0"
+                className="h-[60px] px-10 text-base bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-[14px] shadow-lg shadow-emerald-500/25 hover:scale-[1.02] transition-all w-full sm:w-auto mt-2 sm:mt-0 sm:ml-2"
               >
                 Search Market
               </Button>
             </form>
             
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mt-2">
+            <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4 mt-4">
               <Link 
                 to="/categories"
-                className="inline-flex items-center justify-center h-12 px-8 text-sm font-semibold text-foreground bg-secondary hover:bg-secondary/80 rounded-[12px] border border-border/50 transition-all"
+                className="inline-flex items-center justify-center h-12 px-8 text-sm font-semibold text-foreground bg-secondary/80 hover:bg-secondary rounded-[14px] border border-border/50 transition-all hover:shadow-sm"
               >
                  Browse Categories
               </Link>
@@ -455,19 +489,22 @@ export default function HomePage() {
                     <Link
                       to={`/c/${category.slug}`}
                       className={cn(
-                        "flex flex-col h-full rounded-xl border border-border shadow-sm hover:border-emerald-500/50 hover:shadow-md transition-all group overflow-hidden relative",
+                        "flex flex-col h-full rounded-2xl border border-border bg-card shadow-[0_2px_10px_rgb(0,0,0,0.02)] hover:border-emerald-500/40 hover:shadow-xl hover:shadow-emerald-900/5 transition-all duration-300 group overflow-hidden relative",
                         category.image_url
                           ? "aspect-square justify-end"
-                          : "justify-center items-center text-center p-3 sm:p-4 bg-card hover:bg-emerald-50/50 dark:hover:bg-emerald-950/20",
+                          : "justify-center items-center text-center p-3 sm:p-5",
                       )}
                     >
                       {category.image_url ? (
                         <>
                           <div className="absolute inset-0 z-0">
                             <img
-                              src={category.image_url}
+                              src={category.image_url.includes('unsplash.com') ? `${category.image_url}&auto=format&fit=crop&w=300&q=80` : category.image_url}
                               alt={category.name}
-                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+                              loading="lazy"
+                              width="300"
+                              height="300"
+                              className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 bg-muted"
                             />
                             <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent group-hover:from-black/95 transition-all" />
                           </div>

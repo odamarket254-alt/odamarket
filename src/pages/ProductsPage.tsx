@@ -39,6 +39,10 @@ interface Category {
   slug: string;
 }
 
+// Simple memory cache
+const cache: Record<string, { data: any, timestamp: number }> = {};
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
+
 export default function ProductsPage() {
   const navigate = useNavigate();
   const { categorySlug } = useParams();
@@ -70,6 +74,20 @@ export default function ProductsPage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [visibleCount, setVisibleCount] = useState(12);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (
+        window.innerHeight + document.documentElement.scrollTop >=
+        document.documentElement.offsetHeight - 800
+      ) {
+        setVisibleCount((prev) => prev + 12);
+      }
+    };
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   useEffect(() => {
     // open sidebar by default on large screens
@@ -96,7 +114,7 @@ export default function ProductsPage() {
           filter: "status=eq.active",
         },
         () => {
-          fetchActiveProducts();
+          fetchActiveProducts(true);
         },
       )
       .subscribe();
@@ -106,22 +124,37 @@ export default function ProductsPage() {
     };
   }, [selectedCategory]);
 
-  const fetchCategories = async () => {
+  const fetchCategories = async (force = false) => {
     try {
+      if (!force && cache["categories_list"] && Date.now() - cache["categories_list"].timestamp < CACHE_TTL) {
+        setCategories(cache["categories_list"].data);
+        return;
+      }
+      
       const { data } = await supabase
         .from("categories")
         .select("id, name, slug")
         .eq("is_active", true)
         .eq("level", 0)
         .order("sort_order", { ascending: true });
-      if (data) setCategories(data);
+      if (data) {
+        cache["categories_list"] = { data, timestamp: Date.now() };
+        setCategories(data);
+      }
     } catch (err) {
       console.error(err);
     }
   };
 
-  const fetchActiveProducts = async () => {
+  const fetchActiveProducts = async (force = false) => {
     try {
+      const cacheKey = `products_${selectedCategory}`;
+      if (!force && cache[cacheKey] && Date.now() - cache[cacheKey].timestamp < CACHE_TTL) {
+        setProducts(cache[cacheKey].data);
+        setIsLoading(false);
+        return;
+      }
+      
       setIsLoading(true);
       let query = supabase
         .from("products")
@@ -139,6 +172,7 @@ export default function ProductsPage() {
       if (error) {
         console.error("Error fetching marketplace products:", error);
       } else if (data) {
+        cache[cacheKey] = { data, timestamp: Date.now() };
         setProducts(data);
       }
     } catch (err) {
@@ -155,6 +189,10 @@ export default function ProductsPage() {
       p.category?.toLowerCase().includes(search.toLowerCase());
     return nameMatch || catMatch;
   });
+
+  useEffect(() => {
+    setVisibleCount(12);
+  }, [search, selectedCategory]);
 
   const currentCategoryObj = categories.find(
     (c) => c.slug === selectedCategory,
@@ -178,36 +216,36 @@ export default function ProductsPage() {
       <div className="container mx-auto px-4">
         <Breadcrumbs items={breadcrumbItems} />
         {/* Header / Search */}
-        <div className="flex flex-col md:flex-row gap-4 justify-between items-start md:items-center mb-8">
+        <div className="flex flex-col md:flex-row gap-6 justify-between items-start md:items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-foreground mb-2">
+            <h1 className="text-3xl md:text-4xl font-bold text-foreground mb-2 tracking-tight">
               Browse Market
             </h1>
-            <p className="text-muted-foreground">
+            <p className="text-lg text-muted-foreground font-medium">
               Discover verified products from suppliers across Africa.
             </p>
           </div>
 
-          <div className="flex w-full md:w-auto gap-2">
+          <div className="flex w-full md:w-auto gap-3">
             <form
-              className="relative flex-1 md:w-80"
+              className="relative w-full md:w-80 lg:w-[400px]"
               onSubmit={(e) => e.preventDefault()}
             >
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-muted-foreground/70" />
               <Input
                 type="search"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search products..."
-                className="pl-9 bg-muted/50 text-foreground border-border text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-500"
+                placeholder="Search products, suppliers, or categories..."
+                className="pl-12 bg-card border-border/60 text-foreground placeholder:text-muted-foreground focus-visible:border-emerald-500 focus-visible:ring-emerald-500/20 h-12 rounded-xl shadow-sm hover:border-emerald-500/40 transition-all font-medium"
               />
             </form>
             <Button
               variant={isSidebarOpen ? "default" : "outline"}
               onClick={() => setIsSidebarOpen(!isSidebarOpen)}
-              className={isSidebarOpen ? "" : "shrink-0 bg-muted/50 text-foreground border-border hover:bg-accent hover:text-accent-foreground text-foreground"}
+              className={isSidebarOpen ? "h-12 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-md" : "h-12 shrink-0 bg-card text-foreground border-border/60 hover:bg-accent hover:border-border hover:text-accent-foreground font-semibold rounded-xl shadow-sm px-6"}
             >
-              <Filter className="h-4 w-4 mr-2" />
+              <Filter className="h-5 w-5 mr-2" />
               Filters
             </Button>
           </div>
@@ -309,20 +347,22 @@ export default function ProductsPage() {
                 animate={{ opacity: 1, scale: 1 }}
                 exit={{ opacity: 0, scale: 0.95 }}
                 transition={{ duration: 0.3 }}
-                className="col-span-full py-12 text-center border border-border/50 rounded-2xl bg-muted/50 text-foreground backdrop-blur-sm"
+                className="col-span-full py-16 text-center border border-border/40 rounded-2xl bg-card shadow-[0_2px_10px_rgb(0,0,0,0.02)] backdrop-blur-sm flex flex-col items-center justify-center"
               >
-                <ShoppingBag className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-foreground">
+                <div className="w-20 h-20 rounded-full bg-muted flex items-center justify-center mb-5">
+                  <ShoppingBag className="h-10 w-10 text-muted-foreground/60" />
+                </div>
+                <h3 className="text-xl font-bold text-foreground tracking-tight mb-2">
                   {selectedCategory
                     ? "No products found in this category"
                     : "No products found"}
                 </h3>
-                <p className="text-muted-foreground">
-                  Try adjusting your search or filters.
+                <p className="text-muted-foreground font-medium max-w-sm mx-auto">
+                  We couldn't find any products matching your current search or filters. Try adjusting them.
                 </p>
               </motion.div>
             ) : (
-              filtered.map((product, idx) => (
+              filtered.slice(0, visibleCount).map((product, idx) => (
                 <motion.div
                   layout
                   key={`product-${product.id}`}

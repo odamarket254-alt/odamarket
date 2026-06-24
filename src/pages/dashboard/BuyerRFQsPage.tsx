@@ -9,6 +9,7 @@ import { Input } from "../../components/ui/Input";
 import { RFQ } from "../../types/rfq";
 import { format } from "date-fns";
 import { ViewRFQResponsesModal } from "../../components/rfq/ViewRFQResponsesModal";
+import { cn } from "../../lib/utils";
 
 export function BuyerRFQsPage() {
   const { user } = useAuthStore();
@@ -166,39 +167,43 @@ export function BuyerRFQsPage() {
         <CardContent className="p-0">
           <div className="divide-y divide-border">
             {loading ? (
-              <div className="p-8 text-center text-muted-foreground">Loading RFQs...</div>
+              <div className="p-12 text-center text-muted-foreground flex flex-col items-center justify-center">
+                <div className="w-8 h-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin mb-4"></div>
+                <p className="font-medium tracking-wide">Loading your RFQs...</p>
+              </div>
             ) : filteredRfqs.length === 0 ? (
-              <div className="p-8 text-center text-muted-foreground">
-                No RFQs found.
+              <div className="p-12 text-center text-muted-foreground flex flex-col items-center justify-center">
+                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                  <PackageSearch className="w-8 h-8 opacity-50" />
+                </div>
+                <h3 className="text-lg font-bold text-foreground tracking-tight mb-2">No RFQs found</h3>
+                <p className="max-w-xs mx-auto">You haven't requested any quotes yet, or no quotes match your filters.</p>
               </div>
             ) : (
               filteredRfqs.map((rfq) => (
-                <div key={rfq.id} className="p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:bg-muted/30 transition-colors">
-                  <div className="space-y-1">
-                    <h3 className="font-semibold text-lg">{rfq.title}</h3>
-                    <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                      <span>{rfq.quantity} {rfq.unit}</span>
-                      <span>•</span>
-                      <span>Target: {rfq.target_price ? `$${rfq.target_price}` : "N/A"}</span>
-                      <span>•</span>
-                      <span>Created: {format(new Date(rfq.created_at), "MMM d, yyyy")}</span>
+                <div key={rfq.id} className="p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 hover:bg-muted/50 transition-colors">
+                  <div className="space-y-2 flex-1">
+                    <h3 className="font-bold text-lg text-foreground tracking-tight">{rfq.title}</h3>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground font-medium">
+                      <span className="flex items-center gap-1.5"><PackageSearch className="w-4 h-4 opacity-70" /> {rfq.quantity} {rfq.unit}</span>
+                      <span className="flex items-center gap-1.5"><History className="w-4 h-4 opacity-70" /> Target: {rfq.target_price ? `$${rfq.target_price}` : "Open"}</span>
+                      <span className="flex items-center gap-1.5 opacity-70 border-l border-border/60 pl-4">{format(new Date(rfq.created_at), "MMM d, yyyy")}</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 w-full sm:w-auto mt-4 sm:mt-0">
-                    <Badge variant="outline" className={getStatusBadge(rfq.status)}>
-                      {rfq.status.charAt(0).toUpperCase() + rfq.status.slice(1)}
+                    <Badge variant="outline" className={cn(getStatusBadge(rfq.status), "px-3 py-1 font-semibold uppercase tracking-wide text-[10px]")}>
+                      {rfq.status}
                     </Badge>
-                    <div className="px-3 py-1 bg-secondary rounded-full text-xs font-medium">
+                    <div className="px-3 py-1 bg-secondary rounded-full text-xs font-semibold border border-border/50">
                       {(rfq as any).responses?.[0]?.count || 0} Quotes
                     </div>
                     <Button 
                       variant="outline" 
-                      size="sm" 
-                      className="ml-2 font-medium"
                       onClick={() => {
                         setSelectedRfq(rfq);
                         setIsViewModalOpen(true);
                       }}
+                      className="ml-2 font-semibold px-6 shadow-sm hover:shadow-md transition-all hover:border-emerald-500/50 hover:text-emerald-600 dark:hover:text-emerald-400"
                     >
                       View Details
                     </Button>

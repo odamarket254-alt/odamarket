@@ -487,82 +487,85 @@ export default function DashboardProductsPage() {
         </Dialog>
       </div>
 
-      <Card className="border-border bg-muted/50 text-foreground backdrop-blur-sm overflow-hidden">
-        <CardHeader className="border-b border-border pb-4">
-          <div className="flex items-center gap-2 max-w-sm">
-            <div className="relative w-full">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search products..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9 bg-black/20 border-border text-foreground focus-visible:ring-emerald-500 h-10 rounded-full"
-              />
+      <Card className="border-border bg-card shadow-[0_2px_10px_rgb(0,0,0,0.02)] transition-all overflow-hidden rounded-2xl">
+        <CardHeader className="border-b border-border/50 pb-5 pt-6 px-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <CardTitle className="text-xl font-bold tracking-tight">Your Products</CardTitle>
+            <div className="flex items-center gap-2 w-full sm:w-auto max-w-sm">
+              <div className="relative w-full">
+                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground/70" />
+                <Input
+                  placeholder="Search products..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 bg-background border-border/60 text-foreground focus-visible:ring-emerald-500/20 focus-visible:border-emerald-500 h-11 rounded-xl shadow-sm w-full"
+                />
+              </div>
             </div>
           </div>
         </CardHeader>
         <CardContent className="p-0">
           {isLoading ? (
-            <div className="divide-y divide-white/10">
+            <div className="divide-y divide-border/60">
               {[1, 2, 3].map((i) => (
                 <div
                   key={i}
-                  className="p-4 flex items-center gap-4 animate-pulse"
+                  className="p-6 flex items-center gap-6 animate-pulse"
                 >
-                  <div className="h-16 w-16 bg-muted rounded-lg shrink-0" />
+                  <div className="h-16 w-16 bg-muted rounded-xl shrink-0" />
                   <div className="flex-1 space-y-3">
-                    <div className="h-4 bg-muted rounded w-1/3" />
-                    <div className="h-3 bg-muted rounded w-1/4" />
+                    <div className="h-4 bg-muted rounded-md w-1/3" />
+                    <div className="h-3 bg-muted rounded-md w-1/4" />
                   </div>
                   <div className="h-8 w-24 bg-muted rounded-full" />
                 </div>
               ))}
             </div>
           ) : filteredProducts.length > 0 ? (
-            <div className="divide-y divide-white/10">
+            <div className="divide-y divide-border/60">
               {filteredProducts.map((product, idx) => (
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.05 }}
                   key={product.id}
-                  className="p-4 flex flex-col sm:flex-row sm:items-center gap-4 hover:bg-muted/50 transition-colors group"
+                  className="p-6 flex flex-col sm:flex-row sm:items-center gap-6 hover:bg-muted/30 transition-colors group"
                 >
-                  <div className="h-16 w-16 rounded-lg bg-muted/50">
+                  <div className="h-20 w-20 rounded-xl bg-muted overflow-hidden shrink-0 border border-border/50">
                     {product.image_url ? (
                       <img
                         src={product.image_url}
                         alt={product.name}
-                        className="w-full h-full object-cover"
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-muted-foreground">
-                        <Package className="h-6 w-6" />
+                      <div className="w-full h-full flex items-center justify-center text-muted-foreground/50">
+                        <Package className="h-8 w-8" />
                       </div>
                     )}
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-base font-medium text-foreground truncate group-hover:text-emerald-600 dark:text-emerald-400 transition-colors">
+                    <h3 className="text-lg font-bold text-foreground tracking-tight truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
                       {product.name}
                     </h3>
-                    <div className="flex items-center gap-3 mt-1 text-sm text-muted-foreground">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-sm font-medium text-muted-foreground">
                       <span className="truncate">{product.categories?.name || product.category}</span>
-                      <span className="w-1 h-1 rounded-full bg-zinc-600 shrink-0" />
+                      <span className="w-1 h-1 rounded-full bg-border shrink-0" />
                       <span>{product.stock} in stock</span>
-                      <span className="w-1 h-1 rounded-full bg-zinc-600 shrink-0" />
-                      <span className="font-mono text-foreground/80">
+                      <span className="w-1 h-1 rounded-full bg-border shrink-0" />
+                      <span className="text-foreground">
                         {product.price}
                       </span>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-4 sm:ml-auto shrink-0 justify-between sm:justify-end mt-2 sm:mt-0">
+                  <div className="flex items-center gap-4 sm:ml-auto shrink-0 justify-between sm:justify-end mt-4 sm:mt-0">
                     <div
-                      className={`px-2.5 py-1 text-xs font-medium rounded-full ${
+                      className={`px-3 py-1 text-xs font-bold uppercase tracking-wider rounded-full ${
                         product.status === "active"
                           ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
-                          : "bg-zinc-500/10 text-muted-foreground border border-zinc-500/20"
+                          : "bg-muted text-muted-foreground border border-border"
                       }`}
                     >
                       {product.status === "active" ? "Active" : "Draft"}
@@ -574,11 +577,11 @@ export default function DashboardProductsPage() {
                           <Button
                             variant="ghost"
                             size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:bg-accent hover:text-accent-foreground"
+                            className="h-9 w-9 border border-transparent hover:border-border text-muted-foreground hover:bg-muted hover:text-foreground"
                           />
                         }
                       >
-                        <MoreVertical className="h-4 w-4" />
+                        <MoreVertical className="h-5 w-5" />
                       </DropdownMenuTrigger>
                       <DropdownMenuContent
                         align="end"

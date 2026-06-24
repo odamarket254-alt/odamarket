@@ -14,11 +14,18 @@ import {
   Heart,
   Clock,
   AlertCircle,
+  Eye,
+  MessageSquare,
+  FileText,
+  ChevronRight,
+  Plus,
+  Image as ImageIcon
 } from "lucide-react";
 import { useAuthStore } from "../../store/useAuthStore";
 import { supabase } from "../../lib/supabase";
 import { cn } from "../../lib/utils";
 import { Timestamp } from "../../components/ui/Timestamp";
+import { Button } from "../../components/ui/Button";
 
 export default function DashboardHome() {
   const { profile, user } = useAuthStore();
@@ -32,6 +39,9 @@ export default function DashboardHome() {
   const [recentViewsCount, setRecentViewsCount] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
+  const [topProducts, setTopProducts] = useState<any[]>([]);
+  const [topSuppliers, setTopSuppliers] = useState<any[]>([]);
+
   useEffect(() => {
     if (!user) return;
 
@@ -44,6 +54,7 @@ export default function DashboardHome() {
             { data: recent },
             { count: viewsCount },
             { count: favCount },
+            { data: topProds }
           ] = await Promise.all([
             supabase
               .from("products")
@@ -55,7 +66,7 @@ export default function DashboardHome() {
               .eq("seller_id", user.id),
             supabase
               .from("inquiries")
-              .select("*")
+              .select("*, buyer:profiles!buyer_id(business_name, name)")
               .eq("seller_id", user.id)
               .order("created_at", { ascending: false })
               .limit(3),
@@ -66,13 +77,25 @@ export default function DashboardHome() {
             supabase
               .from("favorites")
               .select("id, products!inner(seller_id)", { count: "exact", head: true })
-              .eq("products.seller_id", user.id)
+              .eq("products.seller_id", user.id),
+            supabase
+              .from("products")
+              .select(`
+                *,
+                inquiries(count),
+                favorites(count),
+                recent_views(count)
+              `)
+              .eq("seller_id", user.id)
+              .order("created_at", { ascending: false })
+              .limit(4)
           ]);
           setProductCount(pCount || 0);
           setInquiryCount(iCount || 0);
           setRecentActivities(recent || []);
           setProductViews(viewsCount || 0);
           setProfileVisits(favCount || 0);
+          setTopProducts(topProds || []);
         } else if (profile?.role === "buyer") {
           const [
             { count },
@@ -340,28 +363,30 @@ export default function DashboardHome() {
           const Icon = stat.icon;
           const isPremium = profile?.role === "seller" && profile?.verified;
           return (
-            <Card
+              <Card
               key={i}
               className={cn(
-                "border-border bg-muted/50 text-foreground backdrop-blur-sm",
-                isPremium && "border-amber-500/20 shadow-[0_0_15px_rgba(245,158,11,0.05)]"
+                "border-border bg-card shadow-[0_2px_10px_rgb(0,0,0,0.02)] transition-all hover:shadow-md hover:-translate-y-0.5",
+                isPremium && "border-amber-500/30 shadow-[0_4px_20px_rgba(245,158,11,0.06)]"
               )}
             >
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+                <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
                   {stat.title}
                 </CardTitle>
-                <Icon className={cn("h-4 w-4", isPremium ? "text-amber-600 dark:text-amber-500" : "text-emerald-600 dark:text-emerald-500")} />
+                <div className={cn("p-2 rounded-lg", isPremium ? "bg-amber-500/10 text-amber-600 dark:text-amber-500" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-500")}>
+                   <Icon className="h-4 w-4" />
+                </div>
               </CardHeader>
               <CardContent>
                 {isLoading ? (
                   <div className="space-y-2 mt-1">
                     <div className="h-8 bg-muted rounded w-16 animate-pulse" />
-                    <div className="h-3 bg-muted rounded w-20 animate-pulse" />
+                    <div className="h-3 bg-muted rounded w-32 animate-pulse" />
                   </div>
                 ) : (
                   <>
-                    <div className="text-2xl font-bold text-foreground flex items-center gap-2">
+                    <div className="text-3xl font-extrabold text-foreground tracking-tight flex items-center gap-3">
                       <motion.span
                         key={stat.value}
                         initial={{ opacity: 0.5, y: 2 }}
@@ -371,13 +396,13 @@ export default function DashboardHome() {
                         {stat.value}
                       </motion.span>
                       {stat.change === "Live metric" && (
-                        <span className="relative flex h-2 w-2">
+                        <span className="relative flex h-2 w-2 mt-1">
                           <span className={cn("animate-ping absolute inline-flex h-full w-full rounded-full opacity-75", isPremium ? "bg-amber-400" : "bg-emerald-400")}></span>
                           <span className={cn("relative inline-flex rounded-full h-2 w-2", isPremium ? "bg-amber-500" : "bg-emerald-500")}></span>
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground mt-1">
+                    <p className="text-xs font-medium text-muted-foreground mt-2 inline-flex items-center gap-1.5">
                       {stat.change}
                     </p>
                   </>
@@ -454,48 +479,97 @@ export default function DashboardHome() {
         </Card>
 
         {profile?.role !== "buyer" && (
-          <Card className="col-span-full lg:col-span-3 border-border bg-muted/50 text-foreground backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="text-lg text-foreground">
+          <Card className="col-span-full lg:col-span-3 border border-border/40 bg-card shadow-[0_2px_10px_rgb(0,0,0,0.02)] transition-all overflow-hidden rounded-2xl flex flex-col h-full min-h-[350px]">
+            <CardHeader className="border-b border-border/50 pb-4 pt-5 px-6 shrink-0 flex flex-row items-center justify-between space-y-0">
+              <CardTitle className="text-lg font-bold text-foreground tracking-tight">
                 {profile?.role === "admin"
                   ? "Top performing suppliers"
                   : "Top Products"}
               </CardTitle>
+              {profile?.role === "seller" && (
+                <a href="/dashboard/products" className="h-8 flex items-center justify-center text-xs font-semibold text-emerald-600 dark:text-emerald-500 hover:text-emerald-700 dark:hover:text-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20 px-3 rounded-md -my-2 transition-colors">
+                  View All
+                </a>
+              )}
             </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
+            <CardContent className="p-0 flex-1 flex flex-col h-full">
+              <div className="divide-y divide-border/60 flex-1 flex flex-col h-full">
                 {isLoading ? (
-                  Array(3).fill(0).map((_, i) => (
-                    <div key={`skel-top-${i}`} className="flex items-center">
-                      <div className="h-9 w-9 rounded bg-muted animate-pulse shrink-0"></div>
-                      <div className="ml-4 space-y-2 flex-1">
-                        <div className="h-4 bg-muted rounded w-1/3 animate-pulse" />
-                        <div className="h-3 bg-muted rounded w-1/2 animate-pulse" />
+                  Array(4).fill(0).map((_, i) => (
+                    <div key={`skel-top-${i}`} className="p-5 px-6 flex items-center">
+                      <div className="h-12 w-12 rounded-xl bg-muted animate-pulse shrink-0"></div>
+                      <div className="ml-4 space-y-2.5 flex-1">
+                        <div className="h-4 bg-muted rounded-md w-2/3 animate-pulse" />
+                        <div className="h-3 bg-muted rounded-md w-1/3 animate-pulse" />
                       </div>
                     </div>
                   ))
+                ) : profile?.role === "seller" ? (
+                  topProducts.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center text-center p-8 flex-1 h-full min-h-[250px]">
+                      <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                        <Package className="w-8 h-8 opacity-50 text-muted-foreground" />
+                      </div>
+                      <h3 className="text-[15px] font-bold tracking-tight mb-1">No products yet</h3>
+                      <p className="text-sm text-muted-foreground font-medium mb-5 max-w-[200px]">
+                        Add products to start receiving inquiries and quotes.
+                      </p>
+                      <a href="/dashboard/products" className="inline-flex items-center justify-center h-9 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg transition-colors">
+                        <Plus className="w-4 h-4 mr-1.5" /> Add Product
+                      </a>
+                    </div>
+                  ) : (
+                    topProducts.map((product) => (
+                      <a 
+                        href={`/dashboard/products?search=${encodeURIComponent(product.name)}`} 
+                        key={product.id} 
+                        className="flex items-center p-5 px-6 hover:bg-muted/30 transition-colors group relative"
+                      >
+                        <div className="h-12 w-12 rounded-xl bg-muted/80 border border-border/50 flex items-center justify-center shrink-0 overflow-hidden shadow-sm group-hover:border-emerald-500/20 transition-colors">
+                          {product.image_url ? (
+                            <img src={product.image_url} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                          ) : (
+                            <ImageIcon className="h-5 w-5 text-muted-foreground/60" />
+                          )}
+                        </div>
+                        <div className="ml-4 flex-1 min-w-0">
+                          <p className="text-[15px] font-bold text-foreground tracking-tight truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                            {product.name}
+                          </p>
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-[13px] font-medium text-muted-foreground">
+                            <span className="flex items-center gap-1.5" title="Inquiries"><MessageSquare className="w-3.5 h-3.5 opacity-70" /> {product.inquiries?.[0]?.count || 0}</span>
+                            <span className="w-1 h-1 rounded-full bg-border shrink-0" />
+                            <span className="flex items-center gap-1.5" title="Saved"><Heart className="w-3.5 h-3.5 opacity-70" /> {product.favorites?.[0]?.count || 0}</span>
+                            <span className="w-1 h-1 rounded-full bg-border shrink-0" />
+                            <span className="flex items-center gap-1.5" title="Views"><Eye className="w-3.5 h-3.5 opacity-70" /> {product.recent_views?.[0]?.count || 0}</span>
+                          </div>
+                        </div>
+                        <div className="ml-3 shrink-0 flex items-center gap-3">
+                           {product.status === 'active' ? (
+                             <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]"></span>
+                           ) : (
+                             <span className="inline-block w-2 h-2 rounded-full bg-muted-foreground/40"></span>
+                           )}
+                           <ChevronRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-foreground/70 transition-colors group-hover:translate-x-0.5 duration-300" />
+                        </div>
+                      </a>
+                    ))
+                  )
                 ) : (
                   [1, 2, 3].map((_, i) => (
-                    <div key={i} className="flex items-center">
-                      <div className="h-9 w-9 rounded bg-muted/50 border border-border/50 flex items-center justify-center shrink-0">
-                        {profile?.role === "admin" ? (
-                          <Users className="h-4 w-4 text-muted-foreground" />
-                        ) : (
-                          <Package className="h-4 w-4 text-muted-foreground" />
-                        )}
+                    <div key={i} className="flex items-center p-5 px-6 hover:bg-muted/30 transition-colors cursor-pointer group">
+                      <div className="h-10 w-10 rounded-full bg-muted/60 border border-border/50 flex items-center justify-center shrink-0">
+                        <Users className="h-5 w-5 text-muted-foreground/70" />
                       </div>
-                      <div className="ml-4 space-y-1">
-                        <p className="text-sm font-medium leading-none text-foreground">
-                          {profile?.role === "admin"
-                            ? "AgriCorp Inc."
-                            : "Your Products"}
+                      <div className="ml-4 space-y-1 flex-1">
+                        <p className="text-[15px] font-bold tracking-tight text-foreground group-hover:text-emerald-600 transition-colors">
+                          AgriCorp Inc.
                         </p>
-                        <p className="text-sm text-muted-foreground">
-                          {profile?.role === "admin"
-                            ? "145 total orders"
-                            : "Syncing..."}
+                        <p className="text-[13px] text-muted-foreground font-medium">
+                          145 total orders
                         </p>
                       </div>
+                      <ChevronRight className="w-4 h-4 text-muted-foreground/40 group-hover:text-foreground/70 transition-colors group-hover:translate-x-0.5 duration-300" />
                     </div>
                   ))
                 )}

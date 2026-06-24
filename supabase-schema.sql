@@ -69,6 +69,11 @@ CREATE TABLE inquiries (
   message TEXT NOT NULL,
   quantity TEXT NOT NULL,
   status inquiry_status DEFAULT 'new',
+  buyer_unread_count INTEGER DEFAULT 0,
+  seller_unread_count INTEGER DEFAULT 0,
+  last_message_text TEXT,
+  last_message_time TIMESTAMPTZ,
+  last_message_sender_id UUID REFERENCES profiles(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   expires_at TIMESTAMPTZ

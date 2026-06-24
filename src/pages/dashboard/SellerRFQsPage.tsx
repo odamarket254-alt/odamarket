@@ -4,11 +4,12 @@ import { useAuthStore } from "../../store/useAuthStore";
 import { Card, CardContent, CardHeader, CardTitle } from "../../components/ui/Card";
 import { Badge } from "../../components/ui/Badge";
 import { Button } from "../../components/ui/Button";
-import { FileText, Search, ChevronRight } from "lucide-react";
+import { FileText, Search, ChevronRight, Package, MapPin, Calendar } from "lucide-react";
 import { Input } from "../../components/ui/Input";
 import { RFQ, RFQResponse } from "../../types/rfq";
 import { format } from "date-fns";
 import { CreateQuotationModal } from "../../components/rfq/CreateQuotationModal";
+import { cn } from "../../lib/utils";
 
 export function SellerRFQsPage() {
   const { user } = useAuthStore();
@@ -156,47 +157,55 @@ export function SellerRFQsPage() {
         <CardContent className="p-0">
           <div className="divide-y divide-border">
             {loading ? (
-              <div className="p-8 text-center text-muted-foreground">Loading RFQs...</div>
+              <div className="p-12 text-center text-muted-foreground flex flex-col items-center justify-center">
+                <div className="w-8 h-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin mb-4"></div>
+                <p className="font-medium tracking-wide">Loading RFQs...</p>
+              </div>
             ) : filteredRfqs.length === 0 ? (
-              <div className="p-8 text-center text-muted-foreground">
-                No active RFQs found.
+              <div className="p-12 text-center text-muted-foreground flex flex-col items-center justify-center">
+                <div className="w-16 h-16 rounded-full bg-muted flex items-center justify-center mb-4">
+                  <FileText className="w-8 h-8 opacity-50" />
+                </div>
+                <h3 className="text-lg font-bold text-foreground tracking-tight mb-2">No RFQs found</h3>
+                <p className="max-w-xs mx-auto">There are no active RFQs matching your current filters.</p>
               </div>
             ) : (
               filteredRfqs.map((rfq) => (
-                <div key={rfq.id} className="p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 hover:bg-muted/30 transition-colors">
-                  <div className="space-y-1">
-                    <h3 className="font-semibold text-lg">{rfq.title}</h3>
-                    <div className="flex flex-wrap items-center gap-3 text-sm text-muted-foreground">
-                      <span>{rfq.quantity} {rfq.unit}</span>
-                      <span>•</span>
-                      <span>Location: {rfq.delivery_location}</span>
-                      <span>•</span>
-                      <span>Posted: {format(new Date(rfq.created_at), "MMM d, yyyy")}</span>
+                <div key={rfq.id} className="p-6 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 hover:bg-muted/50 transition-colors">
+                  <div className="space-y-2 flex-1">
+                    <div className="flex items-center gap-3">
+                      <h3 className="font-bold text-lg text-foreground tracking-tight">{rfq.title}</h3>
+                      {hasResponded(rfq) && (
+                         <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-500 border-emerald-500/20 px-2.5 py-0.5 text-xs font-semibold">
+                           Quoted
+                         </Badge>
+                      )}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted-foreground font-medium">
+                      <span className="flex items-center gap-1.5"><Package className="w-4 h-4 opacity-70" /> {rfq.quantity} {rfq.unit}</span>
+                      <span className="flex items-center gap-1.5"><MapPin className="w-4 h-4 opacity-70" /> {rfq.delivery_location}</span>
+                      <span className="flex items-center gap-1.5"><Calendar className="w-4 h-4 opacity-70" /> {format(new Date(rfq.created_at), "MMM d, yyyy")}</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-3 w-full sm:w-auto mt-4 sm:mt-0">
-                    <Badge variant="outline" className={getStatusBadge(rfq.status)}>
-                      {rfq.status.charAt(0).toUpperCase() + rfq.status.slice(1)}
+                    <Badge variant="outline" className={cn(getStatusBadge(rfq.status), "px-3 py-1 font-semibold uppercase tracking-wide text-[10px]")}>
+                      {rfq.status}
                     </Badge>
-                    {hasResponded(rfq) ? (
-                       <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20">
-                         Quoted
-                       </Badge>
-                    ) : (
+                    {!hasResponded(rfq) ? (
                       <Button 
-                        variant="outline" 
                         onClick={() => {
                           setSelectedRfq(rfq);
                           setIsQuoting(true);
                         }}
-                        className="ml-2 bg-[#00B074] hover:bg-[#009260] text-white border-transparent"
+                        className="ml-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 shadow-sm hover:shadow-md transition-all"
                       >
-                        Quote Now
+                        Submit Quote
+                      </Button>
+                    ) : (
+                      <Button variant="outline" className="ml-2 px-6 font-semibold">
+                        View Details
                       </Button>
                     )}
-                    <Button variant="outline" size="icon" className="ml-2">
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
                   </div>
                 </div>
               ))

@@ -99,7 +99,7 @@ export default function DashboardHome() {
               .eq("seller_id", user.id)
               .order("created_at", { ascending: false })
               .limit(4),
-            supabase.from("ai_quotations").select("status").eq("user_id", user.id).catch(e => ({ data: [] }))
+            supabase.from("ai_quotations").select("status").eq("user_id", user.id).then(res => res, err => ({ data: [] }))
           ]);
           setProductCount(pCount || 0);
           setInquiryCount(iCount || 0);

@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "../ui/Dialog";
 import { Button } from "../ui/Button";
 import { Input } from "../ui/Input";
@@ -8,6 +8,7 @@ import { supabase } from "../../lib/supabase";
 import { useAuthStore } from "../../store/useAuthStore";
 import { toast } from "sonner";
 import { PackageSearch, FileText, Upload } from "lucide-react";
+import { motion } from "motion/react";
 
 interface CreateRFQModalProps {
   isOpen: boolean;
@@ -20,6 +21,7 @@ interface CreateRFQModalProps {
 export function CreateRFQModal({ isOpen, onClose, productId, categoryId, initialTitle }: CreateRFQModalProps) {
   const { user } = useAuthStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSuccess, setIsSuccess] = useState(false);
   const [formData, setFormData] = useState({
     title: initialTitle || "",
     description: "",
@@ -59,8 +61,11 @@ export function CreateRFQModal({ isOpen, onClose, productId, categoryId, initial
 
       if (error) throw error;
       
-      toast.success("Request for Quotation submitted successfully!");
-      onClose();
+      setIsSuccess(true);
+      setTimeout(() => {
+        setIsSuccess(false);
+        onClose();
+      }, 2500);
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || "Failed to submit RFQ");
@@ -69,10 +74,63 @@ export function CreateRFQModal({ isOpen, onClose, productId, categoryId, initial
     }
   };
 
+  // Reset success state if modal is closed manually
+  useEffect(() => {
+    if (!isOpen) {
+      setIsSuccess(false);
+    }
+  }, [isOpen]);
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      if (!open && !isSuccess) onClose();
+    }}>
       <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto bg-card rounded-xl">
-        <DialogHeader>
+        {isSuccess ? (
+          <div className="flex flex-col items-center justify-center py-12 space-y-6">
+            <motion.div
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{
+                type: "spring",
+                stiffness: 260,
+                damping: 20,
+              }}
+              className="w-24 h-24 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400 mb-4"
+            >
+              <motion.svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="48"
+                height="48"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="3"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                initial={{ pathLength: 0, opacity: 0 }}
+                animate={{ pathLength: 1, opacity: 1 }}
+                transition={{ duration: 0.5, ease: "easeOut", delay: 0.3 }}
+              >
+                <motion.path d="M20 6 9 17l-5-5" />
+              </motion.svg>
+            </motion.div>
+            
+            <motion.div 
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.6 }}
+              className="text-center"
+            >
+              <h3 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">RFQ Submitted!</h3>
+              <p className="text-gray-500 dark:text-gray-400">
+                Your request has been sent successfully. Suppliers will be notified.
+              </p>
+            </motion.div>
+          </div>
+        ) : (
+          <>
+            <DialogHeader>
           <div className="flex items-center gap-3">
             <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-[#00B074]/10 text-[#00B074]">
               <PackageSearch className="w-5 h-5" />
@@ -195,6 +253,8 @@ export function CreateRFQModal({ isOpen, onClose, productId, categoryId, initial
             </Button>
           </div>
         </form>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   );

@@ -119,30 +119,20 @@ export default function AdminCategoriesPage() {
       let finalImageUrl = formData.image_url;
       
       if (selectedFile) {
-        const fileExt = selectedFile.name.split('.').pop();
-        const fileName = `${Math.random().toString(36).substring(2, 9)}_${Date.now()}.${fileExt}`;
-        const filePath = `category-images/${fileName}`;
-
-        // Just using "images" bucket or "category-images" bucket if created.
-        // Let's use "category-images" bucket which we added the migration for.
-        const { error: uploadError } = await supabase.storage
-          .from("category-images")
-          .upload(filePath, selectedFile);
-
-        if (uploadError) {
-          if (uploadError.message.includes("Bucket not found") || uploadError.message.includes("does not exist") || uploadError.message.includes("The resource was not found")) {
-            throw new Error(
-              "Storage bucket 'category-images' not found. Please create this bucket in your Supabase Dashboard and set it to 'Public'."
-            );
-          }
-          throw new Error("Error uploading image: " + uploadError.message);
+        if (selectedFile.size > 2 * 1024 * 1024) {
+          toast.error("Image must be less than 2MB");
+          setIsSaving(false);
+          return;
         }
 
-        const { data: publicUrlData } = supabase.storage
-          .from("category-images")
-          .getPublicUrl(filePath);
+        const reader = new FileReader();
+        const getBase64 = new Promise<string>((resolve, reject) => {
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = error => reject(error);
+          reader.readAsDataURL(selectedFile);
+        });
 
-        finalImageUrl = publicUrlData.publicUrl;
+        finalImageUrl = await getBase64;
       }
       
       const payload = {

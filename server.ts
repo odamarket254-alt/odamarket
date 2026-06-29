@@ -3,6 +3,7 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import { Storage } from "@google-cloud/storage";
 import multer from "multer";
+import aiRoutes from "./routes/aiRoutes.js";
 
 const upload = multer({
   storage: multer.memoryStorage(),
@@ -39,7 +40,10 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json());
+  app.use(express.json({ limit: "50mb" })); // Increase limit for file uploads
+
+  // AI Routes
+  app.use("/api/ai", aiRoutes);
 
   // Edge Function / Notification Endpoint
   app.post("/api/notify-verification", async (req, res) => {
@@ -171,6 +175,16 @@ async function startServer() {
       res.sendFile(path.join(distPath, "index.html"));
     });
   }
+
+  // Global Error Handler for API routes to prevent HTML responses
+  app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (req.originalUrl.startsWith("/api")) {
+      console.error("API Error:", err);
+      res.status(err.status || 500).json({ error: err.message || "Internal Server Error" });
+    } else {
+      next(err);
+    }
+  });
 
   app.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on port ${PORT}`);

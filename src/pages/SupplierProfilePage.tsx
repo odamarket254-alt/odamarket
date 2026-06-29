@@ -41,6 +41,7 @@ interface SupplierProfile {
   verified: boolean;
   created_at: string;
   logo_url?: string;
+  country?: string;
 }
 
 interface Product {
@@ -183,7 +184,7 @@ export default function SupplierProfilePage() {
                 <h1 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-foreground">
                   {supplier.business_name || "Unknown Supplier"}
                 </h1>
-                {supplier.verified && <VerifiedBadge className="scale-110 origin-left" />}
+                {supplier.verified && <VerifiedBadge country={supplier.country} className="scale-110 origin-left" />}
               </div>
               <div className="flex flex-wrap justify-center md:justify-start items-center gap-x-6 gap-y-2 text-[15px] font-medium text-muted-foreground">
                 <span className="flex items-center gap-1.5 bg-secondary/50 px-3 py-1 rounded-full border border-border/50">

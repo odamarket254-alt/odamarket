@@ -173,7 +173,7 @@ export default function RegisterPage() {
       role: "seller", // default requested
       business_type: "",
       company_size: "",
-      country: "",
+      country: "Kenya",
     },
   });
 
@@ -308,7 +308,7 @@ export default function RegisterPage() {
                       Smart Matching
                     </h3>
                     <p className="text-[#A0A8A3] text-[14px]">
-                      AI-powered buyer-supplier discovery
+                      Intelligent buyer-supplier discovery
                     </p>
                   </div>
                 </div>
@@ -463,7 +463,7 @@ export default function RegisterPage() {
                     icon={<Users />}
                   >
                     <input
-                      placeholder="John Doe"
+                      placeholder="Renol Kenol"
                       {...register("full_name")}
                       className={inputClasses(!!errors.full_name)}
                     />
@@ -550,7 +550,7 @@ export default function RegisterPage() {
               >
                 <input
                   type="email"
-                  placeholder="john@company.com"
+                  placeholder="renol@company.com"
                   {...register("email")}
                   className={inputClasses(!!errors.email)}
                 />
@@ -569,9 +569,10 @@ export default function RegisterPage() {
                     >
                       <PhoneInput
                         {...field}
-                        defaultCountry="US"
+                        defaultCountry="KE"
                         international
                         withCountryCallingCode
+                        placeholder="712 345 678"
                         className="w-full h-full text-[#FFFFFF] focus:outline-none bg-transparent"
                         numberInputProps={{
                           className:
@@ -610,11 +611,25 @@ export default function RegisterPage() {
                 error={errors.country?.message}
                 icon={<MapPin />}
               >
-                <input
-                  placeholder="e.g. USA, UK, Kenya"
-                  {...register("country")}
-                  className={inputClasses(!!errors.country)}
-                />
+                <div className="relative">
+                  <select
+                    {...register("country")}
+                    className={selectClasses(!!errors.country)}
+                  >
+                    <option value="" disabled>
+                      Select country...
+                    </option>
+                    <option value="Kenya">Kenya</option>
+                    <option value="Rwanda">Rwanda</option>
+                    <option value="South Africa">South Africa</option>
+                    <option value="Tanzania">Tanzania</option>
+                    <option value="Uganda">Uganda</option>
+                    <option value="Nigeria">Nigeria</option>
+                    <option value="Ghana">Ghana</option>
+                    <option value="Other">Other</option>
+                  </select>
+                  <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-[#A0A8A3] pointer-events-none" />
+                </div>
               </InputWrapper>
 
               <div className="space-y-2 col-span-1">
@@ -748,7 +763,7 @@ export default function RegisterPage() {
               <Check className="w-4 h-4 text-[#00C46A]" /> Secure Transactions
             </div>
             <div className="flex items-center gap-1.5">
-              <Check className="w-4 h-4 text-[#00C46A]" /> AI-Powered Matching
+              <Check className="w-4 h-4 text-[#00C46A]" /> Intelligent Matching
             </div>
           </div>
         </div>

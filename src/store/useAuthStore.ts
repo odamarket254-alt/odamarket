@@ -10,6 +10,7 @@ interface Profile {
   cover_image: string | null;
   bio: string | null;
   location: string | null;
+  country: string | null;
   phone: string | null;
   whatsapp: string | null;
   verified: boolean;

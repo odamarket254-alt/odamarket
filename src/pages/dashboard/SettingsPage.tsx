@@ -209,7 +209,7 @@ export default function SettingsPage() {
                       <h4 className="text-lg font-semibold text-foreground tracking-tight">
                         {profile.business_name || "Unnamed Business"}
                       </h4>
-                      {profile.verified && <VerifiedBadge textClassName="text-[10px]" />}
+                      {profile.verified && <VerifiedBadge country={profile.country} textClassName="text-[10px]" />}
                     </div>
                     <p className="text-sm font-medium text-emerald-600 dark:text-emerald-500 capitalize">{profile.role}</p>
                   </div>

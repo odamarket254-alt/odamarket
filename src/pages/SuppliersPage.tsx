@@ -136,7 +136,7 @@ export default function SuppliersPage() {
                   <h3 className="text-xl font-bold group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors tracking-tight line-clamp-1 flex-1 min-w-0">
                     {supplier.business_name || "Unnamed Supplier"}
                   </h3>
-                  <VerifiedBadge showText={false} className="shrink-0 scale-90 -mt-0.5" />
+                  <VerifiedBadge showText={false} country={supplier.country} className="shrink-0 scale-90 -mt-0.5" />
                 </div>
 
                 {supplier.address && (

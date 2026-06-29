@@ -42,6 +42,15 @@ export default function DashboardHome() {
   const [topProducts, setTopProducts] = useState<any[]>([]);
   const [topSuppliers, setTopSuppliers] = useState<any[]>([]);
 
+  // Quotation stats
+  const [quotationStats, setQuotationStats] = useState({
+    total: 0,
+    draft: 0,
+    sent: 0,
+    accepted: 0,
+    rejected: 0
+  });
+
   useEffect(() => {
     if (!user) return;
 
@@ -54,7 +63,8 @@ export default function DashboardHome() {
             { data: recent },
             { count: viewsCount },
             { count: favCount },
-            { data: topProds }
+            { data: topProds },
+            { data: quotes }
           ] = await Promise.all([
             supabase
               .from("products")
@@ -88,7 +98,8 @@ export default function DashboardHome() {
               `)
               .eq("seller_id", user.id)
               .order("created_at", { ascending: false })
-              .limit(4)
+              .limit(4),
+            supabase.from("ai_quotations").select("status").eq("user_id", user.id).catch(e => ({ data: [] }))
           ]);
           setProductCount(pCount || 0);
           setInquiryCount(iCount || 0);
@@ -96,6 +107,16 @@ export default function DashboardHome() {
           setProductViews(viewsCount || 0);
           setProfileVisits(favCount || 0);
           setTopProducts(topProds || []);
+
+          if (quotes) {
+             setQuotationStats({
+               total: quotes.length,
+               draft: quotes.filter(q => q.status === 'draft').length,
+               sent: quotes.filter(q => q.status === 'sent').length,
+               accepted: quotes.filter(q => q.status === 'accepted').length,
+               rejected: quotes.filter(q => q.status === 'rejected').length,
+             });
+          }
         } else if (profile?.role === "buyer") {
           const [
             { count },
@@ -263,9 +284,15 @@ export default function DashboardHome() {
     if (profile?.role === "seller") {
       return [
         {
-          title: "Total Products",
-          value: productCount.toString(),
-          icon: Package,
+          title: "Sent Quotes",
+          value: quotationStats.sent.toString(),
+          icon: FileText,
+          change: "Live sync",
+        },
+        {
+          title: "Accepted Quotes",
+          value: quotationStats.accepted.toString(),
+          icon: FileText,
           change: "Live sync",
         },
         {
@@ -278,12 +305,6 @@ export default function DashboardHome() {
           title: "Product Views",
           value: productViews.toLocaleString(),
           icon: TrendingUp,
-          change: "Live metric",
-        },
-        {
-          title: "Saved by Buyers",
-          value: profileVisits.toLocaleString(),
-          icon: Users,
           change: "Live metric",
         },
       ];

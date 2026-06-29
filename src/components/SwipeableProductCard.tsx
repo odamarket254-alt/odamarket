@@ -24,6 +24,7 @@ export interface MarketplaceProduct {
     business_name: string;
     verified: boolean;
     location: string;
+    country?: string;
   };
 }
 
@@ -137,7 +138,7 @@ export const SwipeableProductCard = React.memo(({ product }: { product: Marketpl
                     {product.name}
                   </h3>
                     {product.profiles?.verified && (
-                      <VerifiedBadge showText={false} className="shrink-0 scale-90" />
+                      <VerifiedBadge showText={false} country={product.profiles?.country} className="shrink-0 scale-90" />
                     )}
                 </div>
               </div>

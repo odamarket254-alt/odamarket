@@ -276,6 +276,7 @@ export default function ProductDetailsPage() {
           data.profiles?.business_name ||
           "Supplier " + (data.seller_id?.slice(0, 5) || ""),
         isVerified: data.profiles?.verified || false,
+        country: data.profiles?.country || "",
         leadTime: metadata.lead_time || "Negotiable",
         capacity: metadata.production_capacity || "Contact for details",
         shippingMethods: metadata.shipping_methods || [],
@@ -930,7 +931,7 @@ export default function ProductDetailsPage() {
                     <h3 className="text-xl font-bold text-foreground leading-tight">
                       {product.supplier}
                     </h3>
-                    {product.isVerified && <VerifiedBadge showText={false} className="shrink-0 px-1 py-1" iconClassName="w-4 h-4 ml-[2px] mr-[2px]" />}
+                    {product.isVerified && <VerifiedBadge showText={false} country={product.country} className="shrink-0 px-1 py-1" iconClassName="w-4 h-4 ml-[2px] mr-[2px]" />}
                   </div>
                   <div className="flex items-center gap-1.5 text-muted-foreground text-sm mb-4">
                     <Globe2 className="h-4 w-4" /> {product.location}
@@ -998,7 +999,7 @@ export default function ProductDetailsPage() {
                 <li className="flex justify-between items-center pb-2 border-b border-border/50">
                   <span>Verification Status</span>
                   {product.isVerified ? (
-                    <VerifiedBadge />
+                    <VerifiedBadge country={product.country} />
                   ) : (
                     <span className="font-medium text-muted-foreground flex items-center gap-1">
                       <Shield className="h-4 w-4" /> Unverified

@@ -7,7 +7,7 @@ import { Timestamp } from "../../components/ui/Timestamp";
 import { 
   Mail, Clock, CheckCircle, Search, Filter, Send, ArrowLeft, 
   Calendar, Building2, Paperclip, Smile, Loader2, FileText, 
-  Download, MapPin, MessageSquare, Phone, MoreVertical, Image as ImageIcon, Check, CheckCheck, ChevronDown
+  Download, MapPin, MessageSquare, Phone, MoreVertical, Image as ImageIcon, Check, CheckCheck, ChevronDown, X
 } from "lucide-react";
 import TextareaAutosize from "react-textarea-autosize";
 import { Input } from "../../components/ui/Input";
@@ -45,11 +45,13 @@ interface Inquiry {
     business_name?: string;
     verified?: boolean;
     logo_url?: string;
+    country?: string;
   };
   buyer?: {
     business_name?: string;
     verified?: boolean;
     logo_url?: string;
+    country?: string;
   };
 }
 
@@ -376,7 +378,7 @@ export default function InquiriesPage() {
       setIsLoading(true);
       const { data, error } = await supabase
         .from("inquiries")
-        .select("*, products(name), seller:profiles!seller_id(business_name, verified, logo_url), buyer:profiles!buyer_id(business_name, verified, logo_url)")
+        .select("*, products(name), seller:profiles!seller_id(business_name, verified, logo_url, country), buyer:profiles!buyer_id(business_name, verified, logo_url, country)")
         .or(`seller_id.eq.${user?.id},buyer_id.eq.${user?.id}`)
         .order("created_at", { ascending: false });
       if (error) throw error;
@@ -464,14 +466,16 @@ export default function InquiriesPage() {
         name: inquiry.name || "Unknown",
         company: inquiry.buyer?.business_name || inquiry.company,
         verified: inquiry.buyer?.verified || false,
-        logo_url: inquiry.buyer?.logo_url
+        logo_url: inquiry.buyer?.logo_url,
+        country: inquiry.buyer?.country
       };
     } else {
       return {
         name: inquiry.seller?.business_name || "Unknown Seller",
         company: inquiry.seller?.business_name,
         verified: inquiry.seller?.verified || false,
-        logo_url: inquiry.seller?.logo_url
+        logo_url: inquiry.seller?.logo_url,
+        country: inquiry.seller?.country
       };
     }
   };
@@ -585,7 +589,7 @@ export default function InquiriesPage() {
                               </span>
                             )}
                           </span>
-                          {getOtherParty(inquiry).verified && <VerifiedBadge showText={false} className="shrink-0 px-1 py-1" iconClassName="w-3 h-3 ml-[2px] mr-[2px]" />}
+                          {getOtherParty(inquiry).verified && <VerifiedBadge showText={false} country={getOtherParty(inquiry).country} className="shrink-0 px-1 py-1" iconClassName="w-3 h-3 ml-[2px] mr-[2px]" />}
                         </div>
                         <Timestamp 
                           date={displayTime} 
@@ -649,7 +653,7 @@ export default function InquiriesPage() {
                 <div className="flex flex-col min-w-0">
                   <div className="flex items-center gap-1.5 mb-0.5">
                     <h3 className="font-semibold text-[16px] text-foreground truncate leading-tight">{getOtherParty(selectedInquiry).name}</h3>
-                    {getOtherParty(selectedInquiry).verified && <VerifiedBadge showText={false} className="shrink-0 px-1 py-1" iconClassName="w-3.5 h-3.5 ml-[2px] mr-[2px]" />}
+                    {getOtherParty(selectedInquiry).verified && <VerifiedBadge showText={false} country={getOtherParty(selectedInquiry).country} className="shrink-0 px-1 py-1" iconClassName="w-3.5 h-3.5 ml-[2px] mr-[2px]" />}
                   </div>
                   <div className="flex items-center gap-2">
                     {getOtherParty(selectedInquiry).company && (
@@ -869,14 +873,16 @@ export default function InquiriesPage() {
             </div>
 
             {/* Chat Input */}
-            <div className="bg-card px-3 sm:px-4 auto-rows-min py-3 flex items-end gap-2 border-t border-border z-10 shadow-[0_-2px_10px_rgba(0,0,0,0.02)]">
-               <Button variant="ghost" size="icon" className="h-[44px] w-[44px] rounded-full shrink-0 text-muted-foreground hover:bg-muted hover:text-foreground">
-                  <Paperclip className="h-[22px] w-[22px]" />
-               </Button>
-               <Button variant="ghost" size="icon" className="h-[44px] w-[44px] rounded-full shrink-0 text-muted-foreground hover:bg-muted hover:text-foreground hidden sm:flex">
-                  <ImageIcon className="h-[22px] w-[22px]" />
-               </Button>
-               <div className="flex-1 bg-muted/50 dark:bg-zinc-900/50 border border-border rounded-[22px] flex items-end overflow-hidden focus-within:ring-1 focus-within:ring-blue-500/50 transition-shadow">
+            <div className="bg-card px-3 sm:px-4 auto-rows-min py-3 flex flex-col gap-2 border-t border-border z-10 shadow-[0_-2px_10px_rgba(0,0,0,0.02)]">
+               
+               <div className="flex items-end gap-2">
+                 <Button variant="ghost" size="icon" className="h-[44px] w-[44px] rounded-full shrink-0 text-muted-foreground hover:bg-muted hover:text-foreground">
+                    <Paperclip className="h-[22px] w-[22px]" />
+                 </Button>
+                 <Button variant="ghost" size="icon" className="h-[44px] w-[44px] rounded-full shrink-0 text-muted-foreground hover:bg-muted hover:text-foreground hidden sm:flex">
+                    <ImageIcon className="h-[22px] w-[22px]" />
+                 </Button>
+                 <div className="flex-1 bg-muted/50 dark:bg-zinc-900/50 border border-border rounded-[22px] flex items-end overflow-hidden focus-within:ring-1 focus-within:ring-blue-500/50 transition-shadow">
                   <Button variant="ghost" size="icon" className="h-[44px] w-[44px] shrink-0 text-muted-foreground hover:text-foreground">
                      <Smile className="h-[22px] w-[22px]" />
                   </Button>
@@ -933,6 +939,7 @@ export default function InquiriesPage() {
                    <Send className="h-[20px] w-[20px] ml-0.5" />
                  )}
                </Button>
+             </div>
             </div>
           </div>
         )}

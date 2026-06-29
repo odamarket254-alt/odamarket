@@ -16,6 +16,7 @@ interface Profile {
   verified: boolean;
   email?: string;
   created_at: string;
+  country?: string;
 }
 
 export default function UsersPage() {
@@ -214,7 +215,7 @@ export default function UsersPage() {
                         </td>
                         <td className="px-6 py-4">
                           {user.verified ? (
-                            <VerifiedBadge className="pointer-events-none" />
+                            <VerifiedBadge country={user.country} className="pointer-events-none" />
                           ) : (user as any).verification_requested ? (
                             <Badge variant="outline" className="text-amber-500/80 border-amber-500/30 gap-1.5 pointer-events-none bg-amber-500/10">
                               <ShieldAlert className="h-3.5 w-3.5" /> Pending Request

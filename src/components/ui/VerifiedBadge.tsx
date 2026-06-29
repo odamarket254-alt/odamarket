@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Check } from "lucide-react";
+import { Check, ShieldCheck } from "lucide-react";
 import { cn } from "../../lib/utils";
 
 interface VerifiedBadgeProps {
@@ -8,10 +8,16 @@ interface VerifiedBadgeProps {
   textClassName?: string;
   text?: string;
   showText?: boolean;
+  country?: string;
 }
 
-export function VerifiedBadge({ className, iconClassName, textClassName, text = "Verified", showText = false }: VerifiedBadgeProps) {
+export function VerifiedBadge({ className, iconClassName, textClassName, text, showText = false, country }: VerifiedBadgeProps) {
   const [showTooltip, setShowTooltip] = useState(false);
+  const regionalCountries = ["Kenya", "Rwanda", "South Africa"];
+  const isRegional = country && regionalCountries.includes(country);
+
+  const defaultText = isRegional ? "Verified Regional" : "Verified";
+  const displayText = text || defaultText;
 
   return (
     <div 
@@ -22,16 +28,25 @@ export function VerifiedBadge({ className, iconClassName, textClassName, text = 
     >
       <div 
         className={cn(
-          "flex items-center justify-center shrink-0 rounded-full bg-blue-600 text-white shadow-sm transition-transform group-hover:scale-105 duration-200",
+          "flex items-center justify-center shrink-0 rounded-full text-white shadow-sm transition-transform group-hover:scale-105 duration-200",
+          isRegional ? "bg-emerald-500" : "bg-blue-600",
           iconClassName || "w-4 h-4"
         )}
-        aria-label="Verified Supplier"
+        aria-label={isRegional ? "Verified Regional Supplier" : "Verified Supplier"}
       >
-        <Check strokeWidth={3.5} className="w-[65%] h-[65%]" />
+        {isRegional ? (
+          <ShieldCheck strokeWidth={2.5} className="w-[65%] h-[65%]" />
+        ) : (
+          <Check strokeWidth={3.5} className="w-[65%] h-[65%]" />
+        )}
       </div>
       {showText && (
-        <span className={cn("ml-1.5 text-xs font-semibold text-blue-700 dark:text-blue-400", textClassName)}>
-          {text}
+        <span className={cn(
+          "ml-1.5 text-xs font-semibold",
+          isRegional ? "text-emerald-700 dark:text-emerald-400" : "text-blue-700 dark:text-blue-400",
+          textClassName
+        )}>
+          {displayText}
         </span>
       )}
 
@@ -45,7 +60,9 @@ export function VerifiedBadge({ className, iconClassName, textClassName, text = 
           showTooltip ? "opacity-100 translate-y-0 scale-100" : "opacity-0 translate-y-1 scale-95"
         )}
       >
-        Verified Supplier – This business has completed OdaMarket's verification process.
+        {isRegional 
+          ? `Verified Regional Supplier – Trusted local supply chain partner in ${country}.` 
+          : "Verified Supplier – This business has completed OdaMarket's verification process."}
         <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-px border-4 border-transparent border-t-slate-900 dark:border-t-slate-100" />
       </div>
     </div>

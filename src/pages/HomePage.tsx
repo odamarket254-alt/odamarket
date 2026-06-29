@@ -158,7 +158,7 @@ const CompactProductCard = memo(({ product }: { product: any }) => {
             {product.name}
           </h3>
           {product.profiles?.verified && (
-            <VerifiedBadge showText={false} className="shrink-0 px-1 py-1 mt-0.5" iconClassName="w-3.5 h-3.5" />
+            <VerifiedBadge showText={false} country={product.profiles?.country} className="shrink-0 px-1 py-1 mt-0.5" iconClassName="w-3.5 h-3.5" />
           )}
         </div>
         <div className="mt-auto pt-2 border-t border-border/40">
@@ -268,7 +268,7 @@ export default function HomePage() {
       const { data, error } = await supabase
         .from("products")
         .select(
-          "id, name, price, stock, image_url, created_at, seller_id, profiles(verified, business_name, location), categories(name, slug)",
+          "id, name, price, stock, image_url, created_at, seller_id, profiles(verified, business_name, location, country), categories(name, slug)",
         )
         .eq("status", "active")
         .order("created_at", { ascending: false })

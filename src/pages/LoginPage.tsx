@@ -74,8 +74,9 @@ export default function LoginPage() {
       
       const contentType = response.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
-        console.error("Non-JSON response from verification server:", await response.text());
-        throw new Error("The server encountered an issue and did not return a valid JSON response.");
+        const text = await response.text();
+        console.error("Non-JSON response from verification server:", text);
+        throw new Error(`The server returned a non-JSON response (Status: ${response.status}, Content-Type: ${contentType}). Preview: ${text.substring(0, 100)}`);
       }
       
       let verifyData;
@@ -86,7 +87,7 @@ export default function LoginPage() {
       }
       
       if (!verifyData.success) {
-        toast.error("Security verification failed. Are you a robot?");
+        toast.error("Verification Issue", { description: "We are experiencing an issue with reCAPTCHA which will be solved soon." });
         recaptchaRef.current?.reset();
         setRecaptchaToken(null);
         setIsLoading(false);
@@ -107,7 +108,14 @@ export default function LoginPage() {
       }
     } catch (err: any) {
       console.error("Login error:", err);
-      toast.error("An unexpected error occurred", { description: err.message || "" });
+      const isMissingCreds = !import.meta.env.VITE_SUPABASE_URL;
+      if (isMissingCreds && err.message && err.message.includes("fetch failed")) {
+        toast.error("Database Connection Failed", { description: "Supabase environment variables are not configured. Please add them in the project settings." });
+      } else if (err.message && (err.message.includes("reCAPTCHA") || err.message.includes("verification") || err.message.includes("non-JSON response"))) {
+        toast.error("Verification Issue", { description: "We are experiencing an issue with reCAPTCHA which will be solved soon." });
+      } else {
+        toast.error("Verification Issue", { description: "We are experiencing an issue with reCAPTCHA which will be solved soon. Please try again later." });
+      }
     } finally {
       setIsLoading(false);
     }

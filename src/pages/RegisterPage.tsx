@@ -240,8 +240,16 @@ export default function RegisterPage() {
         });
         navigate("/login");
       }
-    } catch (err) {
-      toast.error("An unexpected error occurred");
+    } catch (err: any) {
+      console.error("Registration error:", err);
+      const isMissingCreds = !import.meta.env.VITE_SUPABASE_URL;
+      if (isMissingCreds && err.message && err.message.includes("fetch failed")) {
+        toast.error("Database Connection Failed", { description: "Supabase environment variables are not configured. Please add them in the project settings." });
+      } else if (err.message && (err.message.includes("reCAPTCHA") || err.message.includes("verification") || err.message.includes("non-JSON response"))) {
+        toast.error("Verification Issue", { description: "We are experiencing an issue with reCAPTCHA which will be solved soon." });
+      } else {
+        toast.error("Verification Issue", { description: "We are experiencing an issue with reCAPTCHA which will be solved soon. Please try again later." });
+      }
     } finally {
       setIsLoading(false);
     }

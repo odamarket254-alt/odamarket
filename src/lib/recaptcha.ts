@@ -16,7 +16,11 @@ export const verifyRecaptchaToken = async (
   }
 
   try {
+    console.log(`[AUTH FLOW] Executing reCAPTCHA for action: ${action}`);
     const token = await executeRecaptcha(action);
+    console.log(`[AUTH FLOW] reCAPTCHA token obtained: ${token.substring(0, 15)}...`);
+    
+    console.log(`[AUTH FLOW] Sending token to backend /api/verify-recaptcha...`);
     const response = await fetch("/api/verify-recaptcha", {
       method: "POST",
       headers: {
@@ -25,17 +29,29 @@ export const verifyRecaptchaToken = async (
       body: JSON.stringify({ token }),
     });
 
+    console.log(`[AUTH FLOW] Backend verification response status: ${response.status}`);
+    const contentType = response.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
+      const text = await response.text();
+      console.error("[AUTH FLOW] Non-JSON response from verification server:", text);
+      toast.error("Verification Error", { description: "The server returned an invalid response. Please try again." });
+      return false;
+    }
+
     const data = await response.json();
+    console.log(`[AUTH FLOW] Backend verification data:`, data);
+    
     if (data.success) {
+      console.log(`[AUTH FLOW] reCAPTCHA verification successful`);
       return true;
     } else {
-      console.error("reCAPTCHA failed:", data.error);
-      toast.error("Verification Issue", { description: "We are experiencing an issue with reCAPTCHA which will be solved soon. Please continue with Google for this time as we solve the issue. We apologize for the inconvenience." });
+      console.warn("[AUTH FLOW] reCAPTCHA failed on backend:", data.error);
+      toast.error("reCAPTCHA Verification Failed", { description: data.error || "Please try again." });
       return false;
     }
   } catch (error) {
-    console.error("Error verifying reCAPTCHA:", error);
-    toast.error("Verification Issue", { description: "We are experiencing an issue with reCAPTCHA which will be solved soon. Please continue with Google for this time as we solve the issue. We apologize for the inconvenience." });
+    console.error("[AUTH FLOW] Error during reCAPTCHA verification process:", error);
+    toast.error("Verification Error", { description: "Failed to perform security check. Please try again." });
     return false;
   }
 };

@@ -68,18 +68,23 @@ async function startServer() {
 
   // reCAPTCHA verification endpoint
   app.post("/api/verify-recaptcha", async (req, res) => {
+    console.log("[AUTH FLOW] Backend received request to /api/verify-recaptcha");
     try {
       const { token } = req.body;
       if (!token) {
+        console.error("[AUTH FLOW] Missing token in request body");
         return res.status(400).json({ success: false, error: "Missing token" });
       }
+      
+      console.log(`[AUTH FLOW] Token received: ${token.substring(0, 15)}...`);
 
       const secretKey = process.env.RECAPTCHA_SECRET_KEY;
       if (!secretKey || secretKey === "YOUR_RECAPTCHA_SECRET_KEY" || secretKey === "dummy_secret_key_for_dev") {
-        console.warn("RECAPTCHA_SECRET_KEY is not set. Passing validation for development.");
+        console.warn("[AUTH FLOW] RECAPTCHA_SECRET_KEY is not set. Passing validation for development.");
         return res.status(200).json({ success: true, score: 0.9 });
       }
 
+      console.log("[AUTH FLOW] Calling Google reCAPTCHA siteverify API...");
       const response = await fetch(`https://www.google.com/recaptcha/api/siteverify`, {
         method: "POST",
         headers: {
@@ -88,18 +93,28 @@ async function startServer() {
         body: `secret=${secretKey}&response=${token}`,
       });
 
-      const data = await response.json();
+      const responseText = await response.text();
+      console.log(`[AUTH FLOW] Google API response status: ${response.status}`);
+      console.log(`[AUTH FLOW] Google API raw response: ${responseText}`);
       
-      // reCAPTCHA v2 doesn't return a score, v3 does.
+      let data;
+      try {
+        data = JSON.parse(responseText);
+      } catch (parseErr) {
+        console.error("[AUTH FLOW] Failed to parse Google API response as JSON:", parseErr);
+        return res.status(500).json({ success: false, error: "Invalid JSON from Google reCAPTCHA API" });
+      }
+
       if (data.success && (data.score === undefined || data.score >= 0.5)) {
+        console.log("[AUTH FLOW] reCAPTCHA validation successful.");
         res.status(200).json({ success: true, score: data.score });
       } else {
-        console.warn("reCAPTCHA validation failed with Google, but allowing request to unblock users:", data);
-        // Temporarily return success: true to unblock users who are complaining about login issues
-        res.status(200).json({ success: true, warning: "Validation failed but bypassed for now" });
+        console.warn("[AUTH FLOW] reCAPTCHA validation failed with Google:", data);
+        console.log("[AUTH FLOW] Bypassing reCAPTCHA failure to unblock user login.");
+        res.status(200).json({ success: true, warning: "Validation failed but bypassed" });
       }
     } catch (error) {
-      console.error("reCAPTCHA error:", error);
+      console.error("[AUTH FLOW] Exception during verification:", error);
       res.status(500).json({ success: false, error: "Server error during verification" });
     }
   });

@@ -66,55 +66,62 @@ export default function LoginPage() {
       }
       
       // Verify reCAPTCHA token on server
+      console.log(`[AUTH FLOW] Sending token to backend /api/verify-recaptcha...`);
       const response = await fetch("/api/verify-recaptcha", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token: recaptchaToken }),
       });
       
+      console.log(`[AUTH FLOW] Backend verification response status: ${response.status}`);
       const contentType = response.headers.get("content-type");
       if (!contentType || !contentType.includes("application/json")) {
         const text = await response.text();
-        console.error("Non-JSON response from verification server:", text);
+        console.error("[AUTH FLOW] Non-JSON response from verification server:", text);
         throw new Error(`The server returned a non-JSON response (Status: ${response.status}, Content-Type: ${contentType}). Preview: ${text.substring(0, 100)}`);
       }
       
       let verifyData;
       try {
         verifyData = await response.json();
+        console.log(`[AUTH FLOW] Backend verification data:`, verifyData);
       } catch (jsonErr: any) {
+        console.error("[AUTH FLOW] JSON parsing error on verification response:", jsonErr);
         throw new Error(`Invalid response from verification server: ${response.status}`);
       }
       
       if (!verifyData.success) {
-        toast.error("Verification Issue", { description: "We are experiencing an issue with reCAPTCHA which will be solved soon. Please continue with Google for this time as we solve the issue. We apologize for the inconvenience." });
+        console.warn("[AUTH FLOW] reCAPTCHA verification failed on backend:", verifyData.error);
+        toast.error("reCAPTCHA Verification Failed", { description: verifyData.error || "Please try the captcha again." });
         recaptchaRef.current?.reset();
         setRecaptchaToken(null);
         setIsLoading(false);
         return;
       }
 
-      const { error } = await supabase.auth.signInWithPassword({
+      console.log(`[AUTH FLOW] Calling Supabase signInWithPassword...`);
+      const { data: authData, error } = await supabase.auth.signInWithPassword({
         email: data.email,
         password: data.password,
       });
 
       if (error) {
+        console.error("[AUTH FLOW] Supabase login failed:", error);
         toast.error("Login failed", { description: error.message });
       } else {
+        console.log("[AUTH FLOW] Supabase login successful, session created.");
         toast.success("Welcome back!", {
           description: "Secure session established.",
         });
+        // Note: Navigation happens via useEffect listening to auth state
       }
     } catch (err: any) {
-      console.error("Login error:", err);
+      console.error("[AUTH FLOW] Exception during login process:", err);
       const isMissingCreds = !import.meta.env.VITE_SUPABASE_URL;
       if (isMissingCreds && err.message && err.message.includes("fetch failed")) {
         toast.error("Database Connection Failed", { description: "Supabase environment variables are not configured. Please add them in the project settings." });
-      } else if (err.message && (err.message.includes("reCAPTCHA") || err.message.includes("verification") || err.message.includes("non-JSON response"))) {
-        toast.error("Verification Issue", { description: "We are experiencing an issue with reCAPTCHA which will be solved soon. Please continue with Google for this time as we solve the issue. We apologize for the inconvenience." });
       } else {
-        toast.error("Verification Issue", { description: "We are experiencing an issue with reCAPTCHA which will be solved soon. Please continue with Google for this time as we solve the issue. We apologize for the inconvenience." });
+        toast.error("Login Error", { description: err.message || "An unexpected error occurred. Please try again later." });
       }
     } finally {
       setIsLoading(false);

@@ -226,6 +226,7 @@ export default function RegisterPage() {
       });
 
       if (error) {
+        console.error("[AUTH FLOW] Supabase signUp failed:", error);
         if (
           error.message.includes("Database error") ||
           error.message.includes("saving new user")
@@ -235,20 +236,19 @@ export default function RegisterPage() {
           toast.error("Registration failed", { description: error.message });
         }
       } else {
+        console.log("[AUTH FLOW] Supabase signUp successful.");
         toast.success("Account created successfully!", {
           description: "Please check your email to confirm your account.",
         });
         navigate("/login");
       }
     } catch (err: any) {
-      console.error("Registration error:", err);
+      console.error("[AUTH FLOW] Exception during registration process:", err);
       const isMissingCreds = !import.meta.env.VITE_SUPABASE_URL;
       if (isMissingCreds && err.message && err.message.includes("fetch failed")) {
         toast.error("Database Connection Failed", { description: "Supabase environment variables are not configured. Please add them in the project settings." });
-      } else if (err.message && (err.message.includes("reCAPTCHA") || err.message.includes("verification") || err.message.includes("non-JSON response"))) {
-        toast.error("Verification Issue", { description: "We are experiencing an issue with reCAPTCHA which will be solved soon. Please continue with Google for this time as we solve the issue. We apologize for the inconvenience." });
       } else {
-        toast.error("Verification Issue", { description: "We are experiencing an issue with reCAPTCHA which will be solved soon. Please continue with Google for this time as we solve the issue. We apologize for the inconvenience." });
+        toast.error("Registration Error", { description: err.message || "An unexpected error occurred. Please try again later." });
       }
     } finally {
       setIsLoading(false);

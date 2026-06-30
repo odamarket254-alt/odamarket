@@ -9,6 +9,7 @@ import { Input } from "../../components/ui/Input";
 import { RFQ, RFQResponse } from "../../types/rfq";
 import { format } from "date-fns";
 import { CreateQuotationModal } from "../../components/rfq/CreateQuotationModal";
+import { SellerViewQuotationModal } from "../../components/rfq/SellerViewQuotationModal";
 import { cn } from "../../lib/utils";
 
 export function SellerRFQsPage() {
@@ -19,6 +20,7 @@ export function SellerRFQsPage() {
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedRfq, setSelectedRfq] = useState<RFQ | null>(null);
   const [isQuoting, setIsQuoting] = useState(false);
+  const [isViewing, setIsViewing] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -202,7 +204,14 @@ export function SellerRFQsPage() {
                         Submit Quote
                       </Button>
                     ) : (
-                      <Button variant="outline" className="ml-2 px-6 font-semibold">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => {
+                          setSelectedRfq(rfq);
+                          setIsViewing(true);
+                        }}
+                        className="ml-2 px-6 font-semibold"
+                      >
                         View Details
                       </Button>
                     )}
@@ -219,6 +228,12 @@ export function SellerRFQsPage() {
         onClose={() => setIsQuoting(false)} 
         rfq={selectedRfq} 
         onSuccess={loadRFQs} 
+      />
+
+      <SellerViewQuotationModal
+        isOpen={isViewing}
+        onClose={() => setIsViewing(false)}
+        rfq={selectedRfq}
       />
     </div>
   );

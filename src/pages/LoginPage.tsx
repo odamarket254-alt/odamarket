@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -7,6 +7,7 @@ import { supabase } from "../lib/supabase";
 import { useAuthStore } from "../store/useAuthStore";
 import { toast } from "sonner";
 import { motion } from "motion/react";
+import ReCAPTCHA from "react-google-recaptcha";
 import {
   Mail,
   Lock,
@@ -31,10 +32,15 @@ import { Logo } from "../components/ui/Logo";
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [recaptchaToken, setRecaptchaToken] = useState<string | null>(null);
+  const recaptchaRef = useRef<ReCAPTCHA>(null);
+  
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from?.pathname || "/dashboard";
   const { user, profile } = useAuthStore();
+  
+  const siteKey = import.meta.env.VITE_RECAPTCHA_SITE_KEY || "6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI";
 
   useEffect(() => {
     if (user && profile) {
@@ -53,6 +59,28 @@ export default function LoginPage() {
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
     try {
+      if (!recaptchaToken) {
+        toast.error("Please complete the reCAPTCHA challenge.");
+        setIsLoading(false);
+        return;
+      }
+      
+      // Verify reCAPTCHA token on server
+      const response = await fetch("/api/verify-recaptcha", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: recaptchaToken }),
+      });
+      const verifyData = await response.json();
+      
+      if (!verifyData.success) {
+        toast.error("Security verification failed. Are you a robot?");
+        recaptchaRef.current?.reset();
+        setRecaptchaToken(null);
+        setIsLoading(false);
+        return;
+      }
+
       const { error } = await supabase.auth.signInWithPassword({
         email: data.email,
         password: data.password,
@@ -220,6 +248,15 @@ export default function LoginPage() {
               <Link to="/forgot-password" className="text-[14px] font-semibold text-[#00C46A] hover:text-[#00E08A] transition-colors">
                 Forgot password?
               </Link>
+            </div>
+
+            <div className="flex justify-center pt-2">
+              <ReCAPTCHA
+                ref={recaptchaRef}
+                sitekey={siteKey}
+                onChange={(token) => setRecaptchaToken(token)}
+                theme="dark"
+              />
             </div>
 
             {/* Submit Button */}

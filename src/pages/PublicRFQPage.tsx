@@ -1,10 +1,11 @@
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Button } from "../components/ui/Button";
 import { useAuthStore } from "../store/useAuthStore";
 import { Send, FileText, LogIn } from "lucide-react";
 
 export default function PublicRFQPage() {
   const { user } = useAuthStore();
+  const navigate = useNavigate();
 
   return (
     <div className="container mx-auto px-4 py-12 max-w-5xl">
@@ -84,19 +85,19 @@ export default function PublicRFQPage() {
                 You need a buyer account to submit Request for Quotations.
               </p>
               <div className="flex flex-col gap-3">
-                <Link to="/login">
-                  <Button className="w-full h-12 text-md bg-emerald-600 hover:bg-emerald-500 text-white">
-                    Login to Account
-                  </Button>
-                </Link>
-                <Link to="/register">
-                  <Button
-                    variant="outline"
-                    className="w-full h-12 text-md border-emerald-600/20 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 dark:text-emerald-400"
-                  >
-                    Create an Account
-                  </Button>
-                </Link>
+                <Button 
+                  onClick={() => navigate("/login")}
+                  className="w-full h-12 text-md bg-emerald-600 hover:bg-emerald-500 text-white"
+                >
+                  Login to Account
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => navigate("/register")}
+                  className="w-full h-12 text-md border-emerald-600/20 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 dark:text-emerald-400"
+                >
+                  Create an Account
+                </Button>
               </div>
             </div>
           ) : (
@@ -110,11 +111,12 @@ export default function PublicRFQPage() {
               <p className="text-muted-foreground mb-6">
                 Go to your dashboard to create a detailed Request for Quotation.
               </p>
-              <Link to="/buyer/dashboard/rfqs">
-                <Button className="w-full h-12 text-md gap-2 bg-emerald-600 hover:bg-emerald-500 text-white">
-                  Go to Dashboard <Send className="h-4 w-4" />
-                </Button>
-              </Link>
+              <Button 
+                onClick={() => navigate("/buyer/dashboard/rfqs")}
+                className="w-full h-12 text-md gap-2 bg-emerald-600 hover:bg-emerald-500 text-white"
+              >
+                Go to Dashboard <Send className="h-4 w-4" />
+              </Button>
             </div>
           )}
         </div>

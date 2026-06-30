@@ -32,6 +32,8 @@ import { useAuthStore } from "../store/useAuthStore";
 import { toast } from "sonner";
 import { cn } from "../lib/utils";
 import { Logo } from "../components/ui/Logo";
+import { useGoogleReCaptcha } from "react-google-recaptcha-v3";
+import { verifyRecaptchaToken } from "../lib/recaptcha";
 
 const publicEmailDomains = [
   "gmail.com",
@@ -149,6 +151,7 @@ export default function RegisterPage() {
   const [dbError, setDbError] = useState(false);
   const navigate = useNavigate();
   const { user, profile } = useAuthStore();
+  const { executeRecaptcha } = useGoogleReCaptcha();
 
   useEffect(() => {
     if (user && profile) {
@@ -196,6 +199,13 @@ export default function RegisterPage() {
     setIsLoading(true);
     setDbError(false);
     try {
+      // Verify reCAPTCHA
+      const isValid = await verifyRecaptchaToken(executeRecaptcha, "register");
+      if (!isValid) {
+        setIsLoading(false);
+        return;
+      }
+
       const { error } = await supabase.auth.signUp({
         email: data.email,
         password: data.password,

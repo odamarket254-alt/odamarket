@@ -17,6 +17,8 @@ import {
 } from "../components/ui/Card";
 import { toast } from "sonner";
 import { ArrowLeft } from "lucide-react";
+import { useGoogleReCaptcha } from "react-google-recaptcha-v3";
+import { verifyRecaptchaToken } from "../lib/recaptcha";
 
 const forgotPasswordSchema = z.object({
   email: z.string().email(),
@@ -27,6 +29,7 @@ type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>;
 export default function ForgotPasswordPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSent, setIsSent] = useState(false);
+  const { executeRecaptcha } = useGoogleReCaptcha();
 
   const {
     register,
@@ -39,6 +42,12 @@ export default function ForgotPasswordPage() {
   const onSubmit = async (data: ForgotPasswordFormValues) => {
     setIsLoading(true);
     try {
+      const isValid = await verifyRecaptchaToken(executeRecaptcha, "forgot_password");
+      if (!isValid) {
+        setIsLoading(false);
+        return;
+      }
+
       const { error } = await supabase.auth.resetPasswordForEmail(data.email, {
         redirectTo: `${window.location.origin}/reset-password`,
       });

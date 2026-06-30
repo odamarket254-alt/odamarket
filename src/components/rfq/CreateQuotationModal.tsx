@@ -9,6 +9,8 @@ import { useAuthStore } from "../../store/useAuthStore";
 import { toast } from "sonner";
 import { FileText } from "lucide-react";
 import { RFQ } from "../../types/rfq";
+import { useGoogleReCaptcha } from "react-google-recaptcha-v3";
+import { verifyRecaptchaToken } from "../../lib/recaptcha";
 
 interface CreateQuotationModalProps {
   isOpen: boolean;
@@ -20,6 +22,7 @@ interface CreateQuotationModalProps {
 export function CreateQuotationModal({ isOpen, onClose, rfq, onSuccess }: CreateQuotationModalProps) {
   const { user } = useAuthStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const { executeRecaptcha } = useGoogleReCaptcha();
   const [formData, setFormData] = useState({
     quoted_price: "",
     moq: "",
@@ -43,6 +46,12 @@ export function CreateQuotationModal({ isOpen, onClose, rfq, onSuccess }: Create
 
     setIsSubmitting(true);
     try {
+      const isValid = await verifyRecaptchaToken(executeRecaptcha, "create_quotation");
+      if (!isValid) {
+        setIsSubmitting(false);
+        return;
+      }
+
       const { error } = await supabase.from("rfq_responses").insert({
         rfq_id: rfq.id,
         supplier_id: user.id,
@@ -90,10 +99,18 @@ export function CreateQuotationModal({ isOpen, onClose, rfq, onSuccess }: Create
           </div>
         </DialogHeader>
 
-        <div className="bg-muted p-4 rounded-lg my-4 text-sm space-y-2 border border-border">
-          <p><strong>Required Quantity:</strong> {rfq.quantity} {rfq.unit}</p>
-          {rfq.target_price && <p><strong>Target Price:</strong> ${rfq.target_price} / unit</p>}
-          <p><strong>Delivery Location:</strong> {rfq.delivery_location}</p>
+        <div className="bg-muted p-4 rounded-lg my-4 text-sm space-y-3 border border-border">
+          <div className="grid grid-cols-2 gap-2">
+            <p><strong>Required Quantity:</strong> {rfq.quantity} {rfq.unit}</p>
+            {rfq.target_price && <p><strong>Target Price:</strong> ${rfq.target_price} / unit</p>}
+            <p><strong>Delivery Location:</strong> {rfq.delivery_location}</p>
+          </div>
+          {rfq.description && (
+            <div className="mt-2 pt-2 border-t border-border/50">
+              <p><strong>Additional Message / Requirements:</strong></p>
+              <p className="mt-1 whitespace-pre-wrap">{rfq.description}</p>
+            </div>
+          )}
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">

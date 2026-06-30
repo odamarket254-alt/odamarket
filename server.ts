@@ -4,12 +4,30 @@ import { createServer as createViteServer } from "vite";
 import { Storage } from "@google-cloud/storage";
 import multer from "multer";
 import aiRoutes from "./routes/aiRoutes.js";
+import rateLimit from "express-rate-limit";
 
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB limit
   },
+});
+
+// Rate limiting setup
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per `window` (here, per 15 minutes)
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many requests, please try again later." }
+});
+
+const authLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000, // 1 hour
+  max: 20, // Limit each IP to 20 auth requests per hour
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: "Too many authentication attempts, please try again later." }
 });
 
 // Initialize Google Cloud Storage client lazily
@@ -41,6 +59,49 @@ async function startServer() {
   const PORT = 3000;
 
   app.use(express.json({ limit: "50mb" })); // Increase limit for file uploads
+
+  // Apply rate limiter to all API routes
+  app.use("/api/", apiLimiter);
+
+  // Apply stricter rate limiter to auth-related routes if we proxy them, but we'll apply it to recaptcha
+  app.use("/api/verify-recaptcha", authLimiter);
+
+  // reCAPTCHA verification endpoint
+  app.post("/api/verify-recaptcha", async (req, res) => {
+    try {
+      const { token } = req.body;
+      if (!token) {
+        return res.status(400).json({ success: false, error: "Missing token" });
+      }
+
+      const secretKey = process.env.RECAPTCHA_SECRET_KEY;
+      if (!secretKey || secretKey === "YOUR_RECAPTCHA_SECRET_KEY" || secretKey === "dummy_secret_key_for_dev") {
+        console.warn("RECAPTCHA_SECRET_KEY is not set. Passing validation for development.");
+        return res.status(200).json({ success: true, score: 0.9 });
+      }
+
+      const response = await fetch(`https://www.google.com/recaptcha/api/siteverify`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: `secret=${secretKey}&response=${token}`,
+      });
+
+      const data = await response.json();
+      
+      // reCAPTCHA v2 doesn't return a score, v3 does.
+      if (data.success && (data.score === undefined || data.score >= 0.5)) {
+        res.status(200).json({ success: true, score: data.score });
+      } else {
+        console.warn("reCAPTCHA validation failed:", data);
+        res.status(400).json({ success: false, error: "reCAPTCHA validation failed" });
+      }
+    } catch (error) {
+      console.error("reCAPTCHA error:", error);
+      res.status(500).json({ success: false, error: "Server error during verification" });
+    }
+  });
 
   // AI Routes
   app.use("/api/ai", aiRoutes);

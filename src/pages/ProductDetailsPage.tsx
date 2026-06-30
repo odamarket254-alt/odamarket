@@ -53,6 +53,8 @@ import { supabase } from "../lib/supabase";
 import { cn } from "../lib/utils";
 import { useAuthStore } from "../store/useAuthStore";
 import { CreateRFQModal } from "../components/rfq/CreateRFQModal";
+import { useGoogleReCaptcha } from "react-google-recaptcha-v3";
+import { verifyRecaptchaToken } from "../lib/recaptcha";
 
 const inquirySchema = z.object({
   name: z.string().min(2, "Name is required"),
@@ -75,6 +77,7 @@ export default function ProductDetailsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [activeImage, setActiveImage] = useState(0);
   const [isRFQModalOpen, setIsRFQModalOpen] = useState(false);
+  const { executeRecaptcha } = useGoogleReCaptcha();
 
   const {
     register,
@@ -340,6 +343,12 @@ export default function ProductDetailsPage() {
     setIsSubmitting(true);
     try {
       if (!product) return;
+
+      const isValid = await verifyRecaptchaToken(executeRecaptcha, "inquiry");
+      if (!isValid) {
+        setIsSubmitting(false);
+        return;
+      }
 
       const inquiryData = {
         product_id: product.id,

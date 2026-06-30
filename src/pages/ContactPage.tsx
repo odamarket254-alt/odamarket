@@ -6,8 +6,6 @@ import { Textarea } from "../components/ui/Textarea";
 import { Label } from "../components/ui/Label";
 import { toast } from "sonner";
 import { supabase } from "../lib/supabase";
-import { useGoogleReCaptcha } from "react-google-recaptcha-v3";
-import { verifyRecaptchaToken } from "../lib/recaptcha";
 
 export default function ContactPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -17,7 +15,6 @@ export default function ContactPage() {
     subject: "",
     message: "",
   });
-  const { executeRecaptcha } = useGoogleReCaptcha();
 
   const handleChange = (e: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -33,13 +30,6 @@ export default function ContactPage() {
 
     setIsSubmitting(true);
     try {
-      // Verify reCAPTCHA
-      const isValid = await verifyRecaptchaToken(executeRecaptcha, "contact");
-      if (!isValid) {
-        setIsSubmitting(false);
-        return;
-      }
-
       // Create a support_messages table if it exists, otherwise just mock it for now
       // Or we can just show success notification
       const { error } = await supabase.from("support_messages").insert([

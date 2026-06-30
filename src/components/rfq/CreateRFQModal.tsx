@@ -9,8 +9,6 @@ import { useAuthStore } from "../../store/useAuthStore";
 import { toast } from "sonner";
 import { PackageSearch, FileText, Upload } from "lucide-react";
 import { motion } from "motion/react";
-import { useGoogleReCaptcha } from "react-google-recaptcha-v3";
-import { verifyRecaptchaToken } from "../../lib/recaptcha";
 
 interface CreateRFQModalProps {
   isOpen: boolean;
@@ -24,7 +22,6 @@ export function CreateRFQModal({ isOpen, onClose, productId, categoryId, initial
   const { user } = useAuthStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-  const { executeRecaptcha } = useGoogleReCaptcha();
   const [formData, setFormData] = useState({
     title: initialTitle || "",
     description: "",
@@ -48,12 +45,6 @@ export function CreateRFQModal({ isOpen, onClose, productId, categoryId, initial
 
     setIsSubmitting(true);
     try {
-      const isValid = await verifyRecaptchaToken(executeRecaptcha, "create_rfq");
-      if (!isValid) {
-        setIsSubmitting(false);
-        return;
-      }
-
       const { error } = await supabase.from("rfqs").insert({
         buyer_id: user.id,
         product_id: productId || null,

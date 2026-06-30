@@ -9,8 +9,6 @@ import { useAuthStore } from "../../store/useAuthStore";
 import { toast } from "sonner";
 import { FileText } from "lucide-react";
 import { RFQ } from "../../types/rfq";
-import { useGoogleReCaptcha } from "react-google-recaptcha-v3";
-import { verifyRecaptchaToken } from "../../lib/recaptcha";
 
 interface CreateQuotationModalProps {
   isOpen: boolean;
@@ -22,7 +20,6 @@ interface CreateQuotationModalProps {
 export function CreateQuotationModal({ isOpen, onClose, rfq, onSuccess }: CreateQuotationModalProps) {
   const { user } = useAuthStore();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { executeRecaptcha } = useGoogleReCaptcha();
   const [formData, setFormData] = useState({
     quoted_price: "",
     moq: "",
@@ -46,12 +43,6 @@ export function CreateQuotationModal({ isOpen, onClose, rfq, onSuccess }: Create
 
     setIsSubmitting(true);
     try {
-      const isValid = await verifyRecaptchaToken(executeRecaptcha, "create_quotation");
-      if (!isValid) {
-        setIsSubmitting(false);
-        return;
-      }
-
       const { error } = await supabase.from("rfq_responses").insert({
         rfq_id: rfq.id,
         supplier_id: user.id,

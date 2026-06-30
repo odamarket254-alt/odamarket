@@ -63,62 +63,6 @@ async function startServer() {
   // Apply rate limiter to all API routes
   app.use("/api/", apiLimiter);
 
-  // Apply stricter rate limiter to auth-related routes if we proxy them, but we'll apply it to recaptcha
-  app.use("/api/verify-recaptcha", authLimiter);
-
-  // reCAPTCHA verification endpoint
-  app.post("/api/verify-recaptcha", async (req, res) => {
-    console.log("[AUTH FLOW] Backend received request to /api/verify-recaptcha");
-    try {
-      const { token } = req.body;
-      if (!token) {
-        console.error("[AUTH FLOW] Missing token in request body");
-        return res.status(400).json({ success: false, error: "Missing token" });
-      }
-      
-      console.log(`[AUTH FLOW] Token received: ${token.substring(0, 15)}...`);
-
-      const secretKey = process.env.RECAPTCHA_SECRET_KEY;
-      if (!secretKey || secretKey === "YOUR_RECAPTCHA_SECRET_KEY" || secretKey === "dummy_secret_key_for_dev") {
-        console.warn("[AUTH FLOW] RECAPTCHA_SECRET_KEY is not set. Passing validation for development.");
-        return res.status(200).json({ success: true, score: 0.9 });
-      }
-
-      console.log("[AUTH FLOW] Calling Google reCAPTCHA siteverify API...");
-      const response = await fetch(`https://www.google.com/recaptcha/api/siteverify`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/x-www-form-urlencoded",
-        },
-        body: `secret=${secretKey}&response=${token}`,
-      });
-
-      const responseText = await response.text();
-      console.log(`[AUTH FLOW] Google API response status: ${response.status}`);
-      console.log(`[AUTH FLOW] Google API raw response: ${responseText}`);
-      
-      let data;
-      try {
-        data = JSON.parse(responseText);
-      } catch (parseErr) {
-        console.error("[AUTH FLOW] Failed to parse Google API response as JSON:", parseErr);
-        return res.status(500).json({ success: false, error: "Invalid JSON from Google reCAPTCHA API" });
-      }
-
-      if (data.success && (data.score === undefined || data.score >= 0.5)) {
-        console.log("[AUTH FLOW] reCAPTCHA validation successful.");
-        res.status(200).json({ success: true, score: data.score });
-      } else {
-        console.warn("[AUTH FLOW] reCAPTCHA validation failed with Google:", data);
-        console.log("[AUTH FLOW] Bypassing reCAPTCHA failure to unblock user login.");
-        res.status(200).json({ success: true, warning: "Validation failed but bypassed" });
-      }
-    } catch (error) {
-      console.error("[AUTH FLOW] Exception during verification:", error);
-      res.status(500).json({ success: false, error: "Server error during verification" });
-    }
-  });
-
   // AI Routes
   app.use("/api/ai", aiRoutes);
 

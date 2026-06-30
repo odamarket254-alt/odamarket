@@ -17,8 +17,6 @@ import {
 } from "../components/ui/Card";
 import { toast } from "sonner";
 import { ArrowLeft } from "lucide-react";
-import { useGoogleReCaptcha } from "react-google-recaptcha-v3";
-import { verifyRecaptchaToken } from "../lib/recaptcha";
 
 const resetPasswordSchema = z
   .object({
@@ -35,7 +33,6 @@ type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>;
 export default function ResetPasswordPage() {
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { executeRecaptcha } = useGoogleReCaptcha();
 
   // Supabase auth state change handles the URL #access_token securely and creates a session for us to change password
   useEffect(() => {
@@ -60,12 +57,6 @@ export default function ResetPasswordPage() {
   const onSubmit = async (data: ResetPasswordFormValues) => {
     setIsLoading(true);
     try {
-      const isValid = await verifyRecaptchaToken(executeRecaptcha, "reset_password");
-      if (!isValid) {
-        setIsLoading(false);
-        return;
-      }
-
       const { error } = await supabase.auth.updateUser({
         password: data.password,
       });

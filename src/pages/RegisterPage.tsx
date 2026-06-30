@@ -246,9 +246,9 @@ export default function RegisterPage() {
       if (isMissingCreds && err.message && err.message.includes("fetch failed")) {
         toast.error("Database Connection Failed", { description: "Supabase environment variables are not configured. Please add them in the project settings." });
       } else if (err.message && (err.message.includes("reCAPTCHA") || err.message.includes("verification") || err.message.includes("non-JSON response"))) {
-        toast.error("Verification Issue", { description: "We are experiencing an issue with reCAPTCHA which will be solved soon." });
+        toast.error("Verification Issue", { description: "We are experiencing an issue with reCAPTCHA which will be solved soon. Please continue with Google for this time as we solve the issue. We apologize for the inconvenience." });
       } else {
-        toast.error("Verification Issue", { description: "We are experiencing an issue with reCAPTCHA which will be solved soon. Please try again later." });
+        toast.error("Verification Issue", { description: "We are experiencing an issue with reCAPTCHA which will be solved soon. Please continue with Google for this time as we solve the issue. We apologize for the inconvenience." });
       }
     } finally {
       setIsLoading(false);

@@ -30,12 +30,12 @@ export const verifyRecaptchaToken = async (
       return true;
     } else {
       console.error("reCAPTCHA failed:", data.error);
-      toast.error("Verification Issue", { description: "We are experiencing an issue with reCAPTCHA which will be solved soon." });
+      toast.error("Verification Issue", { description: "We are experiencing an issue with reCAPTCHA which will be solved soon. Please continue with Google for this time as we solve the issue. We apologize for the inconvenience." });
       return false;
     }
   } catch (error) {
     console.error("Error verifying reCAPTCHA:", error);
-    toast.error("Verification Issue", { description: "We are experiencing an issue with reCAPTCHA which will be solved soon. Please try again later." });
+    toast.error("Verification Issue", { description: "We are experiencing an issue with reCAPTCHA which will be solved soon. Please continue with Google for this time as we solve the issue. We apologize for the inconvenience." });
     return false;
   }
 };

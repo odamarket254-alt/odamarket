@@ -71,7 +71,19 @@ export default function LoginPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ token: recaptchaToken }),
       });
-      const verifyData = await response.json();
+      
+      const contentType = response.headers.get("content-type");
+      if (!contentType || !contentType.includes("application/json")) {
+        console.error("Non-JSON response from verification server:", await response.text());
+        throw new Error("The server encountered an issue and did not return a valid JSON response.");
+      }
+      
+      let verifyData;
+      try {
+        verifyData = await response.json();
+      } catch (jsonErr: any) {
+        throw new Error(`Invalid response from verification server: ${response.status}`);
+      }
       
       if (!verifyData.success) {
         toast.error("Security verification failed. Are you a robot?");
@@ -93,8 +105,9 @@ export default function LoginPage() {
           description: "Secure session established.",
         });
       }
-    } catch (err) {
-      toast.error("An unexpected error occurred");
+    } catch (err: any) {
+      console.error("Login error:", err);
+      toast.error("An unexpected error occurred", { description: err.message || "" });
     } finally {
       setIsLoading(false);
     }

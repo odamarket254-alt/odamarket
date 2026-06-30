@@ -15,4 +15,37 @@ if (!import.meta.env.VITE_SUPABASE_URL) {
   );
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Custom storage adapter that falls back to memory if localStorage is blocked (e.g. in iframe)
+const memoryStorage = new Map<string, string>();
+const safeStorage = {
+  getItem: (key: string): string | null => {
+    try {
+      return window.localStorage.getItem(key);
+    } catch (error) {
+      return memoryStorage.get(key) || null;
+    }
+  },
+  setItem: (key: string, value: string): void => {
+    try {
+      window.localStorage.setItem(key, value);
+    } catch (error) {
+      memoryStorage.set(key, value);
+    }
+  },
+  removeItem: (key: string): void => {
+    try {
+      window.localStorage.removeItem(key);
+    } catch (error) {
+      memoryStorage.delete(key);
+    }
+  },
+};
+
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    storage: safeStorage,
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+  },
+});

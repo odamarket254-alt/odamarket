@@ -11,7 +11,7 @@ export default function PublicRFQPage() {
     <div className="container mx-auto px-4 py-12 max-w-5xl">
       <div className="grid md:grid-cols-2 gap-12 items-center">
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 rounded-full text-sm font-medium mb-6">
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#E8DCC9] text-[#C65A28] dark:bg-[#C65A28]/10 dark:text-[#6B8E23] rounded-full text-sm font-medium mb-6">
             <FileText className="h-4 w-4" />
             Request For Quotation
           </div>
@@ -25,7 +25,7 @@ export default function PublicRFQPage() {
 
           <div className="space-y-6 mb-8">
             <div className="flex gap-4">
-              <div className="h-10 w-10 md:h-12 md:w-12 bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 rounded-full flex items-center justify-center shrink-0">
+              <div className="h-10 w-10 md:h-12 md:w-12 bg-[#E8DCC9] text-[#C65A28] dark:bg-[#C65A28]/10 dark:text-[#6B8E23] rounded-full flex items-center justify-center shrink-0">
                 1
               </div>
               <div>
@@ -38,7 +38,7 @@ export default function PublicRFQPage() {
               </div>
             </div>
             <div className="flex gap-4">
-              <div className="h-10 w-10 md:h-12 md:w-12 bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 rounded-full flex items-center justify-center shrink-0">
+              <div className="h-10 w-10 md:h-12 md:w-12 bg-[#E8DCC9] text-[#C65A28] dark:bg-[#C65A28]/10 dark:text-[#6B8E23] rounded-full flex items-center justify-center shrink-0">
                 2
               </div>
               <div>
@@ -51,7 +51,7 @@ export default function PublicRFQPage() {
               </div>
             </div>
             <div className="flex gap-4">
-              <div className="h-10 w-10 md:h-12 md:w-12 bg-emerald-100 text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400 rounded-full flex items-center justify-center shrink-0">
+              <div className="h-10 w-10 md:h-12 md:w-12 bg-[#E8DCC9] text-[#C65A28] dark:bg-[#C65A28]/10 dark:text-[#6B8E23] rounded-full flex items-center justify-center shrink-0">
                 3
               </div>
               <div>
@@ -67,7 +67,7 @@ export default function PublicRFQPage() {
         </div>
 
         <div className="bg-card border border-border shadow-lg rounded-2xl p-6 md:p-8 shrink-0 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-full blur-[64px] pointer-events-none"></div>
+          <div className="absolute top-0 right-0 w-32 h-32 bg-[#C65A28]/10 rounded-full blur-[64px] pointer-events-none"></div>
 
           <h2 className="text-2xl font-semibold mb-6 relative z-10 text-foreground">
             Start your RFQ
@@ -87,14 +87,14 @@ export default function PublicRFQPage() {
               <div className="flex flex-col gap-3">
                 <Button 
                   onClick={() => navigate("/login")}
-                  className="w-full h-12 text-md bg-emerald-600 hover:bg-emerald-500 text-white"
+                  className="w-full h-12 text-md bg-[#C65A28] hover:bg-[#C65A28] text-white"
                 >
                   Login to Account
                 </Button>
                 <Button
                   variant="outline"
                   onClick={() => navigate("/register")}
-                  className="w-full h-12 text-md border-emerald-600/20 text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-500/10 dark:text-emerald-400"
+                  className="w-full h-12 text-md border-[#C65A28]/20 text-[#C65A28] hover:bg-[#E8DCC9] dark:hover:bg-[#C65A28]/10 dark:text-[#6B8E23]"
                 >
                   Create an Account
                 </Button>
@@ -102,8 +102,8 @@ export default function PublicRFQPage() {
             </div>
           ) : (
             <div className="text-center py-8 relative z-10">
-              <div className="h-16 w-16 bg-emerald-100 dark:bg-emerald-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                <FileText className="h-8 w-8 text-emerald-600 dark:text-emerald-400" />
+              <div className="h-16 w-16 bg-[#E8DCC9] dark:bg-[#C65A28]/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                <FileText className="h-8 w-8 text-[#C65A28] dark:text-[#6B8E23]" />
               </div>
               <h3 className="text-xl font-medium mb-2 text-foreground">
                 Ready to post?
@@ -113,7 +113,7 @@ export default function PublicRFQPage() {
               </p>
               <Button 
                 onClick={() => navigate("/buyer/dashboard/rfqs")}
-                className="w-full h-12 text-md gap-2 bg-emerald-600 hover:bg-emerald-500 text-white"
+                className="w-full h-12 text-md gap-2 bg-[#C65A28] hover:bg-[#C65A28] text-white"
               >
                 Go to Dashboard <Send className="h-4 w-4" />
               </Button>

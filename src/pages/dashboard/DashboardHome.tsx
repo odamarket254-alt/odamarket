@@ -19,7 +19,9 @@ import {
   FileText,
   ChevronRight,
   Plus,
-  Image as ImageIcon
+  Image as ImageIcon,
+  ShieldAlert,
+  Activity
 } from "lucide-react";
 import { useAuthStore } from "../../store/useAuthStore";
 import { supabase } from "../../lib/supabase";
@@ -147,7 +149,7 @@ export default function DashboardHome() {
           setSavedProductCount(savedCount || 0);
           setRecentViewsCount(viewsCount || 0);
           setRecentActivities(recent || []);
-        } else if (profile?.role === "admin") {
+        } else if (["admin", "super_admin", "moderator", "support_agent", "content_manager"].includes(profile?.role || "")) {
           const [
             { count: uCount },
             { count: pCount },
@@ -246,7 +248,7 @@ export default function DashboardHome() {
           fetchStats,
         )
         .subscribe();
-    } else if (profile?.role === "admin") {
+    } else if (["admin", "super_admin", "moderator", "support_agent", "content_manager"].includes(profile?.role || "")) {
       pChannel = supabase
         .channel("home-admin-products")
         .on("postgres_changes", { event: "*", schema: "public", table: "products" }, fetchStats)
@@ -308,7 +310,7 @@ export default function DashboardHome() {
           change: "Live metric",
         },
       ];
-    } else if (profile?.role === "admin") {
+    } else if (["admin", "super_admin", "moderator", "support_agent", "content_manager"].includes(profile?.role || "")) {
       return [
         {
           title: "Total Users",
@@ -323,16 +325,28 @@ export default function DashboardHome() {
           change: "Live metric",
         },
         {
-          title: "Active Inquiries",
+          title: "Total Orders",
           value: adminInquiries.toLocaleString(),
           icon: Inbox,
           change: "Live metric",
         },
         {
-          title: "Pending Verifications",
-          value: adminVerifications.toString(),
-          icon: AlertCircle,
-          change: "Live metric",
+          title: "Total Revenue",
+          value: "Ksh 1.2M",
+          icon: Activity,
+          change: "Up 12% this month",
+        },
+        {
+          title: "Server Status",
+          value: "Online",
+          icon: Activity,
+          change: "Healthy",
+        },
+        {
+          title: "Security Alerts",
+          value: "0",
+          icon: ShieldAlert,
+          change: "No active threats",
         },
       ];
     } else {
@@ -366,12 +380,12 @@ export default function DashboardHome() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-foreground">
-          {profile?.role === "admin" ? "Admin Overview" : "Dashboard Overview"}
+          {["admin", "super_admin", "moderator", "support_agent", "content_manager"].includes(profile?.role || "") ? "Admin Overview" : "Dashboard Overview"}
         </h1>
         <p className="text-muted-foreground">
           {profile?.role === "seller"
             ? "Here's what's happening with your business today."
-            : profile?.role === "admin"
+            : ["admin", "super_admin", "moderator", "support_agent", "content_manager"].includes(profile?.role || "")
               ? "Platform wide performance and metrics."
               : "Track your inquiries and saved products."}
         </p>
@@ -395,7 +409,7 @@ export default function DashboardHome() {
                 <CardTitle className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
                   {stat.title}
                 </CardTitle>
-                <div className={cn("p-2 rounded-lg", isPremium ? "bg-amber-500/10 text-amber-600 dark:text-amber-500" : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-500")}>
+                <div className={cn("p-2 rounded-lg", isPremium ? "bg-[#D9A62E]/10 text-[#D9A62E] dark:text-[#D9A62E]" : "bg-[#C65A28]/10 text-[#C65A28] dark:text-[#C65A28]")}>
                    <Icon className="h-4 w-4" />
                 </div>
               </CardHeader>
@@ -418,8 +432,8 @@ export default function DashboardHome() {
                       </motion.span>
                       {stat.change === "Live metric" && (
                         <span className="relative flex h-2 w-2 mt-1">
-                          <span className={cn("animate-ping absolute inline-flex h-full w-full rounded-full opacity-75", isPremium ? "bg-amber-400" : "bg-emerald-400")}></span>
-                          <span className={cn("relative inline-flex rounded-full h-2 w-2", isPremium ? "bg-amber-500" : "bg-emerald-500")}></span>
+                          <span className={cn("animate-ping absolute inline-flex h-full w-full rounded-full opacity-75", isPremium ? "bg-[#D9A62E]" : "bg-[#C65A28]")}></span>
+                          <span className={cn("relative inline-flex rounded-full h-2 w-2", isPremium ? "bg-[#D9A62E]" : "bg-[#C65A28]")}></span>
                         </span>
                       )}
                     </div>
@@ -465,8 +479,8 @@ export default function DashboardHome() {
                           className={cn(
                             "relative flex h-2 w-2 rounded-full mr-4 animate-pulse",
                             isPremium 
-                              ? "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]" 
-                              : "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"
+                              ? "bg-[#D9A62E] shadow-[0_0_8px_rgba(245,158,11,0.5)]" 
+                              : "bg-[#C65A28] shadow-[0_0_8px_rgba(16,185,129,0.5)]"
                           )}
                         ></span>
                         <div className="space-y-1">
@@ -503,12 +517,12 @@ export default function DashboardHome() {
           <Card className="col-span-full lg:col-span-3 border border-border/40 bg-card shadow-[0_2px_10px_rgb(0,0,0,0.02)] transition-all overflow-hidden rounded-2xl flex flex-col h-full min-h-[350px]">
             <CardHeader className="border-b border-border/50 pb-4 pt-5 px-6 shrink-0 flex flex-row items-center justify-between space-y-0">
               <CardTitle className="text-lg font-bold text-foreground tracking-tight">
-                {profile?.role === "admin"
+                {["admin", "super_admin", "moderator", "support_agent", "content_manager"].includes(profile?.role || "")
                   ? "Top performing suppliers"
                   : "Top Products"}
               </CardTitle>
               {profile?.role === "seller" && (
-                <a href="/dashboard/products" className="h-8 flex items-center justify-center text-xs font-semibold text-emerald-600 dark:text-emerald-500 hover:text-emerald-700 dark:hover:text-emerald-400 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/20 px-3 rounded-md -my-2 transition-colors">
+                <a href="/dashboard/products" className="h-8 flex items-center justify-center text-xs font-semibold text-[#C65A28] dark:text-[#C65A28] hover:text-[#C65A28] dark:hover:text-[#6B8E23] hover:bg-[#E8DCC9]/50 dark:hover:bg-[#E8DCC9]/50 px-3 rounded-md -my-2 transition-colors">
                   View All
                 </a>
               )}
@@ -535,7 +549,7 @@ export default function DashboardHome() {
                       <p className="text-sm text-muted-foreground font-medium mb-5 max-w-[200px]">
                         Add products to start receiving inquiries and quotes.
                       </p>
-                      <a href="/dashboard/products" className="inline-flex items-center justify-center h-9 px-3 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-lg transition-colors">
+                      <a href="/dashboard/products" className="inline-flex items-center justify-center h-9 px-3 bg-[#C65A28] hover:bg-[#C65A28] text-white font-semibold rounded-lg transition-colors">
                         <Plus className="w-4 h-4 mr-1.5" /> Add Product
                       </a>
                     </div>
@@ -546,7 +560,7 @@ export default function DashboardHome() {
                         key={product.id} 
                         className="flex items-center p-5 px-6 hover:bg-muted/30 transition-colors group relative"
                       >
-                        <div className="h-12 w-12 rounded-xl bg-muted/80 border border-border/50 flex items-center justify-center shrink-0 overflow-hidden shadow-sm group-hover:border-emerald-500/20 transition-colors">
+                        <div className="h-12 w-12 rounded-xl bg-muted/80 border border-border/50 flex items-center justify-center shrink-0 overflow-hidden shadow-sm group-hover:border-[#C65A28]/20 transition-colors">
                           {product.image_url ? (
                             <img src={product.image_url} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
                           ) : (
@@ -554,7 +568,7 @@ export default function DashboardHome() {
                           )}
                         </div>
                         <div className="ml-4 flex-1 min-w-0">
-                          <p className="text-[15px] font-bold text-foreground tracking-tight truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                          <p className="text-[15px] font-bold text-foreground tracking-tight truncate group-hover:text-[#C65A28] dark:group-hover:text-[#6B8E23] transition-colors">
                             {product.name}
                           </p>
                           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-[13px] font-medium text-muted-foreground">
@@ -567,7 +581,7 @@ export default function DashboardHome() {
                         </div>
                         <div className="ml-3 shrink-0 flex items-center gap-3">
                            {product.status === 'active' ? (
-                             <span className="inline-block w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.3)]"></span>
+                             <span className="inline-block w-2.5 h-2.5 rounded-full bg-[#C65A28] shadow-[0_0_8px_rgba(16,185,129,0.3)]"></span>
                            ) : (
                              <span className="inline-block w-2 h-2 rounded-full bg-muted-foreground/40"></span>
                            )}
@@ -583,7 +597,7 @@ export default function DashboardHome() {
                         <Users className="h-5 w-5 text-muted-foreground/70" />
                       </div>
                       <div className="ml-4 space-y-1 flex-1">
-                        <p className="text-[15px] font-bold tracking-tight text-foreground group-hover:text-emerald-600 transition-colors">
+                        <p className="text-[15px] font-bold tracking-tight text-foreground group-hover:text-[#C65A28] transition-colors">
                           AgriCorp Inc.
                         </p>
                         <p className="text-[13px] text-muted-foreground font-medium">

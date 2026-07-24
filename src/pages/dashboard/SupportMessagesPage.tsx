@@ -141,7 +141,7 @@ export default function SupportMessagesPage() {
                     markAsRead(msg.id, msg.status);
                   }}
                   className={`p-4 cursor-pointer hover:bg-muted/80 transition-colors ${
-                    selectedMessage?.id === msg.id ? "bg-muted border-l-2 border-emerald-500" : ""
+                    selectedMessage?.id === msg.id ? "bg-muted border-l-2 border-[#C65A28]" : ""
                   }`}
                 >
                   <div className="flex justify-between items-start mb-2">
@@ -152,8 +152,8 @@ export default function SupportMessagesPage() {
                   <p className="text-xs text-muted-foreground truncate mb-2">{msg.email}</p>
                   <div className="flex justify-between items-center text-[10px] text-muted-foreground">
                     <span className="flex items-center gap-1">
-                      {msg.status === 'unread' && <div className="w-2 h-2 rounded-full bg-emerald-500" />}
-                      {msg.status === 'resolved' && <CheckCircle className="h-3 w-3 text-emerald-600 dark:text-emerald-500" />}
+                      {msg.status === 'unread' && <div className="w-2 h-2 rounded-full bg-[#C65A28]" />}
+                      {msg.status === 'resolved' && <CheckCircle className="h-3 w-3 text-[#C65A28] dark:text-[#C65A28]" />}
                       {msg.status.toUpperCase()}
                     </span>
                     <Timestamp 
@@ -185,13 +185,13 @@ export default function SupportMessagesPage() {
                        </h2>
                      </div>
                      <div className="flex items-center gap-3">
-                       <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-blue-500/10 flex items-center justify-center border border-blue-500/20 shrink-0">
+                       <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-[#E8DCC9]0/10 flex items-center justify-center border border-blue-500/20 shrink-0">
                          <span className="text-blue-500 font-bold text-lg">{selectedMessage.name.charAt(0).toUpperCase()}</span>
                        </div>
                        <div>
                          <p className="text-sm font-semibold text-foreground">{selectedMessage.name}</p>
                          <p className="text-xs text-muted-foreground">
-                            <a href={`mailto:${selectedMessage.email}`} className="hover:text-emerald-600 dark:text-emerald-500 hover:underline">
+                            <a href={`mailto:${selectedMessage.email}`} className="hover:text-[#C65A28] dark:text-[#C65A28] hover:underline">
                               {selectedMessage.email}
                             </a>
                          </p>
@@ -226,7 +226,7 @@ export default function SupportMessagesPage() {
                      Reply via Email
                    </Button>
                    <Button
-                     className="bg-emerald-600 hover:bg-emerald-500 text-white"
+                     className="bg-[#C65A28] hover:bg-[#C65A28] text-white"
                      disabled={selectedMessage.status === 'resolved'}
                      onClick={() => markAsResolved(selectedMessage.id)}
                    >

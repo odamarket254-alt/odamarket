@@ -78,7 +78,7 @@ export function CreateQuotationModal({ isOpen, onClose, rfq, onSuccess }: Create
       <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto bg-card rounded-xl">
         <DialogHeader>
           <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-blue-500/10 text-blue-600">
+            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-[#E8DCC9]0/10 text-[#C65A28]">
               <FileText className="w-5 h-5" />
             </div>
             <div>
@@ -93,7 +93,7 @@ export function CreateQuotationModal({ isOpen, onClose, rfq, onSuccess }: Create
         <div className="bg-muted p-4 rounded-lg my-4 text-sm space-y-3 border border-border">
           <div className="grid grid-cols-2 gap-2">
             <p><strong>Required Quantity:</strong> {rfq.quantity} {rfq.unit}</p>
-            {rfq.target_price && <p><strong>Target Price:</strong> ${rfq.target_price} / unit</p>}
+            {rfq.target_price && <p><strong>Target Price:</strong> KSh {rfq.target_price} / unit</p>}
             <p><strong>Delivery Location:</strong> {rfq.delivery_location}</p>
           </div>
           {rfq.description && (
@@ -108,7 +108,7 @@ export function CreateQuotationModal({ isOpen, onClose, rfq, onSuccess }: Create
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <Label htmlFor="quoted_price" className="text-sm font-semibold">Unit Price ($) <span className="text-red-500">*</span></Label>
+                <Label htmlFor="quoted_price" className="text-sm font-semibold">Unit Price (KSh) <span className="text-[#B94A48]">*</span></Label>
                 <Input
                   id="quoted_price"
                   name="quoted_price"
@@ -123,7 +123,7 @@ export function CreateQuotationModal({ isOpen, onClose, rfq, onSuccess }: Create
                 />
               </div>
               <div>
-                <Label htmlFor="moq" className="text-sm font-semibold">MOQ <span className="text-red-500">*</span></Label>
+                <Label htmlFor="moq" className="text-sm font-semibold">MOQ <span className="text-[#B94A48]">*</span></Label>
                 <Input
                   id="moq"
                   name="moq"
@@ -137,7 +137,7 @@ export function CreateQuotationModal({ isOpen, onClose, rfq, onSuccess }: Create
                 />
               </div>
               <div>
-                <Label htmlFor="lead_time_days" className="text-sm font-semibold">Lead Time (Days) <span className="text-red-500">*</span></Label>
+                <Label htmlFor="lead_time_days" className="text-sm font-semibold">Lead Time (Days) <span className="text-[#B94A48]">*</span></Label>
                 <Input
                   id="lead_time_days"
                   name="lead_time_days"

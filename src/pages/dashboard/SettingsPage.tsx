@@ -100,7 +100,7 @@ export default function SettingsPage() {
           if (updatedProfile.verified !== profile.verified) {
             if (updatedProfile.verified) {
               toast.success("Congratulations! Your account has been verified.", {
-                icon: <ShieldCheck className="h-5 w-5 text-amber-600 dark:text-amber-500" />
+                icon: <ShieldCheck className="h-5 w-5 text-[#D9A62E] dark:text-[#D9A62E]" />
               });
               setHasRequested(false);
             } else {
@@ -199,7 +199,7 @@ export default function SettingsPage() {
                       <User className="h-8 w-8 text-muted-foreground/50" />
                     )}
                     {profile.verified && (
-                      <div className="absolute -bottom-1 -right-1 bg-amber-500 p-0.5 rounded-full border-2 border-background">
+                      <div className="absolute -bottom-1 -right-1 bg-[#D9A62E] p-0.5 rounded-full border-2 border-background">
                         <ShieldCheck className="h-3.5 w-3.5 text-white" />
                       </div>
                     )}
@@ -211,7 +211,7 @@ export default function SettingsPage() {
                       </h4>
                       {profile.verified && <VerifiedBadge country={profile.country} textClassName="text-[10px]" />}
                     </div>
-                    <p className="text-sm font-medium text-emerald-600 dark:text-emerald-500 capitalize">{profile.role}</p>
+                    <p className="text-sm font-medium text-[#C65A28] dark:text-[#C65A28] capitalize">{profile.role}</p>
                   </div>
                 </div>
                 
@@ -220,7 +220,7 @@ export default function SettingsPage() {
                     variant="outline" 
                     size="sm" 
                     onClick={() => setIsEditing(true)}
-                    className="h-9 gap-2 shrink-0 border-border bg-background/50 hover:bg-emerald-500/10 hover:text-emerald-600 dark:text-emerald-500 hover:border-emerald-500/50 transition-colors"
+                    className="h-9 gap-2 shrink-0 border-border bg-background/50 hover:bg-[#C65A28]/10 hover:text-[#C65A28] dark:text-[#C65A28] hover:border-[#C65A28]/50 transition-colors"
                   >
                     <Pencil className="h-3.5 w-3.5" />
                     <span className="hidden sm:inline">Edit Profile</span>
@@ -251,22 +251,22 @@ export default function SettingsPage() {
                   <div className="p-6 space-y-6 animate-in fade-in duration-300">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div className="space-y-2.5">
-                        <Label htmlFor="business_name" className="text-foreground/90 font-medium">Business Name</Label>
+                        <Label htmlFor="business_name" >Business Name</Label>
                         <Input 
                           id="business_name"
                           value={editForm.business_name}
                           onChange={(e) => setEditForm(prev => ({ ...prev, business_name: e.target.value }))}
-                          className="bg-background/50 border-border focus-visible:border-emerald-500/50 focus-visible:ring-emerald-500/20"
+                          
                           placeholder="e.g. Acme Corp"
                         />
                       </div>
                       <div className="space-y-2.5">
-                        <Label htmlFor="location" className="text-foreground/90 font-medium">Location</Label>
+                        <Label htmlFor="location" >Location</Label>
                         <Input 
                           id="location"
                           value={editForm.location}
                           onChange={(e) => setEditForm(prev => ({ ...prev, location: e.target.value }))}
-                          className="bg-background/50 border-border focus-visible:border-emerald-500/50 focus-visible:ring-emerald-500/20"
+                          
                           placeholder="e.g. Nairobi, Kenya"
                         />
                       </div>
@@ -274,9 +274,9 @@ export default function SettingsPage() {
 
                     {profile.verified ? (
                       <div className="space-y-3 p-4 rounded-xl border border-border bg-muted/20">
-                        <Label htmlFor="logo_upload" className="text-foreground/90 font-medium flex items-center gap-2">
+                        <Label htmlFor="logo_upload" className="flex items-center gap-2">
                           Brand Logo
-                          <span className="px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-500 text-[10px] uppercase font-bold tracking-wider border border-amber-500/20">Premium</span>
+                          <span className="px-2 py-0.5 rounded-full bg-[#D9A62E]/10 text-[#D9A62E] dark:text-[#D9A62E] text-[10px] uppercase font-bold tracking-wider border border-[#D9A62E]/20">Premium</span>
                         </Label>
                         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                           <div className="h-16 w-16 shrink-0 rounded-full overflow-hidden border-2 border-border bg-background flex items-center justify-center relative">
@@ -313,10 +313,10 @@ export default function SettingsPage() {
                         </div>
                       </div>
                     ) : (
-                      <div className="p-4 bg-amber-500/5 border border-amber-500/20 rounded-xl flex items-start gap-3">
-                        <ShieldAlert className="h-5 w-5 text-amber-600 dark:text-amber-500 shrink-0 mt-0.5" />
+                      <div className="p-4 bg-[#D9A62E]/5 border border-[#D9A62E]/20 rounded-xl flex items-start gap-3">
+                        <ShieldAlert className="h-5 w-5 text-[#D9A62E] dark:text-[#D9A62E] shrink-0 mt-0.5" />
                         <div>
-                          <p className="text-sm font-medium text-amber-500/90">Custom Avatar Locked</p>
+                          <p className="text-sm font-medium text-[#D9A62E]/90">Custom Avatar Locked</p>
                           <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
                             Uploading a custom business logo is an exclusive feature for verified sellers. Secure your verified badge to unlock branding options and increase buyer trust.
                           </p>
@@ -326,12 +326,12 @@ export default function SettingsPage() {
                     
                     {profile.role === "seller" && (
                       <div className="space-y-2.5">
-                        <Label htmlFor="bio" className="text-foreground/90 font-medium">Company Profile</Label>
+                        <Label htmlFor="bio" >Company Profile</Label>
                         <Textarea 
                           id="bio"
                           value={editForm.bio}
                           onChange={(e) => setEditForm(prev => ({ ...prev, bio: e.target.value }))}
-                          className="bg-background/50 border-border focus-visible:border-emerald-500/50 focus-visible:ring-emerald-500/20 min-h-[120px] resize-y"
+                          className="bg-background/50 border-border focus-visible:border-[#C65A28]/50 focus-visible:ring-[#C65A28]/20 min-h-[120px] resize-y"
                           placeholder="Provide a detailed overview of your company, products, and services..."
                         />
                       </div>
@@ -341,7 +341,7 @@ export default function SettingsPage() {
                       <Button 
                         onClick={handleSaveProfile} 
                         disabled={isSaving}
-                        className="bg-emerald-600 hover:bg-emerald-500 text-white font-medium shadow-sm transition-all h-10 px-8"
+                        className="bg-[#C65A28] hover:bg-[#C65A28] text-white font-medium shadow-sm transition-all h-10 px-8"
                       >
                         {isSaving ? <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : null}
                         {isSaving ? 'Saving Changes...' : 'Save Profile Details'}
@@ -392,7 +392,7 @@ export default function SettingsPage() {
                     <div className={cn(
                         "h-20 w-20 rounded-2xl flex-shrink-0 flex items-center justify-center border shadow-sm",
                         profile.verified 
-                          ? "bg-blue-50 border-blue-200/60 text-blue-700 dark:bg-blue-500/10 dark:border-blue-500/20 dark:text-blue-400" 
+                          ? "bg-[#E8DCC9] border-blue-200/60 text-blue-700 dark:bg-[#E8DCC9]0/10 dark:border-blue-500/20 dark:text-blue-400" 
                           : "bg-muted border-border text-muted-foreground"
                       )}>
                         {profile.verified ? <BadgeCheck className="h-10 w-10" /> : <ShieldAlert className="h-10 w-10" />}
@@ -413,7 +413,7 @@ export default function SettingsPage() {
                       {!profile.verified && (
                         <div className="pt-3">
                           {hasRequested ? (
-                            <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-emerald-500/10 border border-emerald-500/20 text-sm font-medium text-emerald-600 dark:text-emerald-500">
+                            <div className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[#C65A28]/10 border border-[#C65A28]/20 text-sm font-medium text-[#C65A28] dark:text-[#C65A28]">
                               <CheckCircle2 className="h-4 w-4" />
                               Verification Request Under Review
                             </div>

@@ -179,7 +179,7 @@ export default function UsersPage() {
                   {isLoading ? (
                     <tr>
                       <td colSpan={4} className="px-6 py-12 text-center">
-                        <div className="h-6 w-6 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent mx-auto mb-4"></div>
+                        <div className="h-6 w-6 animate-spin rounded-full border-2 border-[#C65A28] border-t-transparent mx-auto mb-4"></div>
                         <p className="text-muted-foreground">Loading users...</p>
                       </td>
                     </tr>
@@ -206,18 +206,39 @@ export default function UsersPage() {
                           </div>
                         </td>
                         <td className="px-6 py-4">
-                          <Badge 
-                            variant="outline" 
-                            className="bg-transparent capitalize"
+                          <select
+                            className="bg-background border border-border/50 text-sm rounded-md px-2 py-1 outline-none focus:ring-1 focus:ring-primary/50 capitalize text-[#3A2418] dark:text-[#3A2418] placeholder:text-[#8B857D] caret-slate-900"
+                            value={user.role}
+                            onChange={async (e) => {
+                              try {
+                                const newRole = e.target.value;
+                                const { error } = await supabase
+                                  .from("profiles")
+                                  .update({ role: newRole })
+                                  .eq("id", user.id);
+                                if (error) throw error;
+                                toast.success(`Role updated to ${newRole}`);
+                                setUsers(users.map(u => u.id === user.id ? { ...u, role: newRole } : u));
+                              } catch (err: any) {
+                                toast.error(err.message || "Failed to update role");
+                              }
+                            }}
                           >
-                            {user.role}
-                          </Badge>
+                            <option value="buyer">Buyer</option>
+                            <option value="seller">Seller</option>
+                            <option value="admin">Admin</option>
+                            <option value="super_admin">Super Admin</option>
+                            <option value="moderator">Moderator</option>
+                            <option value="support_agent">Support Agent</option>
+                            <option value="content_manager">Content Manager</option>
+                            <option value="suspended">Suspended</option>
+                          </select>
                         </td>
                         <td className="px-6 py-4">
                           {user.verified ? (
                             <VerifiedBadge country={user.country} className="pointer-events-none" />
                           ) : (user as any).verification_requested ? (
-                            <Badge variant="outline" className="text-amber-500/80 border-amber-500/30 gap-1.5 pointer-events-none bg-amber-500/10">
+                            <Badge variant="outline" className="text-[#D9A62E]/80 border-amber-500/30 gap-1.5 pointer-events-none bg-[#D9A62E]/10">
                               <ShieldAlert className="h-3.5 w-3.5" /> Pending Request
                             </Badge>
                           ) : (
@@ -233,10 +254,10 @@ export default function UsersPage() {
                             onClick={() => handleVerify(user.id, user.verified)}
                             className={
                               user.verified
-                                ? "border-red-500/30 text-red-500 hover:bg-red-500/10 hover:text-red-400"
+                                ? "border-red-500/30 text-[#B94A48] hover:bg-[#B94A48]/100/10 hover:text-red-400"
                                 : (user as any).verification_requested
-                                  ? "border-amber-500/30 text-amber-600 dark:text-amber-500 hover:bg-amber-500/10 hover:text-amber-600 dark:text-amber-400"
-                                  : "border-emerald-500/30 text-emerald-600 dark:text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-600 dark:text-emerald-400"
+                                  ? "border-amber-500/30 text-[#D9A62E] dark:text-[#D9A62E] hover:bg-[#D9A62E]/10 hover:text-[#D9A62E] dark:text-[#D9A62E]"
+                                  : "border-[#C65A28]/30 text-[#C65A28] dark:text-[#C65A28] hover:bg-[#C65A28]/10 hover:text-[#C65A28] dark:text-[#6B8E23]"
                             }
                           >
                             {user.verified ? "Revoke" : (user as any).verification_requested ? "Approve Request" : "Verify Badge"}

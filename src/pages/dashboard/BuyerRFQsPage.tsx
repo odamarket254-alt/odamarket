@@ -23,6 +23,14 @@ export function BuyerRFQsPage() {
   useEffect(() => {
     if (user) {
       loadRFQs();
+      
+      const channel = supabase.channel('public:rfqs:buyer')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'rfqs', filter: `buyer_id=eq.${user.id}` }, () => {
+          loadRFQs();
+        })
+        .subscribe();
+
+      return () => { supabase.removeChannel(channel); };
     }
   }, [user]);
 
@@ -49,11 +57,11 @@ export function BuyerRFQsPage() {
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, string> = {
-      pending: "bg-amber-500/10 text-amber-600 border-amber-500/20",
-      quoted: "bg-blue-500/10 text-blue-600 border-blue-500/20",
-      negotiating: "bg-purple-500/10 text-purple-600 border-purple-500/20",
+      pending: "bg-[#D9A62E]/10 text-[#D9A62E] border-[#D9A62E]/20",
+      quoted: "bg-[#E8DCC9]0/10 text-[#C65A28] border-blue-500/20",
+      negotiating: "bg-[#E8DCC9]0/10 text-[#6B8E23] border-purple-500/20",
       accepted: "bg-green-500/10 text-green-600 border-green-500/20",
-      rejected: "bg-red-500/10 text-red-600 border-red-500/20",
+      rejected: "bg-[#B94A48]/100/10 text-red-600 border-red-500/20",
       closed: "bg-gray-500/10 text-gray-600 border-gray-500/20",
     };
     return variants[status] || variants.pending;
@@ -102,7 +110,7 @@ export function BuyerRFQsPage() {
                 <p className="text-sm font-medium text-muted-foreground">Pending Quotes</p>
                 <h3 className="text-3xl font-bold mt-1">{stats.pending}</h3>
               </div>
-              <div className="h-12 w-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-600">
+              <div className="h-12 w-12 rounded-full bg-[#D9A62E]/10 flex items-center justify-center text-[#D9A62E]">
                 <History className="w-6 h-6" />
               </div>
             </div>
@@ -115,7 +123,7 @@ export function BuyerRFQsPage() {
                 <p className="text-sm font-medium text-muted-foreground">Quoted</p>
                 <h3 className="text-3xl font-bold mt-1">{stats.quoted}</h3>
               </div>
-              <div className="h-12 w-12 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-600">
+              <div className="h-12 w-12 rounded-full bg-[#E8DCC9]0/10 flex items-center justify-center text-[#C65A28]">
                 <PackageSearch className="w-6 h-6" />
               </div>
             </div>
@@ -151,7 +159,7 @@ export function BuyerRFQsPage() {
                 />
               </div>
               <select
-                className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm text-[#3A2418] dark:text-[#3A2418] placeholder:text-[#8B857D] caret-slate-900"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
@@ -168,7 +176,7 @@ export function BuyerRFQsPage() {
           <div className="divide-y divide-border">
             {loading ? (
               <div className="p-12 text-center text-muted-foreground flex flex-col items-center justify-center">
-                <div className="w-8 h-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin mb-4"></div>
+                <div className="w-8 h-8 rounded-full border-2 border-[#C65A28] border-t-transparent animate-spin mb-4"></div>
                 <p className="font-medium tracking-wide">Loading your RFQs...</p>
               </div>
             ) : filteredRfqs.length === 0 ? (
@@ -203,7 +211,7 @@ export function BuyerRFQsPage() {
                         setSelectedRfq(rfq);
                         setIsViewModalOpen(true);
                       }}
-                      className="ml-2 font-semibold px-6 shadow-sm hover:shadow-md transition-all hover:border-emerald-500/50 hover:text-emerald-600 dark:hover:text-emerald-400"
+                      className="ml-2 font-semibold px-6 shadow-sm hover:shadow-md transition-all hover:border-[#C65A28]/50 hover:text-[#C65A28] dark:hover:text-[#6B8E23]"
                     >
                       View Details
                     </Button>

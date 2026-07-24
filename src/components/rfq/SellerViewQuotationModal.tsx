@@ -59,7 +59,7 @@ export function SellerViewQuotationModal({ isOpen, onClose, rfq }: SellerViewQuo
       <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto bg-card rounded-xl">
         <DialogHeader>
           <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-emerald-500/10 text-emerald-600">
+            <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-[#C65A28]/10 text-[#C65A28]">
               <FileText className="w-5 h-5" />
             </div>
             <div>
@@ -83,7 +83,7 @@ export function SellerViewQuotationModal({ isOpen, onClose, rfq }: SellerViewQuo
               {rfq.target_price && (
                 <div>
                   <span className="text-muted-foreground block mb-1">Target Price</span>
-                  <span className="font-medium">${rfq.target_price} / unit</span>
+                  <span className="font-medium">KSh {rfq.target_price} / unit</span>
                 </div>
               )}
               <div>
@@ -112,9 +112,9 @@ export function SellerViewQuotationModal({ isOpen, onClose, rfq }: SellerViewQuo
               Loading your quote...
             </div>
           ) : response ? (
-            <div className="border border-emerald-500/20 bg-emerald-500/5 p-5 rounded-lg">
-              <div className="flex items-center justify-between mb-3 border-b border-emerald-500/20 pb-2">
-                <h3 className="font-semibold text-emerald-700 dark:text-emerald-400">Your Quotation</h3>
+            <div className="border border-[#C65A28]/20 bg-[#C65A28]/5 p-5 rounded-lg">
+              <div className="flex items-center justify-between mb-3 border-b border-[#C65A28]/20 pb-2">
+                <h3 className="font-semibold text-[#C65A28] dark:text-[#6B8E23]">Your Quotation</h3>
                 <Badge variant={response.status === 'accepted' ? 'default' : response.status === 'rejected' ? 'destructive' : 'secondary'}>
                   {response.status.toUpperCase()}
                 </Badge>
@@ -123,7 +123,7 @@ export function SellerViewQuotationModal({ isOpen, onClose, rfq }: SellerViewQuo
               <div className="grid grid-cols-2 gap-4 text-sm">
                 <div>
                   <span className="text-muted-foreground block mb-1">Quoted Price</span>
-                  <span className="font-medium text-lg">${response.quoted_price} / unit</span>
+                  <span className="font-medium text-lg">KSh {response.quoted_price} / unit</span>
                 </div>
                 <div>
                   <span className="text-muted-foreground block mb-1">Minimum Order Qty (MOQ)</span>
@@ -146,7 +146,7 @@ export function SellerViewQuotationModal({ isOpen, onClose, rfq }: SellerViewQuo
                   </div>
                 )}
                 {response.message && (
-                  <div className="col-span-2 mt-2 pt-2 border-t border-emerald-500/20">
+                  <div className="col-span-2 mt-2 pt-2 border-t border-[#C65A28]/20">
                     <span className="text-muted-foreground block mb-1">Your Message</span>
                     <p className="font-medium whitespace-pre-wrap">{response.message}</p>
                   </div>

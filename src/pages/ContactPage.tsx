@@ -65,7 +65,7 @@ export default function ContactPage() {
         <div className="space-y-8">
           <div>
             <h1 className="text-4xl md:text-5xl font-bold tracking-tight text-foreground mb-4">
-              Get in <span className="text-emerald-600 dark:text-emerald-500">Touch</span>
+              Get in <span className="text-[#C65A28] dark:text-[#C65A28]">Touch</span>
             </h1>
             <p className="text-muted-foreground text-lg leading-relaxed max-w-md">
               Whether you're a buyer looking for specific products or a seller needing support, our team is here to help you succeed on ODA Market.
@@ -74,21 +74,21 @@ export default function ContactPage() {
 
           <div className="space-y-6 pt-4">
             <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-                <Mail className="h-5 w-5 text-emerald-600 dark:text-emerald-500" />
+              <div className="w-12 h-12 rounded-full bg-[#C65A28]/10 border border-[#C65A28]/20 flex items-center justify-center shrink-0">
+                <Mail className="h-5 w-5 text-[#C65A28] dark:text-[#C65A28]" />
               </div>
               <div>
                 <h3 className="font-semibold text-foreground text-lg mb-1">Email Us</h3>
                 <p className="text-muted-foreground mb-1">Our friendly team is here to help.</p>
-                <a href="mailto:info@odamarket.co.ke" className="text-emerald-600 dark:text-emerald-500 hover:text-emerald-600 dark:text-emerald-400 font-medium transition-colors">
+                <a href="mailto:info@odamarket.co.ke" className="text-[#C65A28] dark:text-[#C65A28] hover:text-[#C65A28] dark:text-[#6B8E23] font-medium transition-colors">
                   info@odamarket.co.ke
                 </a>
               </div>
             </div>
 
             <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-                <MapPin className="h-5 w-5 text-emerald-600 dark:text-emerald-500" />
+              <div className="w-12 h-12 rounded-full bg-[#C65A28]/10 border border-[#C65A28]/20 flex items-center justify-center shrink-0">
+                <MapPin className="h-5 w-5 text-[#C65A28] dark:text-[#C65A28]" />
               </div>
               <div>
                 <h3 className="font-semibold text-foreground text-lg mb-1">Office</h3>
@@ -98,13 +98,13 @@ export default function ContactPage() {
             </div>
 
             <div className="flex items-start gap-4">
-              <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center shrink-0">
-                <Phone className="h-5 w-5 text-emerald-600 dark:text-emerald-500" />
+              <div className="w-12 h-12 rounded-full bg-[#C65A28]/10 border border-[#C65A28]/20 flex items-center justify-center shrink-0">
+                <Phone className="h-5 w-5 text-[#C65A28] dark:text-[#C65A28]" />
               </div>
               <div>
                 <h3 className="font-semibold text-foreground text-lg mb-1">Phone</h3>
                 <p className="text-muted-foreground mb-1">Mon-Fri from 8am to 5pm.</p>
-                <a href="tel:0792867386" className="text-emerald-600 dark:text-emerald-500 hover:text-emerald-600 dark:text-emerald-400 font-medium transition-colors">
+                <a href="tel:0792867386" className="text-[#C65A28] dark:text-[#C65A28] hover:text-[#C65A28] dark:text-[#6B8E23] font-medium transition-colors">
                   0792867386
                 </a>
               </div>
@@ -123,7 +123,7 @@ export default function ContactPage() {
                 value={formData.name}
                 onChange={handleChange}
                 placeholder="Jane Doe"
-                className="bg-background border-border focus-visible:ring-emerald-500 h-12"
+                
                 required
               />
             </div>
@@ -137,7 +137,7 @@ export default function ContactPage() {
                 value={formData.email}
                 onChange={handleChange}
                 placeholder="jane@example.com"
-                className="bg-background border-border focus-visible:ring-emerald-500 h-12"
+                
                 required
               />
             </div>
@@ -150,7 +150,7 @@ export default function ContactPage() {
                 value={formData.subject}
                 onChange={handleChange}
                 placeholder="How can we help?"
-                className="bg-background border-border focus-visible:ring-emerald-500 h-12"
+                
               />
             </div>
             
@@ -162,7 +162,7 @@ export default function ContactPage() {
                 value={formData.message}
                 onChange={handleChange}
                 placeholder="Describe what you need help with..."
-                className="bg-background border-border focus-visible:ring-emerald-500 min-h-[150px] resize-y"
+                className="bg-background border-border focus-visible:ring-[#C65A28] min-h-[150px] resize-y"
                 required
               />
             </div>
@@ -170,7 +170,7 @@ export default function ContactPage() {
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium h-12 text-base transition-all "
+              className="w-full bg-[#C65A28] hover:bg-[#C65A28] text-white font-medium h-12 text-base transition-all "
             >
               {isSubmitting ? (
                 <>

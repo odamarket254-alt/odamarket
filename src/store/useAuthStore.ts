@@ -3,7 +3,7 @@ import { User } from "@supabase/supabase-js";
 
 interface Profile {
   id: string;
-  role: "buyer" | "seller" | "admin";
+  role: "buyer" | "seller" | "admin" | "super_admin" | "moderator" | "support_agent" | "content_manager";
   business_name: string | null;
   company_type: string | null;
   logo_url: string | null;

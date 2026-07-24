@@ -3,7 +3,7 @@ Allow: /
 Allow: /favicon.ico
 Allow: /favicon.png
 Allow: /apple-touch-icon.png
-Allow: /logo.png
+Allow: /images/oda-logo.jpeg
 Allow: /assets/
 Allow: /images/
 

@@ -139,7 +139,7 @@ export function ViewRFQResponsesModal({ isOpen, onClose, rfq, onStatusChange }: 
                           </Badge>
                         )}
                         {resp.status === 'rejected' && (
-                          <Badge variant="outline" className="text-red-500 border-red-500/30 bg-red-500/10">
+                          <Badge variant="outline" className="text-[#B94A48] border-red-500/30 bg-[#B94A48]/100/10">
                             Rejected
                           </Badge>
                         )}
@@ -148,7 +148,7 @@ export function ViewRFQResponsesModal({ isOpen, onClose, rfq, onStatusChange }: 
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm mt-3">
                         <div>
                           <p className="text-muted-foreground text-xs uppercase tracking-wider mb-1">Unit Price</p>
-                          <p className="font-semibold text-primary text-base">${resp.quoted_price}</p>
+                          <p className="font-semibold text-primary text-base">KSh {resp.quoted_price}</p>
                         </div>
                         <div>
                           <p className="text-muted-foreground text-xs uppercase tracking-wider mb-1">MOQ</p>
@@ -189,7 +189,7 @@ export function ViewRFQResponsesModal({ isOpen, onClose, rfq, onStatusChange }: 
                         <Button 
                           onClick={() => handleReject(resp.id)} 
                           variant="outline" 
-                          className="flex-1 text-red-500 hover:text-red-600 hover:bg-red-50 border-red-200"
+                          className="flex-1 text-[#B94A48] hover:text-[#C65A28] hover:bg-[#B94A48]/10 border-red-200"
                         >
                           <XCircle className="w-4 h-4 mr-2" /> Reject
                         </Button>

@@ -4,6 +4,7 @@ import { createServer as createViteServer } from "vite";
 import { Storage } from "@google-cloud/storage";
 import multer from "multer";
 import aiRoutes from "./routes/aiRoutes.js";
+import authRoutes from "./routes/authRoutes.js";
 import rateLimit from "express-rate-limit";
 
 const upload = multer({
@@ -56,12 +57,16 @@ function getGCS() {
 
 async function startServer() {
   const app = express();
+  app.set("trust proxy", 1);
   const PORT = 3000;
 
   app.use(express.json({ limit: "50mb" })); // Increase limit for file uploads
 
   // Apply rate limiter to all API routes
   app.use("/api/", apiLimiter);
+
+  // Auth Routes
+  app.use("/api/auth", authRoutes);
 
   // AI Routes
   app.use("/api/ai", aiRoutes);

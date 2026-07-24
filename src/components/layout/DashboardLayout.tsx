@@ -14,7 +14,21 @@ import {
   ShieldCheck,
   FolderTree,
   FileText,
+  Bell,
+  BarChart,
+  FileEdit,
+  HardDrive,
+  Terminal,
+  List,
+  Cpu,
+  MessageSquare,
+  Tags,
+  Archive,
+  Image as ImageIcon,
+  Megaphone,
+  StarHalf,
 } from "lucide-react";
+import { Truck, RefreshCcw, MapPin, CreditCard, Gift, Star, User, Headphones } from 'lucide-react';
 import { motion, AnimatePresence } from "motion/react";
 import { supabase } from "../../lib/supabase";
 import { cn } from "../../lib/utils";
@@ -52,7 +66,7 @@ export default function DashboardLayout() {
   if (isLoading) {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center bg-background">
-        <Loader2 className="h-8 w-8 animate-spin text-emerald-600" />
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
       </div>
     );
   }
@@ -95,22 +109,36 @@ export default function DashboardLayout() {
             path: "/seller/dashboard/settings",
           },
         ];
-      case "admin":
-        return [
+      case "super_admin":
+      case "moderator":
+      case "support_agent":
+      case "content_manager":
+      case "admin": {
+        const baseAdminNav = [
           {
             icon: LayoutDashboard,
-            label: "Admin Overview",
+            label: "Dashboard",
             path: "/admin/dashboard",
           },
           {
             icon: Users,
-            label: "User Verification",
+            label: "Users",
             path: "/admin/dashboard/users",
           },
           {
             icon: Package,
-            label: "Manage Products",
+            label: "Products",
             path: "/admin/dashboard/products",
+          },
+          {
+            icon: Inbox,
+            label: "Orders",
+            path: "/admin/dashboard/orders",
+          },
+          {
+            icon: FileText,
+            label: "Discounts & Coupons",
+            path: "/admin/dashboard/discounts",
           },
           {
             icon: FolderTree,
@@ -118,16 +146,96 @@ export default function DashboardLayout() {
             path: "/admin/dashboard/categories",
           },
           {
-            icon: Inbox,
-            label: "Support Messages",
+            icon: Tags,
+            label: "Brands",
+            path: "/admin/dashboard/brands",
+          },
+          {
+            icon: Archive,
+            label: "Inventory",
+            path: "/admin/dashboard/inventory",
+          },
+          {
+            icon: Megaphone,
+            label: "Marketing Center",
+            path: "/admin/dashboard/marketing",
+          },
+          {
+            icon: MessageSquare,
+            label: "Support",
             path: "/admin/dashboard/support",
           },
           {
+            icon: StarHalf,
+            label: "Reviews",
+            path: "/admin/dashboard/reviews",
+          },
+          {
+            icon: FileEdit,
+            label: "CMS (Content)",
+            path: "/admin/dashboard/content",
+          },
+          {
+            icon: ImageIcon,
+            label: "Media Library",
+            path: "/admin/dashboard/media",
+          },
+          {
+            icon: BarChart,
+            label: "Analytics",
+            path: "/admin/dashboard/reports",
+          },
+        ];
+        
+        // Super admin gets additional sensitive modules
+        if (profile?.role === "super_admin") {
+          baseAdminNav.push(
+            {
+              icon: Cpu,
+              label: "AI Management",
+              path: "/admin/dashboard/ai",
+            },
+            {
+              icon: Bell,
+              label: "Notification Center",
+              path: "/admin/dashboard/notifications",
+            },
+            {
+              icon: ShieldCheck,
+              label: "Security Center",
+              path: "/admin/dashboard/security",
+            },
+            {
+              icon: HardDrive,
+              label: "Storage Management",
+              path: "/admin/dashboard/storage",
+            },
+            {
+              icon: Terminal,
+              label: "Developer Tools",
+              path: "/admin/dashboard/developer",
+            },
+            {
+              icon: List,
+              label: "Audit Logs",
+              path: "/admin/dashboard/audit",
+            },
+            {
+              icon: Settings,
+              label: "System Settings",
+              path: "/admin/dashboard/settings",
+            }
+          );
+        } else if (profile?.role === "admin") {
+          baseAdminNav.push({
             icon: Settings,
             label: "Settings",
             path: "/admin/dashboard/settings",
-          },
-        ];
+          });
+        }
+        
+        return baseAdminNav;
+      }
       case "buyer":
       default:
         return [
@@ -138,13 +246,8 @@ export default function DashboardLayout() {
           },
           {
             icon: Inbox,
-            label: "My Inquiries",
-            path: "/buyer/dashboard/inquiries",
-          },
-          {
-            icon: FileText,
-            label: "RFQ Management",
-            path: "/buyer/dashboard/rfqs",
+            label: "My Orders",
+            path: "/buyer/dashboard/orders",
           },
           {
             icon: Settings,
@@ -158,7 +261,7 @@ export default function DashboardLayout() {
   const navItems = getNavItems();
 
   return (
-    <div className="min-h-[100dvh] flex bg-background font-sans text-foreground w-full max-w-[100vw] overflow-x-hidden">
+    <div className="min-h-[100dvh] flex bg-background font-sans text-foreground w-full max-w-full overflow-x-hidden">
       {/* Sidebar */}
       <aside className="w-64 bg-card border-r border-border hidden md:flex flex-col sticky top-0 h-[100dvh]">
         <div className="p-6 flex justify-between items-center">
@@ -174,7 +277,7 @@ export default function DashboardLayout() {
           className={cn(
             "px-6 py-4 border-b",
             profile?.role === "seller" && profile?.verified
-              ? "border-amber-500/20 bg-amber-500/5"
+              ? "border-[#D9A62E]/20 bg-[#D9A62E]/5"
               : "border-border",
           )}
         >
@@ -183,14 +286,14 @@ export default function DashboardLayout() {
               <p className="text-sm font-medium text-foreground truncate flex items-center gap-1.5">
                 {profile?.business_name || "My Business"}
                 {profile?.role === "seller" && profile?.verified && (
-                  <ShieldCheck className="h-4 w-4 text-amber-600 dark:text-amber-500 shrink-0" />
+                  <ShieldCheck className="h-4 w-4 text-[#D9A62E] dark:text-[#D9A62E] shrink-0" />
                 )}
               </p>
               <p
                 className={cn(
                   "text-xs capitalize",
                   profile?.role === "seller" && profile?.verified
-                    ? "text-amber-500/80 font-medium"
+                    ? "text-[#D9A62E]/80 font-medium"
                     : "text-muted-foreground",
                 )}
               >
@@ -217,8 +320,8 @@ export default function DashboardLayout() {
                   "flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-colors",
                   isActive
                     ? isPremium
-                      ? "bg-amber-500/10 text-amber-600 dark:text-amber-500"
-                      : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                      ? "bg-[#D9A62E]/10 text-[#D9A62E] dark:text-[#D9A62E]"
+                      : "bg-primary/10 text-primary"
                     : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
                 )}
               >
@@ -227,8 +330,8 @@ export default function DashboardLayout() {
                     "h-5 w-5",
                     isActive
                       ? isPremium
-                        ? "text-amber-600 dark:text-amber-500"
-                        : "text-emerald-600 dark:text-emerald-500"
+                        ? "text-[#D9A62E] dark:text-[#D9A62E]"
+                        : "text-primary"
                       : "text-muted-foreground",
                   )}
                 />
@@ -241,7 +344,7 @@ export default function DashboardLayout() {
         <div className="p-4 border-t border-border">
           <Button
             variant="ghost"
-            className="w-full justify-start text-muted-foreground hover:text-red-400 hover:bg-red-500/10"
+            className="w-full justify-start text-muted-foreground hover:text-red-400 hover:bg-[#B94A48]/100/10"
             onClick={handleSignOut}
           >
             <LogOut className="mr-2 h-4 w-4" />
@@ -301,7 +404,7 @@ export default function DashboardLayout() {
                   className={cn(
                     "flex items-center justify-between p-4 border-b",
                     profile?.role === "seller" && profile?.verified
-                      ? "border-amber-500/20 bg-amber-500/5"
+                      ? "border-[#D9A62E]/20 bg-[#D9A62E]/5"
                       : "border-border",
                   )}
                 >
@@ -309,14 +412,14 @@ export default function DashboardLayout() {
                     <span className="text-sm font-medium text-foreground truncate flex items-center gap-1.5">
                       {profile?.business_name || "My Business"}
                       {profile?.role === "seller" && profile?.verified && (
-                        <ShieldCheck className="h-4 w-4 text-amber-600 dark:text-amber-500 shrink-0" />
+                        <ShieldCheck className="h-4 w-4 text-[#D9A62E] dark:text-[#D9A62E] shrink-0" />
                       )}
                     </span>
                     <span
                       className={cn(
                         "text-xs capitalize",
                         profile?.role === "seller" && profile?.verified
-                          ? "text-amber-500/80 font-medium"
+                          ? "text-[#D9A62E]/80 font-medium"
                           : "text-muted-foreground",
                       )}
                     >
@@ -351,8 +454,8 @@ export default function DashboardLayout() {
                           "flex items-center gap-4 px-4 py-3.5 rounded-xl text-base font-medium transition-all focus:outline-none",
                           isActive
                             ? isPremium
-                              ? "bg-amber-500/10 text-amber-600 dark:text-amber-500 focus:ring-2 focus:ring-amber-500"
-                              : "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 focus:ring-2 focus:ring-emerald-500"
+                              ? "bg-[#D9A62E]/10 text-[#D9A62E] dark:text-[#D9A62E] focus:ring-2 focus:ring-[#D9A62E]"
+                              : "bg-primary/10 text-primary focus:ring-2 focus:ring-primary"
                             : "text-muted-foreground hover:bg-muted/50 hover:text-foreground",
                         )}
                       >
@@ -361,8 +464,8 @@ export default function DashboardLayout() {
                             "h-6 w-6",
                             isActive
                               ? isPremium
-                                ? "text-amber-600 dark:text-amber-500"
-                                : "text-emerald-600 dark:text-emerald-500"
+                                ? "text-[#D9A62E] dark:text-[#D9A62E]"
+                                : "text-primary"
                               : "text-muted-foreground",
                           )}
                         />
@@ -385,7 +488,7 @@ export default function DashboardLayout() {
                       setIsMobileMenuOpen(false);
                       handleSignOut();
                     }}
-                    className="w-full text-red-500 hover:text-red-400 hover:bg-red-500/10 justify-start h-12"
+                    className="w-full text-[#B94A48] hover:text-red-400 hover:bg-[#B94A48]/100/10 justify-start h-12"
                   >
                     <LogOut className="mr-2 h-5 w-5" />
                     Sign Out

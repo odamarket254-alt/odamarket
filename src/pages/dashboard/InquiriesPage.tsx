@@ -120,8 +120,8 @@ const QuotationCard = ({ data, isOwn }: { data: Record<string, string>, isOwn: b
   const seller = getValue(['Seller', 'Vendor', 'Company']);
 
   return (
-    <div className={`my-2 flex flex-col w-[280px] sm:w-[320px] rounded-2xl overflow-hidden shadow-sm ${isOwn ? 'bg-blue-50 dark:bg-blue-900/40 text-blue-950 dark:text-blue-50 border border-blue-200 dark:border-blue-800' : 'bg-card border border-border dark:bg-zinc-800 dark:border-zinc-700 text-foreground'}`}>
-      <div className={`px-4 py-3 border-b flex items-center justify-between ${isOwn ? 'bg-blue-100/80 border-blue-200/50 dark:bg-blue-800/50 dark:border-blue-700/50' : 'bg-muted/50 border-border dark:bg-zinc-900/50'}`}>
+    <div className={`my-2 flex flex-col w-[280px] sm:w-[320px] rounded-2xl overflow-hidden shadow-sm ${isOwn ? 'bg-[#E8DCC9] dark:bg-blue-900/40 text-blue-950 dark:text-blue-50 border border-blue-200 dark:border-blue-800' : 'bg-card border border-border dark:bg-zinc-800 dark:border-[#5F5A54] text-foreground'}`}>
+      <div className={`px-4 py-3 border-b flex items-center justify-between ${isOwn ? 'bg-blue-100/80 border-blue-200/50 dark:bg-blue-800/50 dark:border-blue-700/50' : 'bg-muted/50 border-border dark:bg-[#3A2418]/50'}`}>
         <div className="flex items-center gap-2">
           <FileText className={`h-4 w-4 ${isOwn ? 'text-blue-700 dark:text-blue-400' : 'text-primary'}`} />
           <span className={`font-semibold text-sm ${isOwn ? 'text-blue-900 dark:text-blue-300' : 'text-foreground'}`}>Quotation</span>
@@ -449,9 +449,9 @@ export default function InquiriesPage() {
     switch (status) {
       case "new":
       case "pending":
-        return <Badge className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20">New</Badge>;
+        return <Badge className="bg-[#E8DCC9]0/10 text-[#C65A28] dark:text-blue-400 border border-blue-500/20">New</Badge>;
       case "contacted":
-        return <Badge className="bg-blue-500/10 text-blue-500 dark:text-blue-400 border border-blue-500/20">Contacted</Badge>;
+        return <Badge className="bg-[#E8DCC9]0/10 text-blue-500 dark:text-blue-400 border border-blue-500/20">Contacted</Badge>;
       case "closed":
         return <Badge className="bg-muted text-foreground/80 border border-border">Closed</Badge>;
       default:
@@ -564,7 +564,7 @@ export default function InquiriesPage() {
                   <div
                     key={inquiry.id}
                     onClick={() => setSelectedInquiry(inquiry)}
-                    className={`p-4 cursor-pointer transition-all flex gap-3 relative ${selectedInquiry?.id === inquiry.id ? "bg-blue-50 dark:bg-blue-900/20" : "hover:bg-muted/50"}`}
+                    className={`p-4 cursor-pointer transition-all flex gap-3 relative ${selectedInquiry?.id === inquiry.id ? "bg-[#E8DCC9] dark:bg-blue-900/20" : "hover:bg-muted/50"}`}
                   >
                     <div className="relative shrink-0">
                       <div className={`h-12 w-12 rounded-full flex items-center justify-center font-bold text-lg border overflow-hidden ${selectedInquiry?.id === inquiry.id ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800/50" : "bg-muted text-muted-foreground border-border"}`}>
@@ -594,7 +594,7 @@ export default function InquiriesPage() {
                         <Timestamp 
                           date={displayTime} 
                           className="shrink-0 items-end"
-                          relativeClassName={`text-xs whitespace-nowrap ${unreadCount > 0 && selectedInquiry?.id !== inquiry.id ? "text-blue-600 dark:text-blue-400 font-semibold" : "text-muted-foreground"}`}
+                          relativeClassName={`text-xs whitespace-nowrap ${unreadCount > 0 && selectedInquiry?.id !== inquiry.id ? "text-[#C65A28] dark:text-blue-400 font-semibold" : "text-muted-foreground"}`}
                           showFull={false}
                         />
                       </div>
@@ -624,11 +624,11 @@ export default function InquiriesPage() {
       </AnimatePresence>
 
       {/* Main Chat Area */}
-      <div className={`flex-1 flex flex-col h-full bg-slate-50 dark:bg-slate-950 relative ${!selectedInquiry ? 'hidden lg:flex' : 'flex'}`}>
+      <div className={`flex-1 flex flex-col h-full bg-[#FAF5EC] dark:bg-slate-950 relative ${!selectedInquiry ? 'hidden lg:flex' : 'flex'}`}>
         {!selectedInquiry ? (
            <div className="flex-1 flex flex-col items-center justify-center text-center p-8 bg-card border-l border-border h-full relative z-10 w-full">
-              <div className="w-24 h-24 rounded-full bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center mb-6 border border-blue-100 dark:border-blue-800/30">
-                 <MessageSquare className="h-10 w-10 text-blue-600 dark:text-blue-400" />
+              <div className="w-24 h-24 rounded-full bg-[#E8DCC9] dark:bg-blue-900/20 flex items-center justify-center mb-6 border border-blue-100 dark:border-blue-800/30">
+                 <MessageSquare className="h-10 w-10 text-[#C65A28] dark:text-blue-400" />
               </div>
               <h2 className="text-2xl font-bold text-foreground mb-2">OdaMarket Messages</h2>
               <p className="text-muted-foreground max-w-md">
@@ -674,7 +674,7 @@ export default function InquiriesPage() {
                 <Button 
                   variant="ghost" 
                   size="icon" 
-                  className="text-muted-foreground hover:text-blue-600"
+                  className="text-muted-foreground hover:text-[#C65A28]"
                   onClick={() => {
                     toast.custom((t) => (
                       <motion.div
@@ -684,7 +684,7 @@ export default function InquiriesPage() {
                         transition={{ type: "spring", bounce: 0.5, duration: 0.5 }}
                         className="bg-blue-600 dark:bg-blue-600 text-white p-4 rounded-xl shadow-xl flex items-center gap-4 w-[320px] pointer-events-auto"
                       >
-                        <div className="bg-white/20 p-2.5 rounded-full relative shrink-0">
+                        <div className="bg-[#FFFDF8]/20 p-2.5 rounded-full relative shrink-0">
                           <Phone className="w-5 h-5 animate-pulse" />
                           <span className="absolute top-0 right-0 w-2.5 h-2.5 bg-red-400 border border-blue-600 rounded-full animate-bounce"></span>
                         </div>
@@ -730,8 +730,8 @@ export default function InquiriesPage() {
                  <div className="absolute inset-0 flex items-center" aria-hidden="true">
                    <div className="w-full border-t border-border/60"></div>
                  </div>
-                 <div className="max-w-[90%] sm:max-w-md bg-white dark:bg-zinc-900 border border-border rounded-xl p-5 shadow-sm text-center relative z-10">
-                    <span className="inline-flex items-center justify-center bg-blue-50 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full mb-3 border border-blue-200 dark:border-blue-800/50">
+                 <div className="max-w-[90%] sm:max-w-md bg-[#FFFDF8] dark:bg-[#3A2418] border border-border rounded-xl p-5 shadow-sm text-center relative z-10">
+                    <span className="inline-flex items-center justify-center bg-[#E8DCC9] dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-full mb-3 border border-blue-200 dark:border-blue-800/50">
                        Initial Request
                     </span>
                     <h4 className="font-semibold text-lg text-foreground mb-1 leading-snug">{selectedInquiry.products?.name}</h4>
@@ -769,7 +769,7 @@ export default function InquiriesPage() {
                  return (
                    <div key={date} className="flex flex-col gap-3">
                      <div className="flex justify-center my-2 relative z-10 w-full">
-                       <span className="bg-white/80 dark:bg-zinc-800/80 backdrop-blur-sm border border-border/50 text-muted-foreground font-medium text-[11px] uppercase tracking-wider px-3 py-1 rounded-full shadow-sm">
+                       <span className="bg-[#FFFDF8]/80 dark:bg-zinc-800/80 backdrop-blur-sm border border-border/50 text-muted-foreground font-medium text-[11px] uppercase tracking-wider px-3 py-1 rounded-full shadow-sm">
                          {dateLabel}
                        </span>
                      </div>
@@ -805,13 +805,13 @@ export default function InquiriesPage() {
                               {parsed.type === 'quotation' ? (
                                  <>
                                     {parsed.before?.trim() && (
-                                       <div className={`w-full rounded-2xl px-4 py-2.5 shadow-sm text-[15px] leading-relaxed mb-1 ${isOwn ? "bg-blue-600 text-white rounded-tr-sm" : "bg-white dark:bg-zinc-800 border border-border/50 text-foreground rounded-tl-sm"}`}>
+                                       <div className={`w-full rounded-2xl px-4 py-2.5 shadow-sm text-[15px] leading-relaxed mb-1 ${isOwn ? "bg-blue-600 text-white rounded-tr-sm" : "bg-[#FFFDF8] dark:bg-zinc-800 border border-border/50 text-foreground rounded-tl-sm"}`}>
                                           {parsed.before.trim()}
                                        </div>
                                     )}
                                     <QuotationCard data={parsed.data} isOwn={isOwn} />
                                     {parsed.after?.trim() && (
-                                       <div className={`w-full rounded-2xl px-4 py-2.5 shadow-sm text-[15px] leading-relaxed mt-1 ${isOwn ? "bg-blue-600 text-white rounded-tr-sm" : "bg-white dark:bg-zinc-800 border border-border/50 text-foreground rounded-tl-sm"}`}>
+                                       <div className={`w-full rounded-2xl px-4 py-2.5 shadow-sm text-[15px] leading-relaxed mt-1 ${isOwn ? "bg-blue-600 text-white rounded-tr-sm" : "bg-[#FFFDF8] dark:bg-zinc-800 border border-border/50 text-foreground rounded-tl-sm"}`}>
                                           {parsed.after.trim().split('\n').map((line, i) => (
                                              <span key={i}>{line}<br /></span>
                                           ))}
@@ -819,7 +819,7 @@ export default function InquiriesPage() {
                                     )}
                                  </>
                               ) : (
-                                <div className={`w-full rounded-2xl px-4 py-2.5 shadow-sm text-[15px] leading-relaxed ${isOwn ? "bg-blue-600 text-white rounded-tr-sm" : "bg-white dark:bg-zinc-800 border border-border/50 text-foreground rounded-tl-sm"}`}>
+                                <div className={`w-full rounded-2xl px-4 py-2.5 shadow-sm text-[15px] leading-relaxed ${isOwn ? "bg-blue-600 text-white rounded-tr-sm" : "bg-[#FFFDF8] dark:bg-zinc-800 border border-border/50 text-foreground rounded-tl-sm"}`}>
                                    <p className="whitespace-pre-wrap">{msg.message}</p>
                                 </div>
                               )}
@@ -858,7 +858,7 @@ export default function InquiriesPage() {
                        </div>
                      </div>
                      <div className="flex flex-col items-start max-w-[85%] sm:max-w-[75%]">
-                        <div className="bg-white dark:bg-zinc-800 border border-border/50 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm w-fit">
+                        <div className="bg-[#FFFDF8] dark:bg-zinc-800 border border-border/50 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm w-fit">
                            <div className="flex gap-1 animate-pulse">
                               <div className="w-1.5 h-1.5 bg-muted-foreground/40 rounded-full animate-bounce [animation-delay:-0.3s]"></div>
                               <div className="w-1.5 h-1.5 bg-muted-foreground/40 rounded-full animate-bounce [animation-delay:-0.15s]"></div>
@@ -882,7 +882,7 @@ export default function InquiriesPage() {
                  <Button variant="ghost" size="icon" className="h-[44px] w-[44px] rounded-full shrink-0 text-muted-foreground hover:bg-muted hover:text-foreground hidden sm:flex">
                     <ImageIcon className="h-[22px] w-[22px]" />
                  </Button>
-                 <div className="flex-1 bg-muted/50 dark:bg-zinc-900/50 border border-border rounded-[22px] flex items-end overflow-hidden focus-within:ring-1 focus-within:ring-blue-500/50 transition-shadow">
+                 <div className="flex-1 bg-muted/50 dark:bg-[#3A2418]/50 border border-border rounded-[22px] flex items-end overflow-hidden focus-within:ring-1 focus-within:ring-blue-500/50 transition-shadow">
                   <Button variant="ghost" size="icon" className="h-[44px] w-[44px] shrink-0 text-muted-foreground hover:text-foreground">
                      <Smile className="h-[22px] w-[22px]" />
                   </Button>

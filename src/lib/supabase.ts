@@ -41,6 +41,31 @@ const safeStorage = {
   },
 };
 
+
+const customFetch = async (url, init) => {
+  const urlStr = url.toString();
+  if (urlStr.includes("placeholder-project.supabase.co")) {
+    console.warn("Mocking Supabase fetch because VITE_SUPABASE_URL is missing.");
+    if (urlStr.includes('/auth/v1')) {
+      return new Response(JSON.stringify({ user: null, session: null }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    if (init && init.method === 'GET') {
+      return new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      });
+    }
+    return new Response(JSON.stringify({}), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
+  return fetch(url, init);
+};
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage: safeStorage,
@@ -48,4 +73,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     detectSessionInUrl: true,
   },
+  global: { fetch: customFetch },
 });
+

@@ -4,19 +4,11 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
-import { Button } from "../components/ui/Button";
-import { Input } from "../components/ui/Input";
-import { Label } from "../components/ui/Label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "../components/ui/Card";
 import { toast } from "sonner";
-import { ArrowLeft } from "lucide-react";
+import { Lock, Eye, EyeOff, ArrowRight } from "lucide-react";
+import { motion } from "motion/react";
+import { cn } from "../lib/utils";
+import { Logo } from "../components/ui/Logo";
 
 const resetPasswordSchema = z
   .object({
@@ -32,18 +24,27 @@ type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>;
 
 export default function ResetPasswordPage() {
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const navigate = useNavigate();
 
-  // Supabase auth state change handles the URL #access_token securely and creates a session for us to change password
   useEffect(() => {
-    const checkUser = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        toast.error("Invalid or expired password reset link");
-        navigate("/login");
+    // Check if we have an active session or a recovery token in the URL hash
+    const checkSession = async () => {
+      // Check for errors in the hash or query string
+      const hashParams = new URLSearchParams(window.location.hash.replace('#', '?'));
+      const searchParams = new URLSearchParams(window.location.search);
+      const errorDesc = hashParams.get("error_description") || searchParams.get("error_description");
+      
+      if (errorDesc) {
+        toast.error(errorDesc.replace(/\+/g, ' '));
+        navigate("/forgot-password", { replace: true });
+        return;
       }
+
+      const { data } = await supabase.auth.getSession();
     };
-    checkUser();
+    checkSession();
   }, [navigate]);
 
   const {
@@ -61,85 +62,107 @@ export default function ResetPasswordPage() {
         password: data.password,
       });
 
-      if (error) {
-        toast.error("Failed to reset password", { description: error.message });
-      } else {
-        toast.success("Password reset successfully!");
-        navigate("/dashboard");
-      }
-    } catch (err) {
-      toast.error("An unexpected error occurred");
+      if (error) throw error;
+      
+      toast.success("Password successfully updated!");
+      navigate("/login", { replace: true });
+    } catch (error: any) {
+      toast.error(error.message || "Failed to update password");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="flex-1 flex items-center justify-center p-4 bg-background min-h-[calc(100dvh-4rem)]">
-      <Card className="w-full max-w-md border-border bg-muted/50 text-foreground backdrop-blur-xl shadow-2xl">
-        <CardHeader className="space-y-1 text-center">
-          <CardTitle className="text-2xl font-bold tracking-tight text-foreground">
-            Set New Password
-          </CardTitle>
-          <CardDescription className="text-muted-foreground">
-            Please enter your new password below.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="password" className="text-foreground/80">
-                New Password
-              </Label>
-              <Input
-                id="password"
-                type="password"
-                {...register("password")}
-                className={`bg-background text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-500 ${
-                  errors.password ? "border-red-500" : ""
-                }`}
-              />
-              {errors.password && (
-                <p className="text-xs text-red-500">{errors.password.message}</p>
-              )}
+    <div className="min-h-screen bg-[#F8F3EB] flex flex-col items-center justify-center font-sans p-4 sm:p-8">
+      
+      <div className="w-full max-w-[440px] flex justify-center mb-8">
+        <Logo className="w-[140px]" />
+      </div>
+
+      <motion.div 
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full max-w-[440px] bg-white rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-[#E8DCC9]/50 overflow-hidden relative"
+      >
+        <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#D96A27] to-[#f49c64]"></div>
+
+        <div className="p-8 sm:p-10">
+          <div className="text-center mb-8">
+            <h2 className="text-2xl font-bold text-[#1A1A1A] mb-2 tracking-tight">Set New Password</h2>
+            <p className="text-[#666] text-[15px] font-medium leading-relaxed">
+              Please enter your new password below.
+            </p>
+          </div>
+
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+            <div className="space-y-1.5 relative group/field">
+              <label className="block text-[#4B5563] text-sm font-semibold">New Password</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#9CA3AF] group-focus-within/field:text-[#D96A27] transition-colors z-10">
+                  <Lock className="w-5 h-5" />
+                </div>
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  {...register("password")}
+                  className={cn(
+                    "w-full h-[52px] pl-[42px] pr-[42px] rounded-xl bg-white border outline-none transition-all duration-300 text-[#1F2937] placeholder:text-[#9CA3AF] text-[15px] font-medium shadow-sm hover:border-[#D1D5DB]",
+                    errors.password ? "border-red-500 focus:border-red-500" : "border-[#E5E7EB] focus:border-[#D96A27]"
+                  )}
+                />
+                <button 
+                  type="button" 
+                  onClick={() => setShowPassword(!showPassword)} 
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#D96A27] transition-colors"
+                >
+                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+              {errors.password && <p className="text-[13px] text-red-500 font-medium">{errors.password.message}</p>}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword" className="text-foreground/80">
-                Confirm New Password
-              </Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                {...register("confirmPassword")}
-                className={`bg-background text-foreground placeholder:text-muted-foreground focus-visible:ring-emerald-500 ${
-                  errors.confirmPassword ? "border-red-500" : ""
-                }`}
-              />
-              {errors.confirmPassword && (
-                <p className="text-xs text-red-500">
-                  {errors.confirmPassword.message}
-                </p>
-              )}
+
+            <div className="space-y-1.5 relative group/field">
+              <label className="block text-[#4B5563] text-sm font-semibold">Confirm Password</label>
+              <div className="relative">
+                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#9CA3AF] group-focus-within/field:text-[#D96A27] transition-colors z-10">
+                  <Lock className="w-5 h-5" />
+                </div>
+                <input
+                  type={showConfirmPassword ? "text" : "password"}
+                  placeholder="••••••••"
+                  {...register("confirmPassword")}
+                  className={cn(
+                    "w-full h-[52px] pl-[42px] pr-[42px] rounded-xl bg-white border outline-none transition-all duration-300 text-[#1F2937] placeholder:text-[#9CA3AF] text-[15px] font-medium shadow-sm hover:border-[#D1D5DB]",
+                    errors.confirmPassword ? "border-red-500 focus:border-red-500" : "border-[#E5E7EB] focus:border-[#D96A27]"
+                  )}
+                />
+                <button 
+                  type="button" 
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)} 
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#D96A27] transition-colors"
+                >
+                  {showConfirmPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                </button>
+              </div>
+              {errors.confirmPassword && <p className="text-[13px] text-red-500 font-medium">{errors.confirmPassword.message}</p>}
             </div>
-            <Button
+
+            <button
               type="submit"
-              className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-bold disabled:opacity-50"
               disabled={isLoading}
+              className="w-full h-[52px] rounded-xl bg-[#D96A27] hover:bg-[#c45a1f] text-white font-bold text-[16px] shadow-[0_4px_14px_rgba(217,106,39,0.3)] hover:shadow-[0_6px_20px_rgba(217,106,39,0.4)] transition-all duration-300 flex items-center justify-center gap-2 relative overflow-hidden disabled:opacity-70 disabled:cursor-not-allowed mt-4"
             >
-              {isLoading ? "Resetting..." : "Reset Password"}
-            </Button>
+              <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent hover:animate-[shimmer_1.5s_infinite]"></div>
+              {isLoading ? (
+                <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+              ) : (
+                <>Update Password <ArrowRight className="w-5 h-5 ml-1" /></>
+              )}
+            </button>
           </form>
-        </CardContent>
-        <CardFooter className="flex flex-wrap items-center justify-center gap-2 border-t border-border pt-4 pb-6 px-6 bg-black/20">
-          <Link
-            to="/login"
-            className="flex items-center text-sm font-medium text-emerald-600 dark:text-emerald-500 hover:text-emerald-600 dark:text-emerald-400"
-          >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to login
-          </Link>
-        </CardFooter>
-      </Card>
+        </div>
+      </motion.div>
     </div>
   );
 }

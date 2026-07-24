@@ -3,7 +3,7 @@ import { useAuthStore } from "../../store/useAuthStore";
 import { Loader2 } from "lucide-react";
 
 interface ProtectedRouteProps {
-  allowedRoles: Array<"buyer" | "seller" | "admin">;
+  allowedRoles: Array<"buyer" | "seller" | "admin" | "super_admin" | "moderator" | "support_agent" | "content_manager">;
 }
 
 export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
@@ -14,7 +14,7 @@ export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
    */
   if (isLoading || (!profile && user)) {
     return (
-      <div className="flex h-[100dvh] w-full items-center justify-center bg-background text-emerald-600 dark:text-emerald-500">
+      <div className="flex h-[100dvh] w-full items-center justify-center bg-background text-[#C65A28] dark:text-[#C65A28]">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );

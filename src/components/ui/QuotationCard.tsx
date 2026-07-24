@@ -165,14 +165,14 @@ export function QuotationCard({ initialContent, onSend }: QuotationProps) {
   };
 
   return (
-    <div className="bg-white dark:bg-zinc-950 border border-border rounded-xl shadow-sm overflow-hidden my-4 max-w-full font-sans">
+    <div className="bg-[#FFFDF8] dark:bg-[#1A1A1A] border border-border rounded-xl shadow-sm overflow-hidden my-4 max-w-full font-sans">
       <div className="p-4 border-b border-border bg-muted/30 flex justify-between items-center">
         <h3 className="font-semibold text-lg">Interactive Quotation</h3>
         <div className="flex gap-2">
           <Button variant="outline" size="sm" onClick={handleExportPDF} className="gap-1">
             <Download className="w-4 h-4" /> Export PDF
           </Button>
-          <Button size="sm" onClick={() => setIsSent(true)} disabled={isSent} className="gap-1 bg-emerald-600 hover:bg-emerald-700 text-white">
+          <Button size="sm" onClick={() => setIsSent(true)} disabled={isSent} className="gap-1 bg-[#C65A28] hover:bg-[#C65A28] text-white">
             {isSent ? <Check className="w-4 h-4" /> : <Send className="w-4 h-4" />}
             {isSent ? "Sent" : "Send Quotation"}
           </Button>
@@ -180,7 +180,7 @@ export function QuotationCard({ initialContent, onSend }: QuotationProps) {
       </div>
       
       <div className="p-6 md:p-8 overflow-x-auto" id="quotation-export-area">
-        <div className="min-w-[800px] max-w-4xl mx-auto bg-white dark:bg-zinc-950">
+        <div className="min-w-[800px] max-w-4xl mx-auto bg-[#FFFDF8] dark:bg-[#1A1A1A]">
           
           {/* Header Row: Company vs Quote Info */}
           <div className="flex justify-between items-start mb-8 pb-6 border-b-2 border-gray-800 dark:border-gray-200">
@@ -236,39 +236,39 @@ export function QuotationCard({ initialContent, onSend }: QuotationProps) {
           <div className="mb-6">
             <table className="w-full text-sm border-collapse">
               <thead>
-                <tr className="bg-gray-100 dark:bg-zinc-900">
-                  <th className="text-left py-3 px-2 font-bold text-gray-800 dark:text-gray-200 w-[5%] border border-gray-300 dark:border-zinc-700">No.</th>
-                  <th className="text-left py-3 px-2 font-bold text-gray-800 dark:text-gray-200 w-[20%] border border-gray-300 dark:border-zinc-700">Product</th>
-                  <th className="text-left py-3 px-2 font-bold text-gray-800 dark:text-gray-200 w-[25%] border border-gray-300 dark:border-zinc-700">Description</th>
-                  <th className="text-center py-3 px-2 font-bold text-gray-800 dark:text-gray-200 w-[10%] border border-gray-300 dark:border-zinc-700">Qty</th>
-                  <th className="text-center py-3 px-2 font-bold text-gray-800 dark:text-gray-200 w-[10%] border border-gray-300 dark:border-zinc-700">Unit</th>
-                  <th className="text-right py-3 px-2 font-bold text-gray-800 dark:text-gray-200 w-[15%] border border-gray-300 dark:border-zinc-700">Unit Price</th>
-                  <th className="text-right py-3 px-2 font-bold text-gray-800 dark:text-gray-200 w-[15%] border border-gray-300 dark:border-zinc-700">Total</th>
+                <tr className="bg-gray-100 dark:bg-[#3A2418]">
+                  <th className="text-left py-3 px-2 font-bold text-gray-800 dark:text-gray-200 w-[5%] border border-gray-300 dark:border-[#5F5A54]">No.</th>
+                  <th className="text-left py-3 px-2 font-bold text-gray-800 dark:text-gray-200 w-[20%] border border-gray-300 dark:border-[#5F5A54]">Product</th>
+                  <th className="text-left py-3 px-2 font-bold text-gray-800 dark:text-gray-200 w-[25%] border border-gray-300 dark:border-[#5F5A54]">Description</th>
+                  <th className="text-center py-3 px-2 font-bold text-gray-800 dark:text-gray-200 w-[10%] border border-gray-300 dark:border-[#5F5A54]">Qty</th>
+                  <th className="text-center py-3 px-2 font-bold text-gray-800 dark:text-gray-200 w-[10%] border border-gray-300 dark:border-[#5F5A54]">Unit</th>
+                  <th className="text-right py-3 px-2 font-bold text-gray-800 dark:text-gray-200 w-[15%] border border-gray-300 dark:border-[#5F5A54]">Unit Price</th>
+                  <th className="text-right py-3 px-2 font-bold text-gray-800 dark:text-gray-200 w-[15%] border border-gray-300 dark:border-[#5F5A54]">Total</th>
                 </tr>
               </thead>
               <tbody>
                 {items.map((it, idx) => (
                   <tr key={idx}>
-                    <td className="py-2 px-1 border border-gray-300 dark:border-zinc-700 text-center font-medium">{it.no}</td>
-                    <td className="py-1 px-1 border border-gray-300 dark:border-zinc-700">
+                    <td className="py-2 px-1 border border-gray-300 dark:border-[#5F5A54] text-center font-medium">{it.no}</td>
+                    <td className="py-1 px-1 border border-gray-300 dark:border-[#5F5A54]">
                       <Input value={it.product} onChange={e => updateItem(idx, 'product', e.target.value)} className="h-8 text-sm bg-transparent border-dashed rounded-none focus-visible:ring-0 px-1" placeholder="Product name" />
                     </td>
-                    <td className="py-1 px-1 border border-gray-300 dark:border-zinc-700">
+                    <td className="py-1 px-1 border border-gray-300 dark:border-[#5F5A54]">
                       <Input value={it.desc} onChange={e => updateItem(idx, 'desc', e.target.value)} className="h-8 text-sm bg-transparent border-dashed rounded-none focus-visible:ring-0 px-1" placeholder="Specs/Description" />
                     </td>
-                    <td className="py-1 px-1 border border-gray-300 dark:border-zinc-700">
+                    <td className="py-1 px-1 border border-gray-300 dark:border-[#5F5A54]">
                       <Input value={it.qty} onChange={e => updateItem(idx, 'qty', e.target.value)} className="h-8 text-sm text-center bg-transparent border-dashed rounded-none focus-visible:ring-0 px-1" placeholder="0" />
                     </td>
-                    <td className="py-1 px-1 border border-gray-300 dark:border-zinc-700">
+                    <td className="py-1 px-1 border border-gray-300 dark:border-[#5F5A54]">
                       <Input value={it.unit} onChange={e => updateItem(idx, 'unit', e.target.value)} className="h-8 text-sm text-center bg-transparent border-dashed rounded-none focus-visible:ring-0 px-1" placeholder="pcs" />
                     </td>
-                    <td className="py-1 px-1 border border-gray-300 dark:border-zinc-700">
+                    <td className="py-1 px-1 border border-gray-300 dark:border-[#5F5A54]">
                       <Input value={it.price} onChange={e => updateItem(idx, 'price', e.target.value)} className="h-8 text-sm text-right bg-transparent border-dashed rounded-none focus-visible:ring-0 px-1" placeholder="0.00" />
                     </td>
-                    <td className="py-1 px-1 border border-gray-300 dark:border-zinc-700 relative">
+                    <td className="py-1 px-1 border border-gray-300 dark:border-[#5F5A54] relative">
                       <div className="flex items-center gap-1">
                         <Input value={it.total} onChange={e => updateItem(idx, 'total', e.target.value)} className="h-8 text-sm text-right bg-transparent border-dashed font-semibold rounded-none focus-visible:ring-0 px-1" placeholder="0.00" />
-                        <button onClick={() => removeItem(idx)} className="no-export text-gray-400 hover:text-red-500 absolute -right-6" title="Remove item">
+                        <button onClick={() => removeItem(idx)} className="no-export text-gray-400 hover:text-[#B94A48] absolute -right-6" title="Remove item">
                           <Trash2 className="w-4 h-4" />
                         </button>
                       </div>
@@ -278,7 +278,7 @@ export function QuotationCard({ initialContent, onSend }: QuotationProps) {
               </tbody>
             </table>
             <div className="flex justify-start mt-3 no-export">
-              <Button variant="ghost" size="sm" onClick={addItem} className="text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50">
+              <Button variant="ghost" size="sm" onClick={addItem} className="text-[#C65A28] hover:text-[#C65A28] hover:bg-[#E8DCC9]">
                 <Plus className="w-4 h-4 mr-1" /> Add Row
               </Button>
             </div>
@@ -287,21 +287,21 @@ export function QuotationCard({ initialContent, onSend }: QuotationProps) {
           {/* Totals Section */}
           <div className="flex justify-end mb-10">
             <div className="w-1/3">
-              <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-zinc-800">
+              <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-[#3A2418]">
                 <span className="text-sm font-semibold text-gray-600 dark:text-gray-400">Subtotal</span>
                 <Input value={subtotal || calculatedSubtotal.toFixed(2)} onChange={e => setSubtotal(e.target.value)} className="h-8 text-sm text-right w-[150px] bg-transparent border-dashed font-medium" placeholder="0.00" />
               </div>
-              <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-zinc-800">
+              <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-[#3A2418]">
                 <span className="text-sm font-semibold text-gray-600 dark:text-gray-400">VAT / Tax</span>
                 <Input value={vat} onChange={e => setVat(e.target.value)} className="h-8 text-sm text-right w-[150px] bg-transparent border-dashed font-medium" placeholder="0.00" />
               </div>
-              <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-zinc-800">
+              <div className="flex justify-between items-center py-2 border-b border-gray-200 dark:border-[#3A2418]">
                 <span className="text-sm font-semibold text-gray-600 dark:text-gray-400">Delivery</span>
                 <Input value={deliveryCharges} onChange={e => setDeliveryCharges(e.target.value)} className="h-8 text-sm text-right w-[150px] bg-transparent border-dashed font-medium" placeholder="0.00" />
               </div>
               <div className="flex justify-between items-center py-3 border-b-2 border-gray-800 dark:border-gray-200 mt-1">
                 <span className="text-base font-bold text-gray-900 dark:text-gray-100">GRAND TOTAL</span>
-                <Input value={grandTotal || calculatedGrandTotal.toFixed(2)} onChange={e => setGrandTotal(e.target.value)} className="h-10 text-lg text-right w-[160px] bg-transparent border-dashed font-black text-emerald-600 dark:text-emerald-500" placeholder="0.00" />
+                <Input value={grandTotal || calculatedGrandTotal.toFixed(2)} onChange={e => setGrandTotal(e.target.value)} className="h-10 text-lg text-right w-[160px] bg-transparent border-dashed font-black text-[#C65A28] dark:text-[#C65A28]" placeholder="0.00" />
               </div>
             </div>
           </div>
@@ -309,7 +309,7 @@ export function QuotationCard({ initialContent, onSend }: QuotationProps) {
           {/* Terms & Conditions */}
           <div className="grid grid-cols-2 gap-8 mb-12">
             <div>
-              <h4 className="font-bold text-gray-800 dark:text-gray-200 uppercase tracking-wide border-b border-gray-300 dark:border-zinc-700 pb-2 mb-4">Terms & Conditions</h4>
+              <h4 className="font-bold text-gray-800 dark:text-gray-200 uppercase tracking-wide border-b border-gray-300 dark:border-[#5F5A54] pb-2 mb-4">Terms & Conditions</h4>
               <div className="space-y-3">
                 <div className="flex items-start gap-2">
                   <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 w-32 shrink-0 pt-2">Delivery Terms:</span>
@@ -331,18 +331,18 @@ export function QuotationCard({ initialContent, onSend }: QuotationProps) {
             </div>
             
             <div className="flex flex-col h-full">
-              <h4 className="font-bold text-gray-800 dark:text-gray-200 uppercase tracking-wide border-b border-gray-300 dark:border-zinc-700 pb-2 mb-4">Notes</h4>
+              <h4 className="font-bold text-gray-800 dark:text-gray-200 uppercase tracking-wide border-b border-gray-300 dark:border-[#5F5A54] pb-2 mb-4">Notes</h4>
               <textarea 
                 value={notes} 
                 onChange={e => setNotes(e.target.value)} 
-                className="w-full flex-1 min-h-[100px] text-sm bg-transparent border-dashed border border-gray-300 dark:border-zinc-700 rounded-md p-3 focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-none" 
+                className="w-full flex-1 min-h-[100px] text-sm bg-transparent border-dashed border border-gray-300 dark:border-[#5F5A54] rounded-md p-3 focus:outline-none focus:ring-1 focus:ring-[#C65A28] resize-none text-[#3A2418] dark:text-[#3A2418] placeholder:text-[#8B857D] caret-slate-900" 
                 placeholder="Additional notes or terms..."
               />
             </div>
           </div>
 
           {/* Signatures */}
-          <div className="flex justify-between items-end mt-16 pt-8 border-t border-gray-200 dark:border-zinc-800">
+          <div className="flex justify-between items-end mt-16 pt-8 border-t border-gray-200 dark:border-[#3A2418]">
             <div className="w-1/3">
               <div className="border-b border-gray-400 dark:border-gray-600 h-10 mb-2"></div>
               <p className="text-sm text-center font-medium text-gray-600 dark:text-gray-400">Authorized Signature</p>

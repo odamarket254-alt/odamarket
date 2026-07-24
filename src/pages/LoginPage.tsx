@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -10,38 +10,33 @@ import { motion } from "motion/react";
 import {
   Mail,
   Lock,
-  Globe2,
-  Check,
   ArrowRight,
   Eye,
-  EyeOff
+  EyeOff,
+  Check,
+  ShieldCheck,
+  Clock,
+  CreditCard,
+  ShoppingBag
 } from "lucide-react";
 import { cn } from "../lib/utils";
+import { Logo } from "../components/ui/Logo";
 
 const loginSchema = z.object({
-  email: z.string().email("Please enter a valid email address."),
+  emailOrPhone: z.string().min(1, "Please enter your email or phone number."),
   password: z.string().min(6, "Password must be at least 6 characters."),
   remember: z.boolean().optional(),
 });
-
 type LoginFormValues = z.infer<typeof loginSchema>;
-
-import { Logo } from "../components/ui/Logo";
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  
   const navigate = useNavigate();
   const location = useLocation();
-  const from = location.state?.from?.pathname || "/dashboard";
-  const { user, profile } = useAuthStore();
+  const { setProfile, setUser } = useAuthStore();
 
-  useEffect(() => {
-    if (user && profile) {
-      navigate(from, { replace: true });
-    }
-  }, [user, profile, navigate, from]);
+  const from = (location.state as any)?.from?.pathname || "/dashboard";
 
   const {
     register,
@@ -49,41 +44,64 @@ export default function LoginPage() {
     formState: { errors },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
+    defaultValues: {
+      remember: true,
+    },
   });
 
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
     try {
-      console.log(`[AUTH FLOW] Calling Supabase signInWithPassword...`);
-      const { data: authData, error } = await supabase.auth.signInWithPassword({
-        email: data.email,
-        password: data.password,
-      });
+      let email = undefined;
+      let phone = undefined;
+      
+      if (data.emailOrPhone.includes("@")) {
+        email = data.emailOrPhone;
+      } else {
+        let formattedPhone = data.emailOrPhone.trim().replace(/[\s\-()]/g, "");
+        if (formattedPhone.startsWith("0")) {
+          formattedPhone = "+254" + formattedPhone.substring(1);
+        } else if (!formattedPhone.startsWith("+")) {
+          formattedPhone = "+" + formattedPhone;
+        }
+        phone = formattedPhone;
+      }
 
-      if (error) {
-        console.error("[AUTH FLOW] Supabase login failed:", error);
-        toast.error("Login failed", { description: error.message });
-      } else {
-        console.log("[AUTH FLOW] Supabase login successful, session created.");
-        toast.success("Welcome back!", {
-          description: "Secure session established.",
-        });
-        // Note: Navigation happens via useEffect listening to auth state
+      const authOptions = email
+        ? { email, password: data.password }
+        : { phone, password: data.password };
+
+      const { data: authData, error: authError } = await supabase.auth.signInWithPassword(authOptions);
+
+      if (authError) throw authError;
+
+      if (authData?.user) {
+        // Check if verified via profile
+        const { data: profileData, error: profileError } = await supabase
+          .from("profiles")
+          .select("*")
+          .eq("id", authData.user.id)
+          .single();
+
+        if (profileError) {
+          console.error("Profile error:", profileError);
+        }
+
+        setUser(authData.user);
+        if (profileData) setProfile(profileData);
+
+        toast.success("Welcome back to ODA Market!");
+        navigate(from, { replace: true });
       }
-    } catch (err: any) {
-      console.error("[AUTH FLOW] Exception during login process:", err);
-      const isMissingCreds = !import.meta.env.VITE_SUPABASE_URL;
-      if (isMissingCreds && err.message && err.message.includes("fetch failed")) {
-        toast.error("Database Connection Failed", { description: "Supabase environment variables are not configured. Please add them in the project settings." });
-      } else {
-        toast.error("Login Error", { description: err.message || "An unexpected error occurred. Please try again later." });
-      }
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error.message || "Failed to sign in. Please check your credentials.");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleGoogleSignIn = async () => {
+  const handleGoogleLogin = async () => {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
@@ -91,192 +109,229 @@ export default function LoginPage() {
           redirectTo: `${window.location.origin}/dashboard`,
         },
       });
-      if (error)
-        toast.error("Google sign in failed", { description: error.message });
-    } catch (err) {
-      toast.error("An unexpected error occurred");
+      if (error) throw error;
+    } catch (error: any) {
+      toast.error(error.message || "Failed to sign in with Google.");
     }
   };
 
   return (
-    <div className="min-h-screen w-full flex flex-col items-center justify-center font-sans bg-[#07110B] text-[#FFFFFF] relative overflow-hidden selection:bg-[#00C46A]/20 selection:text-[#00C46A]">
-      
-      {/* Dynamic Background */}
-      <div className="absolute inset-0 bg-gradient-to-b from-[#07110B] via-[#0D1510] to-[#07110B] pointer-events-none"></div>
-      
-      {/* Light Grid Pattern */}
-      <div className="absolute inset-0 opacity-[0.02] bg-[linear-gradient(to_right,#ffffff_1px,transparent_1px),linear-gradient(to_bottom,#ffffff_1px,transparent_1px)] bg-[size:4rem_4rem] pointer-events-none"></div>
-
-      {/* Radial Glow */}
-      <div className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-[#00C46A] opacity-[0.08] blur-[150px] rounded-full pointer-events-none mix-blend-screen"></div>
-
-      {/* Top Header */}
-      <div className="relative z-10 flex flex-col items-center mb-8 px-4 text-center mt-12 sm:mt-0">
-        <Link to="/" className="mb-8 group block w-max">
-          <Logo />
-        </Link>
-        <h1 className="text-[32px] sm:text-[40px] font-bold tracking-tight mb-3 text-[#FFFFFF]">
-          Welcome Back
-        </h1>
-        <p className="text-[#9AA29B] text-[16px] max-w-[380px]">
-          Sign in to access your global procurement and supplier network.
-        </p>
-      </div>
-
-      {/* AUTH FORM PANEL */}
-      <motion.div 
-        initial={{ opacity: 0, scale: 0.98, y: 10 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.1 }}
-        className="relative z-10 w-full max-w-[480px] bg-[#0D1510]/80 backdrop-blur-2xl border border-white/5 rounded-[24px] shadow-[0_20px_60px_-15px_rgba(0,0,0,0.6),0_0_0_1px_rgba(0,196,106,0.05)_inset] p-6 sm:p-10 mb-8 sm:mb-12 mx-4"
-      >
-        {/* Glow behind the card */}
-        <div className="absolute -inset-0.5 bg-gradient-to-b from-[#00C46A]/10 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-500 rounded-[24px] blur pointer-events-none"></div>
-
-        <div className="relative z-10">
-          {/* Google Button */}
-          <button
-            type="button"
-            onClick={handleGoogleSignIn}
-            className="w-full h-[56px] bg-[#111A14] hover:bg-white/5 border border-white/10 hover:border-white/20 text-[#FFFFFF] font-semibold rounded-[16px] transition-all flex items-center justify-center relative overflow-hidden group"
-          >
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/[0.02] to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700"></div>
-            <svg className="mr-3 h-5 w-5" viewBox="0 0 24 24">
-              <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
-              <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
-              <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
-              <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
-            </svg>
-            Continue with Google
-          </button>
-
-          <div className="relative my-8">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-white/[0.08]"></div>
-            </div>
-            <div className="relative flex justify-center text-[11px] font-semibold tracking-wider text-[#9AA29B] uppercase">
-              <span className="bg-[#0D1510] px-4">Or continue with email</span>
-            </div>
-          </div>
-
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-            
-            {/* Email Field */}
-            <div className="space-y-2 relative group/field">
-              <label htmlFor="email" className="text-[14px] font-medium text-[#9AA29B] group-focus-within/field:text-[#FFFFFF] transition-colors">Business Email</label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-[#9AA29B] group-focus-within/field:text-[#00C46A] transition-colors z-10">
-                  <Mail className="w-5 h-5" />
-                </div>
-                <input
-                  id="email"
-                  type="email"
-                  placeholder="name@company.com"
-                  {...register("email")}
-                  className={cn(
-                    "w-full h-[56px] pl-[44px] pr-4 rounded-[14px] bg-[#111A14] border border-white/10 focus:outline-none transition-all text-[#FFFFFF] placeholder:text-[#9AA29B] text-[15px] hover:border-white/20 focus:border-[#00C46A] focus:shadow-[0_0_0_1px_rgba(0,196,106,1)]",
-                    errors.email && "border-red-500/50 focus:border-red-500 focus:shadow-[0_0_0_1px_rgba(239,68,68,1)]"
-                  )}
-                />
-              </div>
-              {errors.email && <p className="text-[13px] text-red-500 font-medium absolute -bottom-5 left-0">{errors.email.message}</p>}
-            </div>
-
-            {/* Password Field */}
-            <div className="space-y-2 relative group/field">
-              <div className="flex items-center justify-between">
-                <label htmlFor="password" className="text-[14px] font-medium text-[#9AA29B] group-focus-within/field:text-[#FFFFFF] transition-colors">Password</label>
-              </div>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-[#9AA29B] group-focus-within/field:text-[#00C46A] transition-colors z-10">
-                  <Lock className="w-5 h-5" />
-                </div>
-                <input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
-                  {...register("password")}
-                  className={cn(
-                    "w-full h-[56px] pl-[44px] pr-12 rounded-[14px] bg-[#111A14] border border-white/10 focus:outline-none transition-all text-[#FFFFFF] placeholder:text-[#9AA29B] text-[15px] hover:border-white/20 focus:border-[#00C46A] focus:shadow-[0_0_0_1px_rgba(0,196,106,1)]",
-                    errors.password && "border-red-500/50 focus:border-red-500 focus:shadow-[0_0_0_1px_rgba(239,68,68,1)]"
-                  )}
-                />
-                <button 
-                  type="button" 
-                  onClick={() => setShowPassword(!showPassword)} 
-                  className="absolute right-4 top-1/2 -translate-y-1/2 text-[#9AA29B] hover:text-[#FFFFFF] transition-colors"
-                >
-                  {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                </button>
-              </div>
-              {errors.password && <p className="text-[13px] text-red-500 font-medium absolute -bottom-5 left-0">{errors.password.message}</p>}
-            </div>
-
-            {/* Remember Me & Forgot Password */}
-            <div className="flex items-center justify-between pt-2">
-              <div className="flex items-center">
-                <div className="relative flex items-center">
-                  <input
-                    id="remember"
-                    type="checkbox"
-                    {...register("remember")}
-                    className="peer w-5 h-5 appearance-none rounded-[6px] border-2 border-white/20 bg-[#111A14] checked:bg-[#00C46A] checked:border-[#00C46A] transition-all cursor-pointer hover:border-white/30 hover:checked:border-[#00C46A]"
-                  />
-                  <Check className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-3.5 h-3.5 text-[#07110B] opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" strokeWidth={3} />
-                </div>
-                <label htmlFor="remember" className="ml-3 text-[14px] font-medium text-[#9AA29B] cursor-pointer select-none">
-                  Remember this device
-                </label>
-              </div>
-              <Link to="/forgot-password" className="text-[14px] font-semibold text-[#00C46A] hover:text-[#00E08A] transition-colors">
-                Forgot password?
-              </Link>
-            </div>
-
-            {/* Submit Button */}
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full h-[56px] mt-2 rounded-[14px] bg-gradient-to-r from-[#00C46A] to-[#00E08A] hover:brightness-110 text-[#07110B] font-bold text-[18px] shadow-[0_0_20px_rgba(0,196,106,0.3)] hover:shadow-[0_0_30px_rgba(0,196,106,0.4)] hover:-translate-y-0.5 active:translate-y-0 disabled:opacity-50 disabled:hover:translate-y-0 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center gap-2"
-            >
-              {isLoading ? (
-                <div className="w-6 h-6 border-2 border-[#07110B]/30 border-t-[#07110B] rounded-full animate-spin"></div>
-              ) : (
-                <>Access Marketplace <ArrowRight className="w-5 h-5" /></>
-              )}
-            </button>
-          </form>
-          
-          {/* Security Badge */}
-          <div className="mt-8 flex justify-center">
-            <div className="flex items-center gap-2 text-[13px] font-medium text-[#9AA29B] bg-white/[0.03] py-2.5 px-4 rounded-[10px] border border-white/5">
-               <Check className="h-4 w-4 text-[#00C46A]" />
-               <span>Protected by enterprise-grade security</span>
-            </div>
-          </div>
+    <div className="min-h-screen bg-[#F8F3EB] flex font-sans">
+      {/* LEFT SIDE HERO - Desktop Only */}
+      <div className="hidden lg:flex w-1/2 relative overflow-hidden flex-col justify-center bg-gradient-to-br from-[#F8F3EB] to-[#E8DCC9]">
+        <div className="absolute inset-0 z-0">
+           {/* Beautiful Supermarket Illustration generated by unsplash placeholders since we don't have a custom image, blending it beautifully */}
+           <img 
+            src="https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80&w=2000" 
+            alt="Supermarket Fresh Groceries" 
+            className="w-full h-full object-cover opacity-60 mix-blend-overlay"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#F8F3EB]/10 via-[#F8F3EB]/60 to-[#F8F3EB]"></div>
+          <div className="absolute inset-0 bg-gradient-to-t from-[#F8F3EB] via-transparent to-transparent"></div>
         </div>
-      </motion.div>
-
-      {/* BOTTOM SECTION */}
-      <div className="relative z-10 w-full max-w-[480px] px-4 pb-12 flex flex-col items-center">
-         <p className="text-[15px] font-medium text-[#9AA29B] mb-4">New to OdaMarket?</p>
-         <div className="flex flex-col sm:flex-row w-full gap-3 sm:gap-4">
-            <Link 
-              to="/register" 
-              className="flex-1 h-[48px] rounded-[12px] bg-transparent border border-white/10 hover:border-[#00C46A]/50 hover:bg-[#00C46A]/5 text-[#FFFFFF] font-medium flex items-center justify-center transition-all duration-200"
-            >
-              Create Supplier Account
-            </Link>
-            <Link 
-              to="/register" 
-              className="flex-1 h-[48px] rounded-[12px] bg-transparent border border-white/10 hover:border-[#00C46A]/50 hover:bg-[#00C46A]/5 text-[#FFFFFF] font-medium flex items-center justify-center transition-all duration-200"
-            >
-              Create Buyer Account
-            </Link>
-         </div>
+        
+        <motion.div 
+          initial={{ opacity: 0, x: -50 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.8, delay: 0.2 }}
+          className="relative z-10 p-16 max-w-xl"
+        >
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/60 backdrop-blur-md text-[#D96A27] font-bold text-sm mb-6 shadow-sm">
+            <ShoppingBag className="w-4 h-4" /> Fresh Groceries Daily
+          </div>
+          <h1 className="text-5xl font-extrabold text-[#1A1A1A] leading-[1.1] tracking-tight mb-6">
+            The freshest <span className="text-[#D96A27]">ingredients</span> delivered to your door.
+          </h1>
+          <p className="text-lg text-[#4A4A4A] font-medium leading-relaxed mb-10">
+            Join thousands of shoppers enjoying fresh vegetables, fruits, bakery items, and everyday household essentials with ODA Market.
+          </p>
+          
+          <div className="flex gap-4">
+            <div className="bg-white/80 backdrop-blur-md rounded-2xl p-4 flex-1 shadow-sm border border-white">
+               <div className="w-10 h-10 rounded-full bg-[#D96A27]/10 flex items-center justify-center mb-3">
+                 <Clock className="w-5 h-5 text-[#D96A27]" />
+               </div>
+               <h3 className="font-bold text-[#1A1A1A] mb-1">Fast Delivery</h3>
+               <p className="text-sm text-[#666]">Within hours to your doorstep</p>
+            </div>
+            <div className="bg-white/80 backdrop-blur-md rounded-2xl p-4 flex-1 shadow-sm border border-white">
+               <div className="w-10 h-10 rounded-full bg-[#D96A27]/10 flex items-center justify-center mb-3">
+                 <ShieldCheck className="w-5 h-5 text-[#D96A27]" />
+               </div>
+               <h3 className="font-bold text-[#1A1A1A] mb-1">Secure Payments</h3>
+               <p className="text-sm text-[#666]">Enterprise-grade security</p>
+            </div>
+          </div>
+        </motion.div>
       </div>
 
+      {/* RIGHT SIDE - Floating Login Card */}
+      <div className="w-full lg:w-1/2 flex items-center justify-center p-6 sm:p-12">
+        <motion.div 
+          initial={{ opacity: 0, y: 30 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6 }}
+          className="w-full max-w-[440px]"
+        >
+          {/* Mobile Logo (hidden on desktop where it's part of the layout) */}
+          <div className="flex justify-center mb-8 lg:hidden">
+            <Logo className="w-[140px]" />
+          </div>
+
+          <div className="bg-white rounded-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-[#E8DCC9]/50 p-8 sm:p-10 relative overflow-hidden">
+            {/* Subtle top accent */}
+            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#D96A27] to-[#f49c64]"></div>
+
+            <div className="text-center mb-8">
+              <div className="hidden lg:flex justify-center mb-6">
+                 <Logo className="w-[120px]" />
+              </div>
+              <h2 className="text-3xl font-bold text-[#1A1A1A] mb-2 tracking-tight">Welcome Back</h2>
+              <p className="text-[#666] text-sm font-medium">
+                Sign in to shop fresh groceries, beverages, and everyday products.
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={handleGoogleLogin}
+              className="w-full h-[52px] rounded-xl bg-white border border-[#E5E7EB] hover:bg-gray-50 text-[#374151] font-semibold text-[15px] flex items-center justify-center gap-3 transition-all duration-300 shadow-sm hover:shadow active:scale-[0.98]"
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4" />
+                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853" />
+                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05" />
+                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
+              </svg>
+              Continue with Google
+            </button>
+
+            <div className="relative my-7">
+              <div className="absolute inset-0 flex items-center">
+                <div className="w-full border-t border-gray-200"></div>
+              </div>
+              <div className="relative flex justify-center text-[11px] font-bold tracking-widest text-[#9CA3AF] uppercase">
+                <span className="bg-white px-4">Or continue with email</span>
+              </div>
+            </div>
+
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+              {/* Email/Phone Field */}
+              <div className="space-y-1.5 relative group/field">
+                <label htmlFor="emailOrPhone" className="block text-[#4B5563] text-sm font-semibold">Email or Phone</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#9CA3AF] group-focus-within/field:text-[#D96A27] transition-colors z-10">
+                    <Mail className="w-5 h-5" />
+                  </div>
+                  <input
+                    id="emailOrPhone"
+                    type="text"
+                    placeholder="name@example.com or 0712345678"
+                    {...register("emailOrPhone")}
+                    className={cn(
+                      "w-full h-[52px] pl-[42px] pr-[16px] rounded-xl bg-white border outline-none transition-all duration-300 text-[#1F2937] placeholder:text-[#9CA3AF] text-[15px] font-medium shadow-sm hover:border-[#D1D5DB]",
+                      errors.emailOrPhone 
+                        ? "border-red-500 focus:border-red-500 focus:shadow-[0_0_0_4px_rgba(239,68,68,0.1)]" 
+                        : "border-[#E5E7EB] focus:border-[#D96A27] focus:shadow-[0_0_0_4px_rgba(217,106,39,0.1)]"
+                    )}
+                  />
+                </div>
+                {errors.emailOrPhone && <p className="text-[13px] text-red-500 font-medium">{errors.emailOrPhone.message}</p>}
+              </div>
+
+              {/* Password Field */}
+              <div className="space-y-1.5 relative group/field">
+                <label htmlFor="password" className="block text-[#4B5563] text-sm font-semibold">Password</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-[#9CA3AF] group-focus-within/field:text-[#D96A27] transition-colors z-10">
+                    <Lock className="w-5 h-5" />
+                  </div>
+                  <input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    {...register("password")}
+                    className={cn(
+                      "w-full h-[52px] pl-[42px] pr-[48px] rounded-xl bg-white border outline-none transition-all duration-300 text-[#1F2937] placeholder:text-[#9CA3AF] text-[15px] font-medium shadow-sm hover:border-[#D1D5DB]",
+                      errors.password 
+                        ? "border-red-500 focus:border-red-500 focus:shadow-[0_0_0_4px_rgba(239,68,68,0.1)]" 
+                        : "border-[#E5E7EB] focus:border-[#D96A27] focus:shadow-[0_0_0_4px_rgba(217,106,39,0.1)]"
+                    )}
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => setShowPassword(!showPassword)} 
+                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#9CA3AF] hover:text-[#D96A27] transition-colors focus:outline-none"
+                  >
+                    {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                </div>
+                {errors.password && <p className="text-[13px] text-red-500 font-medium">{errors.password.message}</p>}
+              </div>
+
+              {/* Options */}
+              <div className="flex items-center justify-between pt-1 pb-1">
+                <label className="flex items-center gap-2 cursor-pointer group">
+                  <div className="relative flex items-center">
+                    <input
+                      type="checkbox"
+                      {...register("remember")}
+                      className="peer w-[18px] h-[18px] appearance-none rounded-[5px] border-2 border-[#D1D5DB] bg-white checked:bg-[#D96A27] checked:border-[#D96A27] transition-all cursor-pointer hover:border-[#9CA3AF] checked:hover:border-[#D96A27]"
+                    />
+                    <Check className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 text-white opacity-0 peer-checked:opacity-100 pointer-events-none transition-opacity" strokeWidth={3} />
+                  </div>
+                  <span className="text-[14px] font-medium text-[#4B5563] group-hover:text-[#1F2937] transition-colors select-none">
+                    Remember this device
+                  </span>
+                </label>
+                <Link to="/forgot-password" className="text-[14px] font-bold text-[#D96A27] hover:text-[#c45a1f] transition-colors">
+                  Forgot password?
+                </Link>
+              </div>
+
+              {/* Submit Button */}
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full h-[52px] rounded-xl bg-[#D96A27] hover:bg-[#c45a1f] text-white font-bold text-[16px] shadow-[0_4px_14px_rgba(217,106,39,0.3)] hover:shadow-[0_6px_20px_rgba(217,106,39,0.4)] hover:-translate-y-[1px] active:translate-y-[1px] disabled:opacity-70 disabled:hover:translate-y-0 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center gap-2 overflow-hidden relative"
+              >
+                {/* Button shine effect */}
+                <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/20 to-transparent hover:animate-[shimmer_1.5s_infinite]"></div>
+                
+                {isLoading ? (
+                  <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                ) : (
+                  <>Shop Now <ArrowRight className="w-5 h-5 ml-1" /></>
+                )}
+              </button>
+            </form>
+          </div>
+
+          <div className="text-center mt-8">
+            <p className="text-[15px] font-medium text-[#6B7280]">
+              Don't have an account?{" "}
+              <Link to="/register" className="font-bold text-[#D96A27] hover:text-[#c45a1f] transition-colors underline decoration-[#D96A27]/30 decoration-2 underline-offset-4 hover:decoration-[#D96A27]">
+                Create an account
+              </Link>
+            </p>
+          </div>
+          
+          <div className="mt-8 flex items-center justify-center gap-6 text-[#9CA3AF]">
+             <div className="flex flex-col items-center gap-1 group">
+               <ShieldCheck className="w-5 h-5 group-hover:text-[#D96A27] transition-colors" />
+               <span className="text-[10px] uppercase font-bold tracking-wider">Secure</span>
+             </div>
+             <div className="flex flex-col items-center gap-1 group">
+               <CreditCard className="w-5 h-5 group-hover:text-[#D96A27] transition-colors" />
+               <span className="text-[10px] uppercase font-bold tracking-wider">Payments</span>
+             </div>
+             <div className="flex flex-col items-center gap-1 group">
+               <ShoppingBag className="w-5 h-5 group-hover:text-[#D96A27] transition-colors" />
+               <span className="text-[10px] uppercase font-bold tracking-wider">Fresh</span>
+             </div>
+          </div>
+        </motion.div>
+      </div>
     </div>
   );
 }
-

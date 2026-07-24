@@ -96,7 +96,7 @@ export function CreateRFQModal({ isOpen, onClose, productId, categoryId, initial
                 stiffness: 260,
                 damping: 20,
               }}
-              className="w-24 h-24 rounded-full bg-emerald-100 dark:bg-emerald-500/20 flex items-center justify-center text-emerald-600 dark:text-emerald-400 mb-4"
+              className="w-24 h-24 rounded-full bg-[#E8DCC9] dark:bg-[#C65A28]/20 flex items-center justify-center text-[#C65A28] dark:text-[#6B8E23] mb-4"
             >
               <motion.svg
                 xmlns="http://www.w3.org/2000/svg"
@@ -147,7 +147,7 @@ export function CreateRFQModal({ isOpen, onClose, productId, categoryId, initial
         <form onSubmit={handleSubmit} className="space-y-6 mt-4">
           <div className="space-y-4">
             <div>
-              <Label htmlFor="title" className="text-sm font-semibold">Product Name / RfQ Title <span className="text-red-500">*</span></Label>
+              <Label htmlFor="title" className="text-sm font-semibold">Product Name / RfQ Title <span className="text-[#B94A48]">*</span></Label>
               <Input
                 id="title"
                 name="title"
@@ -161,7 +161,7 @@ export function CreateRFQModal({ isOpen, onClose, productId, categoryId, initial
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="quantity" className="text-sm font-semibold">Quantity <span className="text-red-500">*</span></Label>
+                <Label htmlFor="quantity" className="text-sm font-semibold">Quantity <span className="text-[#B94A48]">*</span></Label>
                 <div className="flex gap-2 mt-1">
                   <Input
                     id="quantity"
@@ -178,7 +178,7 @@ export function CreateRFQModal({ isOpen, onClose, productId, categoryId, initial
                     name="unit"
                     value={formData.unit}
                     onChange={handleChange}
-                    className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                    className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring text-[#3A2418] dark:text-[#3A2418] placeholder:text-[#8B857D] caret-slate-900"
                   >
                     <option value="pieces">Pieces</option>
                     <option value="kg">Kg</option>
@@ -205,7 +205,7 @@ export function CreateRFQModal({ isOpen, onClose, productId, categoryId, initial
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="delivery_location" className="text-sm font-semibold">Delivery Location <span className="text-red-500">*</span></Label>
+                <Label htmlFor="delivery_location" className="text-sm font-semibold">Delivery Location <span className="text-[#B94A48]">*</span></Label>
                 <Input
                   id="delivery_location"
                   name="delivery_location"
@@ -230,7 +230,7 @@ export function CreateRFQModal({ isOpen, onClose, productId, categoryId, initial
             </div>
 
             <div>
-              <Label htmlFor="description" className="text-sm font-semibold">Detailed Requirements <span className="text-red-500">*</span></Label>
+              <Label htmlFor="description" className="text-sm font-semibold">Detailed Requirements <span className="text-[#B94A48]">*</span></Label>
               <Textarea
                 id="description"
                 name="description"

@@ -25,6 +25,14 @@ export function SellerRFQsPage() {
   useEffect(() => {
     if (user) {
       loadRFQs();
+      
+      const channel = supabase.channel('public:rfqs:seller')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'rfqs' }, () => {
+          loadRFQs();
+        })
+        .subscribe();
+
+      return () => { supabase.removeChannel(channel); };
     }
   }, [user]);
 
@@ -59,11 +67,11 @@ export function SellerRFQsPage() {
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, string> = {
-      pending: "bg-amber-500/10 text-amber-600 border-amber-500/20",
-      quoted: "bg-blue-500/10 text-blue-600 border-blue-500/20",
-      negotiating: "bg-purple-500/10 text-purple-600 border-purple-500/20",
+      pending: "bg-[#D9A62E]/10 text-[#D9A62E] border-[#D9A62E]/20",
+      quoted: "bg-[#E8DCC9]0/10 text-[#C65A28] border-blue-500/20",
+      negotiating: "bg-[#E8DCC9]0/10 text-[#6B8E23] border-purple-500/20",
       accepted: "bg-green-500/10 text-green-600 border-green-500/20",
-      rejected: "bg-red-500/10 text-red-600 border-red-500/20",
+      rejected: "bg-[#B94A48]/100/10 text-red-600 border-red-500/20",
       closed: "bg-gray-500/10 text-gray-600 border-gray-500/20"
     };
     return variants[status] || variants.pending;
@@ -94,7 +102,7 @@ export function SellerRFQsPage() {
                 <p className="text-sm font-medium text-muted-foreground">New RFQs</p>
                 <h3 className="text-3xl font-bold mt-1">{rfqs.filter(r => !hasResponded(r)).length}</h3>
               </div>
-              <div className="h-12 w-12 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-600">
+              <div className="h-12 w-12 rounded-full bg-[#D9A62E]/10 flex items-center justify-center text-[#D9A62E]">
                 <FileText className="w-6 h-6" />
               </div>
             </div>
@@ -107,7 +115,7 @@ export function SellerRFQsPage() {
                 <p className="text-sm font-medium text-muted-foreground">Quoted</p>
                 <h3 className="text-3xl font-bold mt-1">{rfqs.filter(r => hasResponded(r)).length}</h3>
               </div>
-              <div className="h-12 w-12 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-600">
+              <div className="h-12 w-12 rounded-full bg-[#E8DCC9]0/10 flex items-center justify-center text-[#C65A28]">
                 <FileText className="w-6 h-6" />
               </div>
             </div>
@@ -145,7 +153,7 @@ export function SellerRFQsPage() {
                 />
               </div>
               <select
-                className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                className="h-10 rounded-md border border-input bg-background px-3 py-2 text-sm text-[#3A2418] dark:text-[#3A2418] placeholder:text-[#8B857D] caret-slate-900"
                 value={statusFilter}
                 onChange={(e) => setStatusFilter(e.target.value)}
               >
@@ -160,7 +168,7 @@ export function SellerRFQsPage() {
           <div className="divide-y divide-border">
             {loading ? (
               <div className="p-12 text-center text-muted-foreground flex flex-col items-center justify-center">
-                <div className="w-8 h-8 rounded-full border-2 border-emerald-500 border-t-transparent animate-spin mb-4"></div>
+                <div className="w-8 h-8 rounded-full border-2 border-[#C65A28] border-t-transparent animate-spin mb-4"></div>
                 <p className="font-medium tracking-wide">Loading RFQs...</p>
               </div>
             ) : filteredRfqs.length === 0 ? (
@@ -178,7 +186,7 @@ export function SellerRFQsPage() {
                     <div className="flex items-center gap-3">
                       <h3 className="font-bold text-lg text-foreground tracking-tight">{rfq.title}</h3>
                       {hasResponded(rfq) && (
-                         <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-500 border-emerald-500/20 px-2.5 py-0.5 text-xs font-semibold">
+                         <Badge variant="secondary" className="bg-[#C65A28]/10 text-[#C65A28] dark:text-[#C65A28] border-[#C65A28]/20 px-2.5 py-0.5 text-xs font-semibold">
                            Quoted
                          </Badge>
                       )}
@@ -199,7 +207,7 @@ export function SellerRFQsPage() {
                           setSelectedRfq(rfq);
                           setIsQuoting(true);
                         }}
-                        className="ml-2 bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-6 shadow-sm hover:shadow-md transition-all"
+                        className="ml-2 bg-[#C65A28] hover:bg-[#C65A28] text-white font-bold px-6 shadow-sm hover:shadow-md transition-all"
                       >
                         Submit Quote
                       </Button>

@@ -173,7 +173,7 @@ export default function SupplierProfilePage() {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <span className="text-5xl text-emerald-600 dark:text-emerald-500 font-extrabold uppercase tracking-tight">
+                <span className="text-5xl text-[#C65A28] dark:text-[#C65A28] font-extrabold uppercase tracking-tight">
                   {supplier.business_name?.charAt(0) || "S"}
                 </span>
               )}
@@ -207,7 +207,7 @@ export default function SupplierProfilePage() {
                 <Dialog>
                   <DialogTrigger
                     render={
-                      <Button className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/20" />
+                      <Button className="w-full sm:w-auto bg-[#C65A28] hover:bg-[#C65A28] text-white shadow-lg shadow-#C65A28/20" />
                     }
                   >
                     <Mail className="h-4 w-4 mr-2" />
@@ -257,7 +257,7 @@ export default function SupplierProfilePage() {
                             "Message sent! The supplier will respond shortly.",
                           )
                         }
-                        className="w-full bg-emerald-600 hover:bg-emerald-500 text-white"
+                        className="w-full bg-[#C65A28] hover:bg-[#C65A28] text-white"
                       >
                         Send Message
                       </Button>
@@ -266,7 +266,7 @@ export default function SupplierProfilePage() {
                 </Dialog>
               ) : (
                 <Button
-                  className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-500/20"
+                  className="w-full sm:w-auto bg-[#C65A28] hover:bg-[#C65A28] text-white shadow-lg shadow-#C65A28/20"
                   onClick={() =>
                     toast.error("Authentication required", {
                       description: "Please log in to contact this supplier.",
@@ -295,12 +295,12 @@ export default function SupplierProfilePage() {
       <div>
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-2xl font-bold flex items-center gap-2">
-            <Package className="h-5 w-5 text-emerald-600 dark:text-emerald-500" />
+            <Package className="h-5 w-5 text-[#C65A28] dark:text-[#C65A28]" />
             Products by {supplier.business_name}
           </h2>
           <Badge
             variant="outline"
-            className="text-emerald-600 dark:text-emerald-500 border-emerald-500/30 bg-emerald-500/10"
+            className="text-[#C65A28] dark:text-[#C65A28] border-[#C65A28]/30 bg-[#C65A28]/10"
           >
             {products.length} Items Listed
           </Badge>

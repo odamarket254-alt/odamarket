@@ -96,7 +96,7 @@ export default function SuppliersPage() {
 
       {loading ? (
         <div className="flex flex-col items-center justify-center p-20">
-          <div className="w-10 h-10 rounded-full border-[3px] border-emerald-500 border-t-transparent animate-spin mb-4"></div>
+          <div className="w-10 h-10 rounded-full border-[3px] border-[#C65A28] border-t-transparent animate-spin mb-4"></div>
           <p className="font-medium text-muted-foreground animate-pulse">Loading suppliers...</p>
         </div>
       ) : suppliers.length === 0 ? (
@@ -115,7 +115,7 @@ export default function SuppliersPage() {
             <Link
               key={supplier.id}
               to={`/suppliers/${supplier.id}`}
-              className="bg-card border border-border/60 rounded-3xl p-6 transition-all duration-300 shadow-[0_2px_10px_rgb(0,0,0,0.02)] hover:shadow-xl hover:shadow-emerald-900/5 hover:-translate-y-1 hover:border-emerald-500/40 relative group"
+              className="bg-card border border-border/60 rounded-3xl p-6 transition-all duration-300 shadow-[0_2px_10px_rgb(0,0,0,0.02)] hover:shadow-xl hover:shadow-emerald-900/5 hover:-translate-y-1 hover:border-[#C65A28]/40 relative group"
             >
               <div className="flex flex-col h-full relative z-10">
                 <div className="h-16 w-16 bg-muted/80 rounded-2xl flex items-center justify-center overflow-hidden shrink-0 border border-border/50 shadow-sm mb-5">
@@ -133,7 +133,7 @@ export default function SuppliersPage() {
                 </div>
 
                 <div className="flex items-start gap-2 mb-2 w-full">
-                  <h3 className="text-xl font-bold group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors tracking-tight line-clamp-1 flex-1 min-w-0">
+                  <h3 className="text-xl font-bold group-hover:text-[#C65A28] dark:group-hover:text-[#6B8E23] transition-colors tracking-tight line-clamp-1 flex-1 min-w-0">
                     {supplier.business_name || "Unnamed Supplier"}
                   </h3>
                   <VerifiedBadge showText={false} country={supplier.country} className="shrink-0 scale-90 -mt-0.5" />
@@ -141,7 +141,7 @@ export default function SuppliersPage() {
 
                 {supplier.address && (
                   <div className="flex items-center text-muted-foreground text-sm font-medium mb-4">
-                    <MapPin className="h-4 w-4 mr-1.5 opacity-70 text-emerald-500" />
+                    <MapPin className="h-4 w-4 mr-1.5 opacity-70 text-[#C65A28]" />
                     <span className="truncate">{supplier.address}</span>
                   </div>
                 )}

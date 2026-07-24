@@ -35,6 +35,8 @@ import {
   Package,
   Image as ImageIcon,
   Upload,
+  Check,
+  X,
 } from "lucide-react";
 import { motion } from "motion/react";
 import { supabase } from "../../lib/supabase";
@@ -53,12 +55,13 @@ interface Product {
   category?: string;
   category_id?: string;
   categories?: { name: string; slug: string };
+  product_type?: { name: string };
   price: string;
   moq: string;
   stock: string | number;
   status: "active" | "draft";
   image_url: string | null;
-  seller_id?: string;
+  supplier_id?: string;
   description?: string;
   tags?: string[];
 }
@@ -84,6 +87,7 @@ const getProductMetadata = (tags?: string[]) => {
 
 export default function DashboardProductsPage() {
   const { user, profile } = useAuthStore();
+  const isAdmin = ["admin", "super_admin", "moderator", "content_manager", "support_agent"].includes(profile?.role || "");
   const [products, setProducts] = useState<Product[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
@@ -94,6 +98,22 @@ export default function DashboardProductsPage() {
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [productToDelete, setProductToDelete] = useState<Product | null>(null);
   const [categories, setCategories] = useState<Category[]>([]);
+
+  const handleAdminAction = async (productId: string, action: string) => {
+    try {
+      let updateData = {};
+      if (action === "approve") updateData = { status: "active" };
+      else if (action === "reject" || action === "hide") updateData = { status: "draft" };
+      else return;
+
+      const { error } = await supabase.from("products").update(updateData).eq("id", productId);
+      if (error) throw error;
+      toast.success(`Product ${action}d successfully`);
+      fetchProducts();
+    } catch (e: any) {
+      toast.error(e.message || `Failed to ${action} product`);
+    }
+  };
 
   useEffect(() => {
     const fetchCategories = async () => {
@@ -113,6 +133,10 @@ export default function DashboardProductsPage() {
     fetchProducts();
 
     // Enable Realtime Subscriptions
+    const isAdmin = ["admin", "super_admin", "moderator", "content_manager", "support_agent"].includes(profile?.role || "");
+    
+    const filterOption = isAdmin ? {} : { filter: `supplier_id=eq.${user.id}` };
+
     const channel = supabase
       .channel("products-changes")
       .on(
@@ -121,7 +145,7 @@ export default function DashboardProductsPage() {
           event: "*",
           schema: "public",
           table: "products",
-          filter: `seller_id=eq.${user.id}`,
+          ...filterOption
         },
         () => {
           fetchProducts();
@@ -137,11 +161,19 @@ export default function DashboardProductsPage() {
   const fetchProducts = async () => {
     try {
       setIsLoading(true);
-      const { data, error } = await supabase
+      
+      const isAdmin = ["admin", "super_admin", "moderator", "content_manager", "support_agent"].includes(profile?.role || "");
+      
+      let query = supabase
         .from("products")
-        .select("*, categories!left(name, slug)")
-        .eq("seller_id", user?.id)
+        .select("*, product_type:product_types!left(name)")
         .order("created_at", { ascending: false });
+        
+      if (!isAdmin && user) {
+        query = query.eq("supplier_id", user.id);
+      }
+
+      const { data, error } = await query;
 
       if (error) {
         console.error("Error fetching products:", error);
@@ -158,7 +190,7 @@ export default function DashboardProductsPage() {
   const filteredProducts = products.filter(
     (product) => {
       const pName = product.name || "";
-      const pCat = product.categories?.name || product.category || "";
+      const pCat = product.product_type?.name || product.category || "";
       return pName.toLowerCase().includes(searchQuery.toLowerCase()) ||
              pCat.toLowerCase().includes(searchQuery.toLowerCase());
     }
@@ -190,7 +222,7 @@ export default function DashboardProductsPage() {
     };
 
     const newProduct = {
-      seller_id: user.id,
+      supplier_id: user.id,
       name: formData.get("name") as string,
       title: formData.get("name") as string, // Backwards compatibility
       category_id: formData.get("category_id") as string || null,
@@ -266,8 +298,8 @@ export default function DashboardProductsPage() {
               <Button 
                 className={
                   profile?.role === "seller" && profile?.verified
-                    ? "bg-amber-600 hover:bg-amber-500 text-foreground gap-2 h-10 px-4 shadow-[0_0_15px_rgba(245,158,11,0.2)]"
-                    : "bg-emerald-600 hover:bg-emerald-500 text-foreground gap-2 h-10 px-4"
+                    ? "bg-[#D9A62E] hover:bg-[#D9A62E] text-foreground gap-2 h-10 px-4 shadow-[0_0_15px_rgba(245,158,11,0.2)]"
+                    : "bg-[#C65A28] hover:bg-[#C65A28] text-foreground gap-2 h-10 px-4"
                 } 
                 onClick={() => setEditingProduct(null)} 
               />
@@ -310,7 +342,7 @@ export default function DashboardProductsPage() {
                       type="file"
                       id="image-upload"
                       accept="image/*"
-                      className="hidden"
+                      className="hidden text-[#3A2418] dark:text-[#3A2418] placeholder:text-[#8B857D] caret-slate-900"
                       onChange={handleImageChange}
                     />
                     <p className="mt-1 text-xs text-muted-foreground">
@@ -477,7 +509,7 @@ export default function DashboardProductsPage() {
                 <Button
                   type="submit"
                   disabled={isSubmitting}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-foreground"
+                  className="bg-[#C65A28] hover:bg-[#C65A28] text-foreground"
                 >
                   {isSubmitting ? "Saving..." : "Save Product"}
                 </Button>
@@ -498,7 +530,7 @@ export default function DashboardProductsPage() {
                   placeholder="Search products..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 bg-background border-border/60 text-foreground focus-visible:ring-emerald-500/20 focus-visible:border-emerald-500 h-11 rounded-xl shadow-sm w-full"
+                  className="pl-10 bg-background border-border/60 text-foreground focus-visible:ring-[#C65A28]/20 focus-visible:border-[#C65A28] h-11 rounded-xl shadow-sm w-full"
                 />
               </div>
             </div>
@@ -546,11 +578,11 @@ export default function DashboardProductsPage() {
                   </div>
 
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-lg font-bold text-foreground tracking-tight truncate group-hover:text-emerald-600 dark:group-hover:text-emerald-400 transition-colors">
+                    <h3 className="text-lg font-bold text-foreground tracking-tight truncate group-hover:text-[#C65A28] dark:group-hover:text-[#6B8E23] transition-colors">
                       {product.name}
                     </h3>
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-sm font-medium text-muted-foreground">
-                      <span className="truncate">{product.categories?.name || product.category}</span>
+                      <span className="truncate">{product.product_type?.name || product.category}</span>
                       <span className="w-1 h-1 rounded-full bg-border shrink-0" />
                       <span>{product.stock} in stock</span>
                       <span className="w-1 h-1 rounded-full bg-border shrink-0" />
@@ -564,7 +596,7 @@ export default function DashboardProductsPage() {
                     <div
                       className={`px-3 py-1 text-xs font-bold uppercase tracking-wider rounded-full ${
                         product.status === "active"
-                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20"
+                          ? "bg-[#C65A28]/10 text-[#C65A28] dark:text-[#6B8E23] border border-[#C65A28]/20"
                           : "bg-muted text-muted-foreground border border-border"
                       }`}
                     >
@@ -598,8 +630,26 @@ export default function DashboardProductsPage() {
                           <Edit className="h-4 w-4 text-muted-foreground" />
                           Edit
                         </DropdownMenuItem>
+                        {isAdmin && product.status !== "active" && (
+                          <DropdownMenuItem 
+                            className="focus:bg-[#C65A28]/10 focus:text-[#C65A28] cursor-pointer gap-2"
+                            onClick={() => handleAdminAction(product.id, "approve")}
+                          >
+                            <Check className="h-4 w-4" />
+                            Approve
+                          </DropdownMenuItem>
+                        )}
+                        {isAdmin && product.status === "active" && (
+                          <DropdownMenuItem 
+                            className="focus:bg-[#D9A62E]/10 focus:text-[#D9A62E] cursor-pointer gap-2"
+                            onClick={() => handleAdminAction(product.id, "reject")}
+                          >
+                            <X className="h-4 w-4" />
+                            Reject
+                          </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem 
-                          className="focus:bg-red-500/10 focus:text-red-400 text-red-500 cursor-pointer gap-2"
+                          className="focus:bg-[#B94A48]/100/10 focus:text-red-400 text-[#B94A48] cursor-pointer gap-2"
                           onClick={() => {
                             setProductToDelete(product);
                             setIsDeleteOpen(true);
@@ -630,7 +680,7 @@ export default function DashboardProductsPage() {
               {!searchQuery && (
                 <Button
                   onClick={() => setIsAddOpen(true)}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-foreground gap-2"
+                  className="bg-[#C65A28] hover:bg-[#C65A28] text-foreground gap-2"
                 >
                   <Plus className="h-4 w-4" />
                   Add First Product
@@ -678,7 +728,7 @@ export default function DashboardProductsPage() {
                 }
               }}
               disabled={isSubmitting}
-              className="bg-red-600 hover:bg-red-500 text-white"
+              className="bg-red-600 hover:bg-[#B94A48]/100 text-white"
             >
               {isSubmitting ? "Deleting..." : "Delete"}
             </Button>

@@ -1,0 +1,6 @@
+<svg width="240" height="60" viewBox="0 0 240 60" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <path d="M43.7143 30C43.7143 40.2561 35.4053 48.5714 25.1429 48.5714C14.8804 48.5714 6.57143 40.2561 6.57143 30C6.57143 19.7439 14.8804 11.4286 25.1429 11.4286C35.4053 11.4286 43.7143 19.7439 43.7143 30Z" stroke="#0A2E5C" stroke-width="7"/>
+  <path d="M25.1429 38.5714C29.8767 38.5714 33.7143 34.7339 33.7143 30C33.7143 25.2661 29.8767 21.4286 25.1429 21.4286C20.409 21.4286 16.5714 25.2661 16.5714 30C16.5714 34.7339 20.409 38.5714 25.1429 38.5714Z" fill="#2BB673"/>
+  <text x="56" y="41" font-family="system-ui, sans-serif" font-weight="900" font-size="34" fill="#0A2E5C" letter-spacing="-1.5">ODA</text>
+  <text x="132" y="41" font-family="system-ui, sans-serif" font-weight="700" font-size="34" fill="#2BB673" letter-spacing="-1">Market</text>
+</svg>

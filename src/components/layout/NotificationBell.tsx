@@ -41,7 +41,7 @@ export function NotificationBell() {
           setUnreadCount((prev) => prev + 1);
           toast(newNotif.title, {
             description: newNotif.message,
-            icon: <Bell className="h-4 w-4 text-emerald-600 dark:text-emerald-500" />,
+            icon: <Bell className="h-4 w-4 text-[#C65A28] dark:text-[#C65A28]" />,
             action: newNotif.link ? {
               label: "View",
               onClick: () => window.location.href = newNotif.link
@@ -115,7 +115,7 @@ export function NotificationBell() {
           <Button variant="ghost" size="icon" className="relative">
             <Bell className="h-5 w-5 text-muted-foreground" />
             {unreadCount > 0 && (
-              <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-red-500 ring-2 ring-background animate-pulse" />
+              <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-[#B94A48]/100 ring-2 ring-background animate-pulse" />
             )}
           </Button>
         }
@@ -128,7 +128,7 @@ export function NotificationBell() {
               variant="ghost"
               size="sm"
               onClick={markAllAsRead}
-              className="text-xs h-auto py-1 text-emerald-600 dark:text-emerald-500 hover:text-emerald-600 dark:text-emerald-400"
+              className="text-xs h-auto py-1 text-[#C65A28] dark:text-[#C65A28] hover:text-[#C65A28] dark:text-[#6B8E23]"
             >
               Mark all as read
             </Button>
@@ -150,7 +150,7 @@ export function NotificationBell() {
               >
                 <div className="mt-1">
                   {!notif.read && (
-                    <div className="h-2 w-2 bg-emerald-500 rounded-full" />
+                    <div className="h-2 w-2 bg-[#C65A28] rounded-full" />
                   )}
                 </div>
                 <div className="flex-1 space-y-1">
@@ -165,7 +165,7 @@ export function NotificationBell() {
                       <Button
                         variant="link"
                         size="sm"
-                        className="h-auto p-0 text-xs text-emerald-600 dark:text-emerald-500"
+                        className="h-auto p-0 text-xs text-[#C65A28] dark:text-[#C65A28]"
                         render={<Link to={notif.link} />}
                         onClick={() => {
                           markAsRead(notif.id);

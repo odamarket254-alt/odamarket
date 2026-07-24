@@ -1,422 +1,408 @@
-import React, { useState, useEffect } from "react";
-import { supabase } from "../../lib/supabase";
-import { Button } from "../../components/ui/Button";
-import { Input } from "../../components/ui/Input";
-import { Label } from "../../components/ui/Label";
-import { Textarea } from "../../components/ui/Textarea";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "../../components/ui/Dialog";
-import { Plus, Edit2, Trash2, Folder, Package, RefreshCw, ImageIcon } from "lucide-react";
-import { toast } from "sonner";
+import { useState, useMemo } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { 
+  Plus, Search, Edit2, Trash2, FolderTree, GripVertical, Check, X, 
+  Image as ImageIcon, MoreVertical, Archive, Eye, EyeOff, Navigation,
+  ChevronRight, ChevronDown, BarChart3, Upload, RefreshCw
+} from 'lucide-react';
+import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
+import { Badge } from '../../components/ui/Badge';
+import { toast } from 'sonner';
+import { cn } from '../../lib/utils';
+import { Category, CategoryTreeItem } from '../../types/category';
+import { getCategories, deleteCategory, updateCategory } from '../../lib/api/categories';
+import { getBrands } from '../../lib/api/brands';
+import { Tags } from 'lucide-react';
+import { CategoryFormModal } from '../../components/admin/categories/CategoryFormModal';
 
-interface Category {
-  id: string;
-  name: string;
-  slug: string;
-  description: string;
-  icon: string;
-  image_url: string;
-  level: number;
-  sort_order: number;
-  is_active: boolean;
-  parent_id: string | null;
+// Helper to build tree
+function buildCategoryTree(categories: Category[], parentId: string | null = null): CategoryTreeItem[] {
+  return categories
+    .filter(c => c.parent_id === parentId)
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map(c => ({
+      ...c,
+      children: buildCategoryTree(categories, c.id)
+    }));
 }
 
 export default function AdminCategoriesPage() {
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  
-  // Dialog state
+  const queryClient = useQueryClient();
+  const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isSaving, setIsSaving] = useState(false);
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
+  const [expandedNodes, setExpandedNodes] = useState<Set<string>>(new Set());
+  const [viewMode, setViewMode] = useState<'tree' | 'list'>('tree');
   
-  // Form State
-  const [formData, setFormData] = useState({
-    name: "",
-    slug: "",
-    description: "",
-    icon: "Package",
-    image_url: "",
-    parent_id: "none",
+  // Drag and drop state
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const [dragPosition, setDragPosition] = useState<'before' | 'after' | 'inside' | null>(null);
+  
+  const { data: categories = [], isLoading, refetch } = useQuery({
+    queryKey: ['categories'],
+    queryFn: getCategories,
   });
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [imagePreviewUrl, setImagePreviewUrl] = useState<string | null>(null);
 
-  // Delete Dialog state
-  const [deleteDialog, setDeleteDialog] = useState<{isOpen: boolean, id: string, name: string, isPrimary: boolean}>({ isOpen: false, id: "", name: "", isPrimary: false });
+  const { data: brands = [] } = useQuery({
+    queryKey: ['brands'],
+    queryFn: getBrands,
+  });
 
-  useEffect(() => {
-    fetchCategories();
-  }, []);
+  const deleteMutation = useMutation({
+    mutationFn: deleteCategory,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      toast.success('Category deleted successfully');
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to delete category');
+    }
+  });
+  
+  const updateMutation = useMutation({
+    mutationFn: ({ id, data }: { id: string; data: Partial<Category> }) => updateCategory(id, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+    }
+  });
 
-  const fetchCategories = async () => {
-    try {
-      setIsLoading(true);
-      const { data, error } = await supabase
-        .from("categories")
-        .select("*")
-        .order("level", { ascending: true })
-        .order("sort_order", { ascending: true });
+  const moveMutation = useMutation({
+    mutationFn: async ({ id, parent_id, sort_order }: { id: string; parent_id: string | null; sort_order: number }) => {
+      // First update the dragged category
+      await updateCategory(id, { parent_id, sort_order });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['categories'] });
+      toast.success('Category moved successfully');
+    },
+    onError: (error: any) => {
+      toast.error(error.message || 'Failed to move category');
+    }
+  });
 
-      if (error) {
-        toast.error("Failed to fetch categories");
-        return;
-      }
-      
-      setCategories(data || []);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setIsLoading(false);
+  const handleDragStart = (e: React.DragEvent, id: string) => {
+    e.dataTransfer.effectAllowed = 'move';
+    setDraggedId(id);
+    // Needed for Firefox
+    e.dataTransfer.setData('text/plain', id);
+  };
+
+  const handleDragOver = (e: React.DragEvent, id: string) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    if (id === draggedId) return;
+
+    setDragOverId(id);
+
+    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const y = e.clientY - rect.top;
+    
+    // Determine position
+    if (y < rect.height * 0.25) {
+      setDragPosition('before');
+    } else if (y > rect.height * 0.75) {
+      setDragPosition('after');
+    } else {
+      setDragPosition('inside');
     }
   };
 
-  const primaryCategories = categories.filter((c) => c.level === 0);
+  const handleDragLeave = (e: React.DragEvent) => {
+    setDragOverId(null);
+    setDragPosition(null);
+  };
 
-  const openModal = (category?: Category, parentId?: string) => {
-    setSelectedFile(null);
-    setImagePreviewUrl(null);
-    if (category) {
-      setEditingId(category.id);
-      setFormData({
-        name: category.name || "",
-        slug: category.slug || "",
-        description: category.description || "",
-        icon: category.icon || "Package",
-        image_url: category.image_url || "",
-        parent_id: category.parent_id || "none",
-      });
-    } else {
-      setEditingId(null);
-      setFormData({
-        name: "",
-        slug: "",
-        description: "",
-        icon: "Package",
-        image_url: "",
-        parent_id: parentId || "none",
-      });
+  const handleDrop = (e: React.DragEvent, targetId: string) => {
+    e.preventDefault();
+    if (!draggedId || draggedId === targetId) {
+      setDragOverId(null);
+      setDragPosition(null);
+      return;
     }
+
+    const draggedCat = categories.find(c => c.id === draggedId);
+    const targetCat = categories.find(c => c.id === targetId);
+
+    if (draggedCat && targetCat) {
+      // Basic prevent dragging into own children (recursive check ideally, but we'll do simple check here)
+      if (targetCat.parent_id === draggedCat.id) {
+        toast.error("Cannot move a category inside its own child");
+        setDragOverId(null);
+        setDragPosition(null);
+        return;
+      }
+
+      let newParentId = targetCat.parent_id;
+      let newSortOrder = targetCat.sort_order;
+
+      if (dragPosition === 'inside') {
+        newParentId = targetCat.id;
+        // Put at the end of children
+        const children = categories.filter(c => c.parent_id === targetCat.id);
+        newSortOrder = children.length > 0 ? Math.max(...children.map(c => c.sort_order)) + 10 : 0;
+      } else if (dragPosition === 'after') {
+        newSortOrder += 5; // Simple insert between
+      } else if (dragPosition === 'before') {
+        newSortOrder -= 5;
+      }
+
+      moveMutation.mutate({ id: draggedId, parent_id: newParentId, sort_order: newSortOrder });
+    }
+
+    setDragOverId(null);
+    setDragPosition(null);
+    setDraggedId(null);
+  };
+
+  const toggleExpand = (id: string) => {
+    const next = new Set(expandedNodes);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setExpandedNodes(next);
+  };
+
+  const handleEdit = (category: Category) => {
+    setEditingCategory(category);
     setIsModalOpen(true);
   };
 
-  const closeModal = () => {
-    setIsModalOpen(false);
-    setEditingId(null);
-    setSelectedFile(null);
-    setImagePreviewUrl(null);
+  const handleCreate = () => {
+    setEditingCategory(null);
+    setIsModalOpen(true);
   };
 
-  const handleSave = async () => {
-    try {
-      if (!formData.name || !formData.slug) {
-        toast.error("Name and Slug are required.");
-        return;
-      }
-      
-      setIsSaving(true);
-      
-      let finalImageUrl = formData.image_url;
-      
-      if (selectedFile) {
-        if (selectedFile.size > 2 * 1024 * 1024) {
-          toast.error("Image must be less than 2MB");
-          setIsSaving(false);
-          return;
-        }
-
-        const reader = new FileReader();
-        const getBase64 = new Promise<string>((resolve, reject) => {
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = error => reject(error);
-          reader.readAsDataURL(selectedFile);
-        });
-
-        finalImageUrl = await getBase64;
-      }
-      
-      const payload = {
-        name: formData.name,
-        slug: formData.slug,
-        description: formData.description,
-        icon: formData.icon,
-        image_url: finalImageUrl,
-        parent_id: formData.parent_id === "none" ? null : formData.parent_id,
-        level: formData.parent_id === "none" ? 0 : 1,
-      };
-
-      if (editingId) {
-        const { error } = await supabase.from("categories").update(payload).eq("id", editingId);
-        if (error) throw error;
-        toast.success("Category updated successfully");
-      } else {
-        const { error } = await supabase.from("categories").insert([payload]);
-        if (error) throw error;
-        toast.success("Category created successfully");
-      }
-      
-      closeModal();
-      fetchCategories();
-    } catch (error: any) {
-      toast.error(error.message || "An error occurred");
-    } finally {
-      setIsSaving(false);
+  const handleDelete = (category: Category) => {
+    if (categories.some(c => c.parent_id === category.id)) {
+      toast.error('Cannot delete category with subcategories. Delete or move them first.');
+      return;
+    }
+    if (confirm(`Are you sure you want to delete ${category.name}?`)) {
+      deleteMutation.mutate(category.id);
     }
   };
 
-  const confirmDelete = (id: string, name: string, isPrimary: boolean) => {
-    setDeleteDialog({ isOpen: true, id, name, isPrimary });
+  const filteredCategories = useMemo(() => {
+    if (!search) return categories;
+    return categories.filter(c => 
+      c.name.toLowerCase().includes(search.toLowerCase()) || 
+      c.slug.toLowerCase().includes(search.toLowerCase())
+    );
+  }, [categories, search]);
+
+  const treeData = useMemo(() => {
+    if (search) {
+      // Flat list for search results
+      return filteredCategories.map(c => ({ ...c, children: [] }));
+    }
+    return buildCategoryTree(categories);
+  }, [categories, filteredCategories, search]);
+
+  const stats = {
+    total: categories.length,
+    parent: categories.filter(c => !c.parent_id).length,
+    sub: categories.filter(c => c.parent_id).length,
+    active: categories.filter(c => c.status === 'active').length,
+    draft: categories.filter(c => c.status === 'draft').length,
+    archived: categories.filter(c => c.status === 'archived').length,
+    hidden: categories.filter(c => c.status === 'hidden').length,
+    featured: categories.filter(c => c.featured).length,
+    homepage: categories.filter(c => c.homepage_status).length,
+    brands: brands.length,
   };
 
-  const executeDelete = async () => {
-    try {
-      const { error } = await supabase.from("categories").delete().eq("id", deleteDialog.id);
-      if (error) throw error;
-      toast.success("Category deleted");
-      fetchCategories();
-    } catch (error: any) {
-      toast.error(error.message || "Failed to delete");
-    } finally {
-      setDeleteDialog({ isOpen: false, id: "", name: "", isPrimary: false });
-    }
-  };
+  const renderTree = (items: CategoryTreeItem[], level = 0) => {
+    return items.map((item) => {
+      const hasChildren = item.children && item.children.length > 0;
+      const isExpanded = expandedNodes.has(item.id) || !!search;
+      const isDragOver = dragOverId === item.id;
+      
+      return (
+        <div key={item.id} className="relative">
+          {isDragOver && dragPosition === 'before' && (
+            <div className="absolute top-0 left-0 right-0 h-0.5 bg-primary z-10" />
+          )}
+          <div 
+            draggable
+            onDragStart={(e) => handleDragStart(e, item.id)}
+            onDragOver={(e) => handleDragOver(e, item.id)}
+            onDragLeave={handleDragLeave}
+            onDrop={(e) => handleDrop(e, item.id)}
+            className={cn(
+              "flex items-center gap-4 py-3 px-4 border-b border-[#E8DCC9] hover:bg-[#FAF5EC] group cursor-move",
+              level > 0 && "bg-[#FAF5EC]/50",
+              isDragOver && dragPosition === 'inside' && "bg-primary/5 ring-1 ring-inset ring-primary",
+              draggedId === item.id && "opacity-50"
+            )}
+            style={{ paddingLeft: `${level * 2 + 1}rem` }}
+          >
+            <div className="flex items-center gap-2 w-8 shrink-0">
+              <GripVertical className="w-4 h-4 text-[#8B857D] group-hover:text-[#5F5A54] cursor-grab shrink-0 hidden md:block" />
+              {hasChildren ? (
+                <button onClick={() => toggleExpand(item.id)} className="p-1 hover:bg-[#E8DCC9] rounded text-[#5F5A54] shrink-0">
+                  {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                </button>
+              ) : <div className="w-6 hidden md:block" />}
+            </div>
+            
+            <div className="w-10 h-10 rounded-lg bg-[#E8DCC9] border border-[#E8DCC9] flex items-center justify-center shrink-0 overflow-hidden">
+              {item.image_url ? (
+                <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
+              ) : (
+                <FolderTree className="w-4 h-4 text-[#8B857D]" />
+              )}
+            </div>
 
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        toast.error("Image must be less than 5MB");
-        return;
-      }
-      setSelectedFile(file);
-      const url = URL.createObjectURL(file);
-      setImagePreviewUrl(url);
-    }
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold text-[#3A2418] truncate">{item.name}</span>
+                {item.status === 'active' ? (
+                  <Badge className="bg-[#E8DCC9] text-emerald-800">Active</Badge>
+                ) : item.status === 'hidden' ? (
+                   <Badge className="bg-[#E8DCC9] text-[#3A2418]">Hidden</Badge>
+                ) : (
+                  <Badge className="bg-[#D9A62E]/10 text-amber-800 capitalize">{item.status}</Badge>
+                )}
+                {item.featured && <Badge className="bg-blue-100 text-blue-800">Featured</Badge>}
+              </div>
+              <div className="text-sm text-[#5F5A54] flex items-center gap-4 mt-0.5">
+                <span>/{item.slug}</span>
+                {item.homepage_status && <span className="flex items-center gap-1"><Check className="w-3 h-3"/> Homepage</span>}
+                {item.navigation_status && <span className="flex items-center gap-1"><Navigation className="w-3 h-3"/> Nav</span>}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+              <Button variant="outline" size="sm" onClick={() => handleEdit(item)}>
+                <Edit2 className="w-4 h-4" />
+              </Button>
+              <Button variant="outline" size="sm" className="text-[#B94A48] hover:text-[#B94A48] hover:bg-[#B94A48]/10" onClick={() => handleDelete(item)}>
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+          
+          {isDragOver && dragPosition === 'after' && (
+            <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-primary z-10" />
+          )}
+
+          {hasChildren && isExpanded && (
+            <div className="border-l-2 border-[#E8DCC9] ml-[1.75rem]">
+              {renderTree(item.children!, level + 1)}
+            </div>
+          )}
+        </div>
+      );
+    });
   };
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight">Category Hierarchy</h2>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Manage the marketplace taxonomy and product divisions.
+          <h1 className="text-2xl font-bold flex items-center gap-2 text-[#3A2418]">
+            <FolderTree className="h-6 w-6 text-primary" />
+            Categories Management
+          </h1>
+          <p className="text-sm text-[#5F5A54] mt-1">
+            Organize products with unlimited category hierarchies.
           </p>
         </div>
-        <Button onClick={() => openModal()} className="bg-emerald-600 hover:bg-emerald-500 text-white shrink-0">
-          <Plus className="h-4 w-4 mr-2" />
-          Add Primary Category
-        </Button>
+        <div className="flex gap-2">
+          <Button variant="outline" onClick={() => refetch()} disabled={isLoading}>
+            <RefreshCw className={cn("w-4 h-4 mr-2", isLoading && "animate-spin")} />
+            Refresh
+          </Button>
+          <Button onClick={handleCreate} className="bg-primary text-white">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Category
+          </Button>
+        </div>
       </div>
 
-      <div className="bg-card border border-border rounded-xl shadow-sm overflow-hidden">
-        {isLoading ? (
-          <div className="flex flex-col items-center justify-center p-12 text-muted-foreground">
-            <RefreshCw className="h-6 w-6 animate-spin mb-4 text-emerald-500" /> 
-            <span>Loading taxonomy...</span>
+      {/* Dashboard Stats */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        {[
+          { label: 'Total Categories', value: stats.total, icon: FolderTree, color: 'text-[#C65A28]', bg: 'bg-blue-100' },
+          { label: 'Subcategories', value: stats.sub, icon: FolderTree, color: 'text-[#C65A28]', bg: 'bg-indigo-100' },
+          { label: 'Active', value: stats.active, icon: Check, color: 'text-[#C65A28]', bg: 'bg-[#E8DCC9]' },
+          { label: 'Draft', value: stats.draft, icon: Edit2, color: 'text-[#5F5A54]', bg: 'bg-[#E8DCC9]' },
+          { label: 'Archived', value: stats.archived, icon: Archive, color: 'text-[#B94A48]', bg: 'bg-[#B94A48]/10' },
+          { label: 'Hidden', value: stats.hidden, icon: EyeOff, color: 'text-[#5F5A54]', bg: 'bg-[#E8DCC9]' },
+          { label: 'Featured', value: stats.featured, icon: BarChart3, color: 'text-[#6B8E23]', bg: 'bg-purple-100' },
+          { label: 'Total Brands', value: stats.brands, icon: Tags, color: 'text-pink-600', bg: 'bg-pink-100' },
+        ].map((stat, i) => (
+          <div key={i} className="bg-[#FFFDF8] p-6 rounded-xl border border-[#E8DCC9] shadow-sm flex items-center gap-4">
+            <div className={`w-12 h-12 rounded-full ${stat.bg} ${stat.color} flex items-center justify-center shrink-0`}>
+              <stat.icon className="w-6 h-6" />
+            </div>
+            <div>
+              <p className="text-sm font-medium text-[#5F5A54]">{stat.label}</p>
+              <h3 className="text-2xl font-bold text-[#3A2418]">{stat.value}</h3>
+            </div>
           </div>
-        ) : categories.length === 0 ? (
-           <div className="flex flex-col items-center justify-center p-12 border-t border-border border-dashed m-4 rounded-xl">
-             <div className="bg-muted p-4 rounded-full mb-4">
-               <Folder className="h-8 w-8 text-muted-foreground" />
-             </div>
-             <p className="text-muted-foreground mb-4">No categories configured yet.</p>
-             <Button variant="outline" onClick={() => openModal()}>Create First Category</Button>
-           </div>
-        ) : (
-          <div className="divide-y divide-border/50">
-            {primaryCategories.map((primary) => {
-              const subcategories = categories.filter((c) => c.parent_id === primary.id);
-              return (
-                <div key={primary.id} className="flex flex-col">
-                   <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between bg-muted/20 p-4 gap-4">
-                     <div className="flex items-center gap-4 w-full">
-                       {primary.image_url ? (
-                         <div className="w-12 h-12 rounded-lg bg-muted shrink-0 overflow-hidden border border-border">
-                           <img src={primary.image_url} alt={primary.name} className="w-full h-full object-cover" />
-                         </div>
-                       ) : (
-                         <div className="w-12 h-12 flex items-center justify-center bg-emerald-100 dark:bg-emerald-900/40 rounded-lg text-emerald-600 dark:text-emerald-400 shrink-0 border border-emerald-200 dark:border-emerald-800">
-                            <Folder className="h-6 w-6" />
-                         </div>
-                       )}
-                       <div className="flex-1 min-w-0">
-                         <h3 className="font-semibold text-foreground truncate">{primary.name}</h3>
-                         <div className="flex items-center gap-2 mt-1">
-                           <span className="text-xs text-muted-foreground font-mono bg-muted px-1.5 py-0.5 rounded truncate">{primary.slug}</span>
-                           <span className="text-[10px] uppercase font-bold text-emerald-600 dark:text-emerald-400">Primary</span>
-                         </div>
-                       </div>
-                     </div>
-                     <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
-                       <Button variant="outline" size="sm" onClick={() => openModal(undefined, primary.id)} className="hidden sm:flex">
-                         <Plus className="h-3 w-3 mr-1" /> Add Sub
-                       </Button>
-                       <Button variant="ghost" size="icon-sm" onClick={() => openModal(primary)}>
-                         <Edit2 className="h-4 w-4 text-muted-foreground hover:text-foreground" />
-                       </Button>
-                       <Button variant="ghost" size="icon-sm" onClick={() => confirmDelete(primary.id, primary.name, true)}>
-                         <Trash2 className="h-4 w-4 text-red-500/70 hover:text-red-600" />
-                       </Button>
-                     </div>
-                   </div>
-                   
-                   {subcategories.length > 0 && (
-                     <div className="p-4 pl-4 sm:pl-16 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 bg-background border-t border-border/30">
-                       {subcategories.map(sub => (
-                          <div key={sub.id} className="flex items-center gap-3 text-sm p-2 rounded-lg bg-muted/30 border border-border/50 hover:border-emerald-500/30 transition-colors group">
-                             {sub.image_url ? (
-                               <div className="w-8 h-8 rounded shrink-0 overflow-hidden border border-border">
-                                 <img src={sub.image_url} alt={sub.name} className="w-full h-full object-cover" />
-                               </div>
-                             ) : (
-                               <div className="w-8 h-8 flex items-center justify-center rounded bg-muted shrink-0 text-muted-foreground group-hover:text-emerald-600 transition-colors">
-                                 <Package className="h-4 w-4" />
-                               </div>
-                             )}
-                             <div className="flex flex-col flex-1 min-w-0">
-                               <span className="text-foreground font-medium truncate" title={sub.name}>{sub.name}</span>
-                               <span className="text-[10px] text-muted-foreground font-mono truncate">{sub.slug}</span>
-                             </div>
-                             <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
-                               <Button variant="ghost" size="icon-sm" className="h-6 w-6" onClick={() => openModal(sub)}>
-                                 <Edit2 className="h-3 w-3 text-muted-foreground hover:text-foreground" />
-                               </Button>
-                               <Button variant="ghost" size="icon-sm" className="h-6 w-6" onClick={() => confirmDelete(sub.id, sub.name, false)}>
-                                 <Trash2 className="h-3 w-3 text-red-500 hover:text-red-600" />
-                               </Button>
-                             </div>
-                          </div>
-                       ))}
-                       <Button variant="outline" size="sm" onClick={() => openModal(undefined, primary.id)} className="sm:hidden border-dashed border-border/60 justify-start h-auto py-2 group-hover:border-emerald-500/50">
-                          <Plus className="h-4 w-4 mr-2" /> Add Subcategory
-                       </Button>
-                     </div>
-                   )}
-                </div>
-              )
-            })}
-          </div>
-        )}
+        ))}
       </div>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={deleteDialog.isOpen} onOpenChange={(open) => !open && setDeleteDialog({ ...deleteDialog, isOpen: false })}>
-        <DialogContent className="sm:max-w-[400px]">
-          <DialogHeader>
-            <DialogTitle>Delete Category</DialogTitle>
-          </DialogHeader>
-          <div className="py-4">
-            <p className="text-muted-foreground text-sm">
-              Are you sure you want to delete <strong className="text-foreground font-medium">"{deleteDialog.name}"</strong>?
-            </p>
-            {deleteDialog.isPrimary && (
-              <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-md text-red-600 dark:text-red-400 text-sm flex gap-2 items-start">
-                <Trash2 className="h-4 w-4 shrink-0 mt-0.5" />
-                <p>This is a primary category. Deleting it will also permanently delete all of its subcategories.</p>
-              </div>
-            )}
+      {/* Filters and List */}
+      <div className="bg-[#FFFDF8] border border-[#E8DCC9] rounded-xl shadow-sm overflow-hidden">
+        <div className="p-4 border-b border-[#E8DCC9] flex flex-col sm:flex-row gap-4 justify-between items-center bg-[#FAF5EC]/50">
+          <div className="relative w-full sm:w-96">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8B857D]" />
+            <Input
+              type="text"
+              placeholder="Search categories..."
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="pl-9 w-full bg-[#FFFDF8]"
+            />
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteDialog({ ...deleteDialog, isOpen: false })}>Cancel</Button>
-            <Button variant="destructive" onClick={executeDelete}>Delete Category</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>{editingId ? "Edit Category" : "Add Category"}</DialogTitle>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="name">Name</Label>
-              <Input 
-                id="name" 
-                value={formData.name} 
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setFormData({ 
-                    ...formData, 
-                    name: val,
-                    // Auto-generate slug if it's a new category and slug is empty or matches previous auto-gen
-                    slug: editingId ? formData.slug : val.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '')
-                  });
-                }} 
-                placeholder="e.g. Fresh Produce" 
-              />
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="slug">Slug Format</Label>
-              <Input 
-                id="slug" 
-                value={formData.slug} 
-                onChange={(e) => setFormData({ ...formData, slug: e.target.value })} 
-                placeholder="fresh-produce"
-                className="font-mono text-xs" 
-              />
-            </div>
-            
-            {primaryCategories.length > 0 && (!editingId || formData.parent_id !== "none") && (
-              <div className="grid gap-2">
-                <Label htmlFor="parent_id">Parent Category (Optional)</Label>
-                <select 
-                  id="parent_id"
-                  value={formData.parent_id}
-                  onChange={(e) => setFormData({ ...formData, parent_id: e.target.value })}
-                  className="flex h-10 w-full items-center justify-between rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  <option value="none">-- None (Primary Category) --</option>
-                  {primaryCategories.filter(p => p.id !== editingId).map(p => (
-                    <option key={p.id} value={p.id}>{p.name}</option>
-                  ))}
-                </select>
-              </div>
-            )}
-
-            <div className="grid gap-2">
-              <Label htmlFor="image_url">Category Image</Label>
-              <div className="flex gap-4 items-center">
-                <div className="relative w-16 h-16 shrink-0 rounded-lg border border-border overflow-hidden bg-muted flex items-center justify-center">
-                  {(imagePreviewUrl || formData.image_url) ? (
-                    <img src={imagePreviewUrl || formData.image_url} alt="Preview" className="w-full h-full object-cover" />
-                  ) : (
-                    <ImageIcon className="h-6 w-6 text-muted-foreground" />
-                  )}
-                </div>
-                <div className="flex-1">
-                  <Input 
-                    id="image_url" 
-                    type="file"
-                    accept="image/*"
-                    onChange={handleImageChange}
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">Recommended size: 400x400px. Max: 5MB.</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="description">Description</Label>
-              <Textarea 
-                id="description" 
-                value={formData.description} 
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })} 
-                placeholder="Optional description for this category" 
-                className="resize-none h-20"
-              />
-            </div>
+          
+          <div className="flex items-center gap-2 bg-[#E8DCC9] p-1 rounded-lg">
+            <button 
+              className={cn("px-3 py-1.5 rounded-md text-sm font-medium transition-colors", viewMode === 'tree' ? 'bg-[#FFFDF8] text-[#3A2418] shadow-sm' : 'text-[#5F5A54]')}
+              onClick={() => setViewMode('tree')}
+            >
+              Tree View
+            </button>
+            <button 
+              className={cn("px-3 py-1.5 rounded-md text-sm font-medium transition-colors", viewMode === 'list' ? 'bg-[#FFFDF8] text-[#3A2418] shadow-sm' : 'text-[#5F5A54]')}
+              onClick={() => setViewMode('list')}
+            >
+              Flat List
+            </button>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={closeModal}>Cancel</Button>
-            <Button onClick={handleSave} disabled={isSaving} className="bg-emerald-600 hover:bg-emerald-500 text-white">
-              {isSaving ? "Saving..." : "Save Category"}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </div>
+
+        <div className="min-h-[400px]">
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center h-64 text-[#5F5A54] gap-3">
+              <RefreshCw className="w-6 h-6 animate-spin text-primary" />
+              <p>Loading category hierarchy...</p>
+            </div>
+          ) : treeData.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-64 text-[#5F5A54] gap-3">
+              <FolderTree className="w-10 h-10 text-[#8B857D]" />
+              <p className="text-lg font-medium text-[#3A2418]">No categories found</p>
+              <p className="text-sm">Get started by creating your first category.</p>
+              <Button onClick={handleCreate} className="mt-2" variant="outline">Create Category</Button>
+            </div>
+          ) : (
+            <div className="divide-y divide-slate-100">
+              {viewMode === 'tree' ? renderTree(treeData) : renderTree(categories.map(c => ({...c, children: []})))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {isModalOpen && (
+        <CategoryFormModal 
+          category={editingCategory} 
+          categories={categories}
+          onClose={() => setIsModalOpen(false)} 
+        />
+      )}
     </div>
   );
 }
-

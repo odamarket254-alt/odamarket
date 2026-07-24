@@ -11,10 +11,15 @@ import { useAuthStore } from "./store/useAuthStore";
 import { Loader2 } from "lucide-react";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import OneSignal from 'react-onesignal';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+const queryClient = new QueryClient();
 
 // Layouts
+import { Logo } from "./components/ui/Logo";
 import RootLayout from "./components/layout/RootLayout";
 import DashboardLayout from "./components/layout/DashboardLayout";
+import AdminDashboardLayout from "./components/layout/admin/AdminDashboardLayout";
 import RoleRedirect from "./components/layout/RoleRedirect";
 import ProtectedRoute from "./components/layout/ProtectedRoute";
 
@@ -27,6 +32,9 @@ const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage"));
 const ProductsPage = lazy(() => import("./pages/ProductsPage"));
 const ProductDetailsPage = lazy(() => import("./pages/ProductDetailsPage"));
 const ContactPage = lazy(() => import("./pages/ContactPage"));
+const CartPage = lazy(() => import("./pages/CartPage"));
+const WishlistPage = lazy(() => import("./pages/WishlistPage"));
+const CheckoutPage = lazy(() => import("./pages/CheckoutPage"));
 const SupplierProfilePage = lazy(() => import("./pages/SupplierProfilePage"));
 const CategoriesPage = lazy(() => import("./pages/CategoriesPage"));
 const SuppliersPage = lazy(() => import("./pages/SuppliersPage"));
@@ -34,6 +42,7 @@ const PublicRFQPage = lazy(() => import("./pages/PublicRFQPage"));
 
 // Lazy Loaded Dashboard Pages
 const DashboardHome = lazy(() => import("./pages/dashboard/DashboardHome"));
+const BuyerDashboardHome = lazy(() => import("./pages/dashboard/BuyerDashboardHome").then(m => ({ default: m.BuyerDashboardHome })));
 const InquiriesPage = lazy(() => import("./pages/dashboard/InquiriesPage"));
 const SupportMessagesPage = lazy(
   () => import("./pages/dashboard/SupportMessagesPage"),
@@ -41,6 +50,8 @@ const SupportMessagesPage = lazy(
 const DashboardProductsPage = lazy(
   () => import("./pages/dashboard/SellerProductsPage"),
 );
+const AdminProductsPage = lazy(() => import("./pages/admin/AdminProductsPage"));
+const AdminProductFormPage = lazy(() => import("./pages/admin/AdminProductFormPage"));
 const BuyerRFQsPage = lazy(() =>
   import("./pages/dashboard/BuyerRFQsPage").then((module) => ({
     default: module.BuyerRFQsPage,
@@ -52,18 +63,36 @@ const SellerRFQsPage = lazy(() =>
   })),
 );
 const SettingsPage = lazy(() => import("./pages/dashboard/SettingsPage"));
+const AdminSettingsPage = lazy(() => import("./pages/admin/AdminSettingsPage"));
+const AdminOrdersPage = lazy(() => import("./pages/dashboard/AdminOrdersPage"));
+const AdminDiscountsPage = lazy(() => import("./pages/dashboard/AdminDiscountsPage"));
 const UsersPage = lazy(() => import("./pages/dashboard/UsersPage"));
+const AdminUsersPage = lazy(() => import("./pages/admin/AdminUsersPage"));
 const AdminCategoriesPage = lazy(
   () => import("./pages/dashboard/AdminCategoriesPage"),
 );
+const AdminStorefrontPage = lazy(() => import("./pages/admin/AdminStorefrontPage"));
+const AdminDashboardHome = lazy(() => import("./pages/admin/AdminDashboardHome"));
+const AdminAnalyticsPage = lazy(() => import("./pages/admin/AdminAnalyticsPage"));
+const AdminSecurityPage = lazy(() => import("./pages/admin/AdminSecurityPage"));
+const AdminRFQsPage = lazy(() => import("./pages/admin/AdminRFQsPage"));
+const AdminReportsPage = lazy(() => import("./pages/admin/AdminReportsPage"));
+const AdminAIPage = lazy(() => import("./pages/admin/AdminAIPage"));
+const AdminContentPage = lazy(() => import("./pages/admin/AdminContentPage"));
+const AdminMarketingPage = lazy(() => import("./pages/admin/AdminMarketingPage"));
+const AdminBrandsPage = lazy(() => import("./pages/admin/AdminBrandsPage"));
+const AdminInventoryPage = lazy(() => import("./pages/admin/AdminInventoryPage"));
+const AdminReviewsPage = lazy(() => import("./pages/admin/AdminReviewsPage"));
+const AdminMediaPage = lazy(() => import("./pages/admin/AdminMediaPage"));
+const AdminStoragePage = lazy(() => import("./pages/admin/AdminStoragePage"));
+const AdminNotificationsPage = lazy(() => import("./pages/admin/AdminNotificationsPage"));
+const AdminDeveloperPage = lazy(() => import("./pages/admin/AdminDeveloperPage"));
+const AdminAuditPage = lazy(() => import("./pages/admin/AdminAuditPage"));
 
 function LoadingFallback() {
   return (
-    <div className="h-screen w-full flex flex-col items-center justify-center bg-background text-foreground">
-      <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-      <p className="text-sm text-muted-foreground animate-pulse">
-        Loading Odamarket...
-      </p>
+    <div className="h-screen w-full flex flex-col items-center justify-center bg-[#F8F9FB]">
+      <Logo className="w-[140px] md:w-[160px] animate-pulse" />
     </div>
   );
 }
@@ -74,9 +103,7 @@ export default function App() {
   useEffect(() => {
     try {
       setTimeout(() => {
-        OneSignal.init({
-          appId: "39cacdbe-4c1c-40fe-b763-4462f792edae",
-        });
+        OneSignal.init({ appId: "39cacdbe-4c1c-40fe-b763-4462f792edae" }).catch(e => console.warn("OneSignal failed to initialize", e));
       }, 2000);
     } catch (error) {
       console.warn("OneSignal initialization error:", error);
@@ -92,7 +119,7 @@ export default function App() {
       } else {
         setLoading(false);
       }
-    });
+    }).catch(e => console.warn("Session check failed", e));
 
     // Listen for changes on auth state (logged in, signed out, etc.)
     const {
@@ -138,8 +165,9 @@ export default function App() {
   };
 
   return (
-    <BrowserRouter>
-      <ErrorBoundary>
+    <QueryClientProvider client={queryClient}>
+      <BrowserRouter>
+        <ErrorBoundary>
         <Suspense fallback={<LoadingFallback />}>
           <Routes>
             <Route element={<RootLayout />}>
@@ -152,6 +180,9 @@ export default function App() {
               <Route path="/products/:id" element={<ProductDetailsPage />} />
               <Route path="/c/:categorySlug" element={<ProductsPage />} />
               <Route path="/categories" element={<CategoriesPage />} />
+              <Route path="/cart" element={<CartPage />} />
+              <Route path="/wishlist" element={<WishlistPage />} />
+              <Route path="/checkout" element={<CheckoutPage />} />
               <Route path="/suppliers" element={<SuppliersPage />} />
               <Route path="/suppliers/:id" element={<SupplierProfilePage />} />
               <Route path="/rfq" element={<PublicRFQPage />} />
@@ -164,9 +195,8 @@ export default function App() {
             {/* Buyer Routes */}
             <Route element={<ProtectedRoute allowedRoles={["buyer"]} />}>
               <Route path="/buyer/dashboard" element={<DashboardLayout />}>
-                <Route index element={<DashboardHome />} />
-                <Route path="inquiries" element={<InquiriesPage />} />
-                <Route path="rfqs" element={<BuyerRFQsPage />} />
+                <Route index element={<BuyerDashboardHome />} />
+                <Route path="orders" element={<InquiriesPage />} />
                 <Route path="settings" element={<SettingsPage />} />
               </Route>
             </Route>
@@ -183,14 +213,33 @@ export default function App() {
             </Route>
 
             {/* Admin Routes */}
-            <Route element={<ProtectedRoute allowedRoles={["admin"]} />}>
-              <Route path="/admin/dashboard" element={<DashboardLayout />}>
-                <Route index element={<DashboardHome />} />
-                <Route path="users" element={<UsersPage />} />
-                <Route path="products" element={<DashboardProductsPage />} />
+            <Route element={<ProtectedRoute allowedRoles={["admin", "super_admin", "moderator", "support_agent", "content_manager"]} />}>
+              <Route path="/admin/dashboard" element={<AdminDashboardLayout />}>
+                <Route index element={<AdminDashboardHome />} />
+                <Route path="customers" element={<AdminUsersPage />} />
+                <Route path="analytics" element={<AdminAnalyticsPage />} />
+                                <Route path="storefront" element={<AdminStorefrontPage />} />
+                <Route path="products" element={<AdminProductsPage />} />
+                <Route path="products/:id" element={<AdminProductFormPage />} />
+                <Route path="orders" element={<AdminOrdersPage />} />
+                <Route path="discounts" element={<AdminDiscountsPage />} />
+                <Route path="rfqs" element={<AdminRFQsPage />} />
                 <Route path="categories" element={<AdminCategoriesPage />} />
-                <Route path="settings" element={<SettingsPage />} />
                 <Route path="support" element={<SupportMessagesPage />} />
+                <Route path="content" element={<AdminContentPage />} />
+                <Route path="marketing" element={<AdminMarketingPage />} />
+                <Route path="brands" element={<AdminBrandsPage />} />
+                <Route path="inventory" element={<AdminInventoryPage />} />
+                <Route path="reviews" element={<AdminReviewsPage />} />
+                <Route path="media" element={<AdminMediaPage />} />
+                <Route path="reports" element={<AdminReportsPage />} />
+                <Route path="settings" element={<AdminSettingsPage />} />
+                <Route path="security" element={<AdminSecurityPage />} />
+                <Route path="ai" element={<AdminAIPage />} />
+                <Route path="notifications" element={<AdminNotificationsPage />} />
+                <Route path="storage" element={<AdminStoragePage />} />
+                <Route path="developer" element={<AdminDeveloperPage />} />
+                <Route path="audit" element={<AdminAuditPage />} />
               </Route>
             </Route>
           </Routes>
@@ -198,5 +247,6 @@ export default function App() {
       </ErrorBoundary>
       <Toaster position="top-center" richColors />
     </BrowserRouter>
+    </QueryClientProvider>
   );
 }

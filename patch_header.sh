@@ -1,0 +1,2 @@
+sed -i 's/<Link to="\/" className="flex items-center shrink-0">/<Link to="\/" className="flex items-center shrink-0 pr-2 lg:pr-4">/g' src/components/layout/Header.tsx
+sed -i 's/className={`object-contain transition-all duration-300 ${scrolled ? '\''h-\[42px\] lg:h-\[50px\]'\'' : '\''h-\[50px\] lg:h-\[64px\]'\''}`} /className={`object-contain transition-all duration-300 ${scrolled ? '\''h-[36px] md:h-[42px] lg:h-[50px]'\'' : '\''h-[40px] md:h-[48px] lg:h-[60px]'\''}`} /g' src/components/layout/Header.tsx

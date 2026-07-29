@@ -59,7 +59,7 @@ export default function DashboardLayout() {
       };
     } else {
       document.body.style.overflow = "";
-      return () => {};
+      
     }
   }, [isMobileMenuOpen]);
 

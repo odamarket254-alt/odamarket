@@ -24,7 +24,7 @@ export function StorefrontFooterManager() {
     try {
       const { data, error } = await supabase
         .from('settings')
-        .select('value')
+        .select('value').limit(100)
         .eq('group_name', 'storefront')
         .eq('key', 'footer')
         .single();
@@ -46,7 +46,7 @@ export function StorefrontFooterManager() {
     try {
       const { data: existing } = await supabase
         .from('settings')
-        .select('id')
+        .select('id').limit(100)
         .eq('group_name', 'storefront')
         .eq('key', 'footer')
         .single();

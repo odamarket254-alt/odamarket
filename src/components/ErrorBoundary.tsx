@@ -25,6 +25,13 @@ export class ErrorBoundary extends React.Component<Props, State> {
 
   public componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error("ErrorBoundary caught an error:", error, errorInfo);
+    
+    // Check for auth errors to handle gracefully
+    if (error.message?.includes("Refresh Token Not Found") || error.message?.includes("Invalid Refresh Token")) {
+      window.location.href = "/login";
+      return;
+    }
+    
     this.setState({ errorInfo });
   }
 

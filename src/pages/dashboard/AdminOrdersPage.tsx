@@ -17,15 +17,9 @@ export default function AdminOrdersPage() {
   useEffect(() => {
     fetchOrders();
 
-    const channel = supabase.channel('public:orders')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
-        fetchOrders();
-      })
-      .subscribe();
+    
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    
   }, []);
 
   const fetchOrders = async () => {

@@ -12,13 +12,9 @@ export default function AdminReviewsPage() {
   useEffect(() => {
     fetchReviews();
     
-    const channel = supabase.channel('public:reviews:admin')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'reviews' }, () => {
-        fetchReviews();
-      })
-      .subscribe();
+    
 
-    return () => { supabase.removeChannel(channel); };
+    
   }, []);
 
   const fetchReviews = async () => {

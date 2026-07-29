@@ -1,3 +1,4 @@
+import { OptimizedImage } from "../../../components/ui/OptimizedImage";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { supabase } from "../../../lib/supabase";
@@ -16,7 +17,7 @@ export function StorefrontBrandsManager() {
     try {
       const { data, error } = await supabase
         .from('brands')
-        .select('*')
+        .select('*').limit(100)
         .order('name');
       
       if (error) throw error;
@@ -108,10 +109,10 @@ export function StorefrontBrandsManager() {
         {brands.map(brand => (
           <div key={brand.id} className="bg-[#FAF5EC] border border-[#E8DCC9] rounded-2xl p-5 flex flex-col">
             <div className="h-24 bg-[#FFFDF8] border border-[#E8DCC9] rounded-xl flex items-center justify-center p-4 mb-4">
-              <img 
+              <OptimizedImage 
                 src={brand.logo_url} 
                 alt={brand.name} 
-                className="max-h-full max-w-full object-contain"
+                imgClassName="max-h-full max-w-full object-contain" className="w-full h-full flex items-center justify-center bg-transparent"
                 onError={(e) => {
                   (e.target as HTMLImageElement).src = 'https://placehold.co/200x100/ffffff/ef4444?text=Error';
                 }}

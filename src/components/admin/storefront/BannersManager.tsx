@@ -1,3 +1,4 @@
+import { OptimizedImage } from "../../../components/ui/OptimizedImage";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { supabase } from "../../../lib/supabase";
@@ -109,10 +110,10 @@ export function BannersManager() {
           <div key={banner.id} className="bg-[#FAF5EC] border border-[#E8DCC9] p-6 rounded-2xl flex flex-col md:flex-row gap-6">
             <div className="w-full md:w-1/3 space-y-4">
               <div className="aspect-[21/9] md:aspect-video bg-[#E8DCC9] rounded-xl overflow-hidden relative border border-[#E8DCC9] group">
-                <img 
+                <OptimizedImage 
                   src={banner.image_url} 
                   alt="Banner preview" 
-                  className="w-full h-full object-cover"
+                  imgClassName="w-full h-full object-cover" className="w-full h-full flex items-center justify-center bg-transparent"
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = 'https://placehold.co/800x400/e2e8f0/64748b?text=Invalid+Image+URL';
                   }}

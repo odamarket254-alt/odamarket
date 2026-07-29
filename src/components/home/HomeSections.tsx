@@ -1,3 +1,4 @@
+import { OptimizedImage } from "../ui/OptimizedImage";
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ArrowRight, Sparkles, Star, Zap, Clock, ShieldCheck, Truck, RefreshCw, Mail } from 'lucide-react';
@@ -27,7 +28,7 @@ export const HeroSection = ({ slides }: { slides: any[] }) => {
             <div key={idx} className="flex-[0_0_100%] min-w-0 relative">
               <div className="flex flex-row-reverse md:flex-row h-[220px] sm:h-[260px] md:h-[300px] lg:h-[400px]">
                 <div className="w-[40%] h-full md:h-auto md:flex-1 relative md:order-2" style={{ backgroundColor: slide.bg_color || '#E8F5E9' }}>
-                  <img loading="lazy" src={slide.background_image || slide.desktop_image} alt={slide.headline} className="w-full h-full object-cover md:rounded-l-[40px] lg:rounded-l-[100px]" />
+                  <OptimizedImage src={slide.background_image || slide.desktop_image || ''} alt={slide.headline} imgClassName="w-full h-full object-cover md:rounded-l-[40px] lg:rounded-l-[100px]" className="w-full h-full" />
                 </div>
                 <div className="w-[60%] md:flex-1 p-4 sm:p-6 md:p-8 lg:p-12 flex flex-col justify-center z-10 md:order-1 text-left" style={{ backgroundColor: slide.bg_color || '#E8F5E9' }}>
                   <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="max-w-[550px] mx-0 w-full">
@@ -62,9 +63,9 @@ export const PromoCardsSection = ({ banners }: { banners: any[] }) => {
   if (!banners || banners.length === 0) return null;
   return (
     <section className="w-full max-w-[1400px] mx-auto px-4 sm:px-6 mb-20">
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-auto -mx-4 sm:mx-0 sm:w-full">
         {banners.map((promo, idx) => (
-          <motion.div key={idx} whileHover={{ y: -5 }} className={`${promo.bg_color || 'bg-[#D9A62E]/10'} rounded-2xl p-6 sm:p-8 flex flex-col justify-between relative overflow-hidden group min-h-[220px]`}>
+          <motion.div key={idx} whileHover={{ y: -5 }} className={`${promo.bg_color || 'bg-[#D9A62E]/10'} rounded-none sm:rounded-2xl p-6 sm:p-8 flex flex-col justify-between relative overflow-hidden group min-h-[220px]`}>
             <div className="relative z-10 w-2/3">
               <h3 className="text-xl sm:text-2xl font-bold text-[#3A2418] mb-2 leading-tight">{promo.title}</h3>
               <p className="text-[#5F5A54] text-sm mb-6">{promo.subtitle}</p>
@@ -72,7 +73,7 @@ export const PromoCardsSection = ({ banners }: { banners: any[] }) => {
                 Shop Now <ArrowRight className="ml-1 w-4 h-4" />
               </Link>
             </div>
-            {promo.image_url && <img loading="lazy" src={promo.image_url} alt={promo.title} className="absolute -right-10 bottom-0 h-[120%] object-contain group-hover:scale-110 transition-transform duration-500 origin-bottom-right" />}
+            {promo.image_url && <OptimizedImage src={promo.image_url} alt={promo.title} imgClassName="absolute -right-10 bottom-0 h-[120%] object-contain group-hover:scale-110 transition-transform duration-500 origin-bottom-right" className="absolute -right-10 bottom-0 h-[120%]" />}
           </motion.div>
         ))}
       </div>
@@ -137,7 +138,7 @@ export const WeeklyDealsSection = () => {
           </div>
           <div className="flex-1 w-full relative">
             <div className="absolute inset-0 bg-[#C65A28]/10 rounded-full blur-3xl transform scale-75"></div>
-            <img loading="lazy" src="https://images.unsplash.com/photo-1604719312566-8912e9227c6a?w=800&q=80" alt="Fresh Deal" className="relative z-10 w-full max-w-lg mx-auto rounded-3xl shadow-2xl transform hover:scale-105 transition-transform duration-500 border-8 border-white" />
+            <OptimizedImage src="https://images.unsplash.com/photo-1604719312566-8912e9227c6a?w=800&q=80" alt="Fresh Deal" imgClassName="relative z-10 w-full max-w-lg mx-auto rounded-3xl shadow-2xl transform hover:scale-105 transition-transform duration-500 border-8 border-white" className="relative z-10 w-full max-w-lg mx-auto" />
             <div className="absolute -top-6 -right-6 w-24 h-24 bg-[#B94A48]/100 rounded-full flex items-center justify-center text-white font-bold text-xl shadow-xl transform rotate-12 z-20 border-4 border-white">
               -50%
             </div>
@@ -193,7 +194,7 @@ export const BrandsSection = ({ brands }: { brands: any[] }) => {
           {brands.map((brand, idx) => (
             <div key={idx} className="flex-[0_0_33.33%] sm:flex-[0_0_25%] md:flex-[0_0_16.66%] lg:flex-[0_0_14.28%] min-w-0 px-4">
               <div className="h-20 bg-[#FFFDF8] rounded-xl border border-[#E8DCC9] shadow-sm flex items-center justify-center p-4 hover:shadow-md transition-shadow grayscale hover:grayscale-0">
-                <img loading="lazy" src={brand.image_url || brand} alt="Brand" className="max-h-full max-w-full object-contain" />
+                <OptimizedImage src={brand.image_url || brand} alt="Brand" imgClassName="max-h-full max-w-full object-contain" className="w-full h-full" />
               </div>
             </div>
           ))}
@@ -225,7 +226,7 @@ export const NewsletterSection = ({ settings }: { settings: any }) => (
         </div>
         <div className="flex-1 hidden md:flex justify-center relative">
           <div className="w-72 h-72 lg:w-96 lg:h-96 rounded-full bg-[#FFFDF8]/10 backdrop-blur-md absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2"></div>
-          <img loading="lazy" src="https://images.unsplash.com/photo-1604719312566-8912e9227c6a?w=600&q=80" alt="Fresh Produce" className="relative z-10 w-full max-w-sm rounded-full shadow-2xl border-4 border-white/20 transform rotate-6 hover:rotate-0 transition-transform duration-500" />
+          <OptimizedImage src="https://images.unsplash.com/photo-1604719312566-8912e9227c6a?w=600&q=80" alt="Fresh Produce" imgClassName="relative z-10 w-full max-w-sm rounded-full shadow-2xl border-4 border-white/20 transform rotate-6 hover:rotate-0 transition-transform duration-500" className="relative z-10 w-full max-w-sm rounded-full" />
         </div>
       </div>
     </div>

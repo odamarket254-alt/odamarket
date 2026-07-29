@@ -37,8 +37,12 @@ export default function AdminDashboardLayout() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const { data: { session }, error } = await supabase.auth.getSession();
         
+        if (error) {
+           console.warn("Admin session error:", error.message);
+        }
+
         if (session?.user) {
            setUser(session.user);
         } else {

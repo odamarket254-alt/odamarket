@@ -1,3 +1,4 @@
+import { OptimizedImage } from "../../components/ui/OptimizedImage";
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
@@ -248,7 +249,7 @@ export default function AdminCategoriesPage() {
             
             <div className="w-10 h-10 rounded-lg bg-[#E8DCC9] border border-[#E8DCC9] flex items-center justify-center shrink-0 overflow-hidden">
               {item.image_url ? (
-                <img src={item.image_url} alt={item.name} className="w-full h-full object-cover" />
+                <OptimizedImage src={item.image_url} alt={item.name} imgClassName="w-full h-full object-cover" className="w-full h-full flex items-center justify-center bg-transparent" />
               ) : (
                 <FolderTree className="w-4 h-4 text-[#8B857D]" />
               )}

@@ -1,3 +1,5 @@
+import { OptimizedImage } from "../../components/ui/OptimizedImage";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
@@ -18,42 +20,82 @@ export default function AdminProductsPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [activeTab, setActiveTab] = useState<'all' | 'active' | 'draft' | 'archived' | 'out_of_stock'>('all');
   const [stats, setStats] = useState({ total: 0, active: 0, draft: 0, archived: 0, outOfStock: 0, lowStock: 0 });
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const itemsPerPage = 20;
 
   useEffect(() => {
     fetchProducts();
-    const channel = supabase.channel('public:products')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => {
+    fetchStats();
+  }, [currentPage, activeTab]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (currentPage === 1) {
         fetchProducts();
-      })
-      .subscribe();
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
+        fetchStats();
+      } else {
+        setCurrentPage(1);
+      }
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [search]);
+  
+  const fetchStats = async () => {
+    try {
+      // Fetch counts for tabs
+      const [totalReq, activeReq, draftReq, archReq, outReq, lowReq] = await Promise.all([
+        supabase.from('products').select('id', { count: 'exact', head: true }),
+        supabase.from('products').select('id', { count: 'exact', head: true }).eq('status', 'active'),
+        supabase.from('products').select('id', { count: 'exact', head: true }).eq('status', 'draft'),
+        supabase.from('products').select('id', { count: 'exact', head: true }).eq('status', 'archived'),
+        supabase.from('products').select('id', { count: 'exact', head: true }).lte('stock_quantity', 0),
+        supabase.from('products').select('id', { count: 'exact', head: true }).lte('stock_quantity', 10).gt('stock_quantity', 0)
+      ]);
+      setStats({
+        total: totalReq.count || 0,
+        active: activeReq.count || 0,
+        draft: draftReq.count || 0,
+        archived: archReq.count || 0,
+        outOfStock: outReq.count || 0,
+        lowStock: lowReq.count || 0
+      });
+    } catch (e) {
+      console.error(e);
+    }
+  };
 
   const fetchProducts = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      
+      let query = supabase
         .from('products')
-        .select('*, product_type:product_types!left(name)')
-        .order('created_at', { ascending: false });
+        .select('*, product_type:product_types!left(name)', { count: 'exact' });
+
+      if (search) {
+        query = query.or(`name.ilike.%${search}%,sku.ilike.%${search}%,barcode.ilike.%${search}%`);
+      }
+
+      if (activeTab === 'out_of_stock') {
+        query = query.lte('stock_quantity', 0);
+      } else if (activeTab !== 'all') {
+        query = query.eq('status', activeTab);
+      }
+
+      const from = (currentPage - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+
+      const { data, error, count } = await query
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
       if (error) throw error;
       
-      const prods = data || [];
-      setProducts(prods);
+      setProducts(data || []);
+      setTotalCount(count || 0);
       
-      // Calculate stats
-      setStats({
-        total: prods.length,
-        active: prods.filter(p => p.status === 'active').length,
-        draft: prods.filter(p => p.status === 'draft').length,
-        archived: prods.filter(p => p.status === 'archived').length,
-        outOfStock: prods.filter(p => p.stock_quantity <= 0).length,
-        lowStock: prods.filter(p => p.stock_quantity > 0 && p.stock_quantity <= 10).length
-      });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching products:', error);
       toast.error('Failed to load products');
     } finally {
@@ -63,7 +105,7 @@ export default function AdminProductsPage() {
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
-      setSelectedIds(filteredProducts.map(p => p.id));
+      setSelectedIds(products.map(p => p.id));
     } else {
       setSelectedIds([]);
     }
@@ -98,14 +140,7 @@ export default function AdminProductsPage() {
     }
   };
 
-  const filteredProducts = products.filter(p => {
-    const matchesSearch = p.name?.toLowerCase().includes(search.toLowerCase()) || 
-                          p.sku?.toLowerCase().includes(search.toLowerCase()) ||
-                          p.barcode?.toLowerCase().includes(search.toLowerCase());
-    if (activeTab === 'out_of_stock') return matchesSearch && p.stock_quantity <= 0;
-    if (activeTab === 'all') return matchesSearch;
-    return matchesSearch && p.status === activeTab;
-  });
+  const filteredProducts = products;
 
   const StatCard = ({ title, value, icon: Icon, trend, colorClass }: any) => (
     <div className="bg-[#FFFDF8] rounded-2xl border border-[#E8DCC9] p-5 shadow-sm">
@@ -241,7 +276,7 @@ export default function AdminProductsPage() {
                 <th className="py-3 px-4 w-12 text-center">
                   <input 
                     type="checkbox" 
-                    checked={selectedIds.length === filteredProducts.length && filteredProducts.length > 0}
+                    checked={selectedIds.length === products.length && products.length > 0}
                     onChange={handleSelectAll}
                     className="rounded border-slate-300 text-[#C65A28] focus:ring-[#C65A28] text-[#3A2418] dark:text-[#3A2418] placeholder:text-[#8B857D] caret-slate-900" 
                   />
@@ -262,7 +297,7 @@ export default function AdminProductsPage() {
                     <p className="text-[#5F5A54] font-medium">Loading catalog...</p>
                   </td>
                 </tr>
-              ) : filteredProducts.length === 0 ? (
+              ) : products.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-20 text-center">
                     <div className="w-16 h-16 bg-[#FAF5EC] rounded-2xl flex items-center justify-center mx-auto mb-4 border border-[#E8DCC9]">
@@ -276,7 +311,7 @@ export default function AdminProductsPage() {
                   </td>
                 </tr>
               ) : (
-                filteredProducts.map((product) => (
+                products.map((product) => (
                   <tr key={product.id} className={cn("hover:bg-[#FAF5EC] transition-colors group", selectedIds.includes(product.id) && "bg-[#E8DCC9]/30")}>
                     <td className="py-4 px-4 text-center">
                       <input 
@@ -290,7 +325,7 @@ export default function AdminProductsPage() {
                       <div className="flex items-center gap-4">
                         <div className="h-12 w-12 rounded-lg bg-[#E8DCC9] border border-[#E8DCC9] overflow-hidden flex-shrink-0 flex items-center justify-center">
                           {product.image_url ? (
-                            <img src={product.image_url} alt={product.name} className="h-full w-full object-cover mix-blend-multiply" />
+                            <OptimizedImage src={product.image_url} alt={product.name} imgClassName="h-full w-full object-cover mix-blend-multiply" className="w-full h-full flex items-center justify-center bg-transparent" />
                           ) : (
                             <ImageIcon className="h-5 w-5 text-[#8B857D]" />
                           )}
@@ -335,7 +370,7 @@ export default function AdminProductsPage() {
                           KSh {Number(product.price || product.regular_price || 0).toLocaleString()}
                         </span>
                         {product.cost_price && (
-                           <span className="text-xs text-[#5F5A54] mt-0.5">Margin: {Math.round(((product.price - product.cost_price) / product.price) * 100)}%</span>
+                           <span className="text-xs text-[#5F5A54] mt-0.5">Margin: {Math.round(((product.regular_price - product.cost_price) / product.regular_price) * 100)}%</span>
                         )}
                       </div>
                     </td>
@@ -353,7 +388,7 @@ export default function AdminProductsPage() {
         
         {/* Pagination Footer */}
         <div className="border-t border-[#E8DCC9] p-4 flex items-center justify-between text-sm text-[#5F5A54] bg-[#FFFDF8] rounded-b-2xl">
-          <div>Showing <span className="font-medium text-[#3A2418]">{filteredProducts.length}</span> products</div>
+          <div>Showing <span className="font-medium text-[#3A2418]">{products.length}</span> products</div>
           <div className="flex items-center gap-2">
             <button className="px-3 py-1.5 border border-[#E8DCC9] rounded-md bg-[#FFFDF8] hover:bg-[#FAF5EC] disabled:opacity-50 transition-colors">Previous</button>
             <button className="px-3 py-1.5 border border-[#E8DCC9] rounded-md bg-[#FFFDF8] hover:bg-[#FAF5EC] disabled:opacity-50 transition-colors">Next</button>

@@ -1,3 +1,4 @@
+import { OptimizedImage } from "../../components/ui/OptimizedImage";
 import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { Card, CardContent } from "../../components/ui/Card";
@@ -221,32 +222,7 @@ export default function InquiriesPage() {
   useEffect(() => {
     if (!user) return;
     fetchInquiries();
-    const channel = supabase
-      .channel(`inquiries-changes-${Math.random()}`)
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "inquiries" },
-        (payload) => { 
-          const updated = payload.new as any;
-          const previous = payload.old as any;
-          const isBuyer = user.id === updated.buyer_id;
-          
-          if (isBuyer && updated.buyer_unread_count && (!previous.buyer_unread_count || updated.buyer_unread_count > previous.buyer_unread_count)) {
-            playSound();
-          } else if (!isBuyer && updated.seller_unread_count && (!previous.seller_unread_count || updated.seller_unread_count > previous.seller_unread_count)) {
-            playSound();
-          }
-          fetchInquiries(); 
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "inquiries" },
-        () => { fetchInquiries(); }
-      )
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
-  }, [user]);
+    }, [user]);
 
   useEffect(() => {
     const sellerId = searchParams.get("seller");
@@ -303,7 +279,7 @@ export default function InquiriesPage() {
       try {
         const { data, error } = await supabase
           .from("inquiry_messages")
-          .select("*")
+          .select('*').limit(100)
           .eq("inquiry_id", selectedInquiry.id)
           .order("created_at", { ascending: true });
         if (error) console.error(error);
@@ -314,57 +290,6 @@ export default function InquiriesPage() {
     };
 
     fetchMessages();
-
-    const channel = supabase
-      .channel(`inquiries-messages-${selectedInquiry.id}`)
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "inquiry_messages", filter: `inquiry_id=eq.${selectedInquiry.id}` },
-        (payload) => { 
-          const newMessage = payload.new as InquiryMessage;
-          setInquiryMessages((prev) => [...prev, newMessage]); 
-          
-          if (user && newMessage.sender_id !== user.id) {
-            playSound();
-            setIsTyping(false);
-            if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-            markAsRead(selectedInquiry);
-          }
-        }
-      )
-      .on(
-        "postgres_changes",
-        { event: "UPDATE", schema: "public", table: "inquiry_messages", filter: `inquiry_id=eq.${selectedInquiry.id}` },
-        (payload) => { 
-          const updatedMessage = payload.new as InquiryMessage;
-          setInquiryMessages((prev) => prev.map(msg => msg.id === updatedMessage.id ? updatedMessage : msg)); 
-        }
-      )
-      .on(
-        "broadcast",
-        { event: "typing" },
-        (payload) => {
-          if (user && payload.payload.sender_id !== user.id) {
-            setIsTyping(payload.payload.isTyping);
-            if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-            if (payload.payload.isTyping) {
-              typingTimeoutRef.current = setTimeout(() => {
-                setIsTyping(false);
-              }, 3000);
-            }
-          }
-        }
-      )
-      .subscribe();
-      
-    activeChannelRef.current = channel;
-
-    return () => { 
-      supabase.removeChannel(channel); 
-      activeChannelRef.current = null;
-      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-      if (myTypingTimeoutRef.current) clearTimeout(myTypingTimeoutRef.current);
-    };
   }, [selectedInquiry]);
 
   useEffect(() => {
@@ -569,7 +494,7 @@ export default function InquiriesPage() {
                     <div className="relative shrink-0">
                       <div className={`h-12 w-12 rounded-full flex items-center justify-center font-bold text-lg border overflow-hidden ${selectedInquiry?.id === inquiry.id ? "bg-blue-100 dark:bg-blue-900/40 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-800/50" : "bg-muted text-muted-foreground border-border"}`}>
                         {getOtherParty(inquiry).logo_url ? (
-                          <img src={getOtherParty(inquiry).logo_url} alt="Profile" className="h-full w-full object-cover" />
+                          <OptimizedImage src={getOtherParty(inquiry).logo_url} alt="Profile" imgClassName="h-full w-full object-cover" className="w-full h-full flex items-center justify-center bg-transparent" />
                         ) : (
                           getOtherParty(inquiry).name.charAt(0).toUpperCase()
                         )}
@@ -645,7 +570,7 @@ export default function InquiriesPage() {
                 </Button>
                 <div className="h-10 w-10 overflow-hidden rounded-full bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-700 dark:text-blue-400 font-bold shrink-0 border border-blue-200 dark:border-blue-800/50">
                   {getOtherParty(selectedInquiry).logo_url ? (
-                    <img src={getOtherParty(selectedInquiry).logo_url} alt="Profile" className="h-full w-full object-cover" />
+                    <OptimizedImage src={getOtherParty(selectedInquiry).logo_url} alt="Profile" imgClassName="h-full w-full object-cover" className="w-full h-full flex items-center justify-center bg-transparent" />
                   ) : (
                     getOtherParty(selectedInquiry).name.charAt(0).toUpperCase()
                   )}
@@ -788,7 +713,7 @@ export default function InquiriesPage() {
                                 {!isConsecutive && (
                                   <div className="h-8 w-8 rounded-full overflow-hidden bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-700 dark:text-blue-400 font-bold text-xs shrink-0 border border-blue-200 dark:border-blue-800/50">
                                      {getOtherParty(selectedInquiry).logo_url ? (
-                                       <img src={getOtherParty(selectedInquiry).logo_url} alt="Profile" className="h-full w-full object-cover" />
+                                       <OptimizedImage src={getOtherParty(selectedInquiry).logo_url} alt="Profile" imgClassName="h-full w-full object-cover" className="w-full h-full flex items-center justify-center bg-transparent" />
                                      ) : (
                                        getOtherParty(selectedInquiry).name.charAt(0).toUpperCase()
                                      )}
@@ -851,7 +776,7 @@ export default function InquiriesPage() {
                      <div className="w-8 shrink-0 mr-2 flex flex-col justify-end mb-5">
                        <div className="h-8 w-8 rounded-full overflow-hidden bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center text-blue-700 dark:text-blue-400 font-bold text-xs shrink-0 border border-blue-200 dark:border-blue-800/50">
                           {getOtherParty(selectedInquiry).logo_url ? (
-                            <img src={getOtherParty(selectedInquiry).logo_url} alt="Profile" className="h-full w-full object-cover" />
+                            <OptimizedImage src={getOtherParty(selectedInquiry).logo_url} alt="Profile" imgClassName="h-full w-full object-cover" className="w-full h-full flex items-center justify-center bg-transparent" />
                           ) : (
                             getOtherParty(selectedInquiry).name.charAt(0).toUpperCase()
                           )}

@@ -1,0 +1,57 @@
+--- routes/authRoutes.ts
++++ routes/authRoutes.ts
+@@ -56,6 +56,58 @@
+   }
+ });
+ 
++router.post('/register-step1', async (req, res) => {
++  try {
++    const { accountData } = req.body;
++    if (!accountData) return res.status(400).json({ error: 'Account data is required' });
++
++    let formattedPhone = accountData.phone.trim().replace(/[\s\-()]/g, '');
++    if (formattedPhone.startsWith('0')) {
++      formattedPhone = '+254' + formattedPhone.substring(1);
++    } else if (!formattedPhone.startsWith('+')) {
++      formattedPhone = '+' + formattedPhone;
++    }
++
++    const { data: byEmail } = await supabaseAdmin.from('profiles').select('id').eq('email', accountData.email).maybeSingle();
++    if (byEmail) return res.status(400).json({ error: 'Email is already registered' });
++
++    const { data: byPhone } = await supabaseAdmin.from('profiles').select('id').eq('phone', formattedPhone).maybeSingle();
++    if (byPhone) return res.status(400).json({ error: 'Phone number is already registered' });
++
++    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
++      email: accountData.email,
++      password: accountData.password,
++      phone: formattedPhone,
++      email_confirm: true,
++      phone_confirm: false,
++      user_metadata: {
++        first_name: accountData.first_name,
++        last_name: accountData.last_name,
++        full_name: `${accountData.first_name} ${accountData.last_name}`,
++        phone: formattedPhone,
++        phone_verified: false,
++        role: 'customer'
++      }
++    });
++    
++    if (authError) {
++      // Try to gracefully handle already registered user if unverified
++      return res.status(400).json({ error: authError.message });
++    }
++
++    // Generate and send OTP internally
++    req.body.phone = formattedPhone;
++    req.body.internalCall = true;
++    // We will just invoke the send-otp logic by calling the next handler or extracting the logic.
++    // Wait, it's easier to just copy the send-otp logic or forward it.
++  } catch (error) {
++    console.error('Failed in register-step1:', error);
++    res.status(500).json({ error: 'Failed to create account.' });
++  }
++});
++
+ router.post('/send-otp', async (req, res) => {

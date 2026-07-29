@@ -1,3 +1,4 @@
+import { OptimizedImage } from "../../components/ui/OptimizedImage";
 import { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Link, useNavigate } from 'react-router-dom';
@@ -67,7 +68,7 @@ export const CategoryGrid = () => {
               <div className="w-[85px] h-[115px] bg-[#FFFDF8] rounded-[16px] shadow-[0_2px_8px_rgba(0,0,0,0.04)] border border-[#ECECEC] flex flex-col items-center justify-start p-2 transition-transform active:scale-[0.98] active:shadow-[#C65A28]/20">
                 <div className="w-[55px] h-[55px] sm:w-[60px] sm:h-[60px] rounded-full overflow-hidden mb-2 bg-[#FAF5EC] flex items-center justify-center shrink-0 border border-[#E8DCC9]">
                   {cat.image_url ? (
-                    <img loading="lazy" src={cat.image_url} alt={cat.name} className="w-full h-full object-cover" />
+                    <OptimizedImage loading="lazy" src={cat.image_url} alt={cat.name} imgClassName="w-full h-full object-cover" className="w-full h-full flex items-center justify-center bg-transparent" />
                   ) : (
                     <ImageIcon className="w-6 h-6 text-[#8B857D]" />
                   )}
@@ -97,14 +98,14 @@ export const CategoryGrid = () => {
                 <div className="h-32 lg:h-40 w-full overflow-hidden relative bg-[#E8DCC9] flex items-center justify-center">
                   <div className="absolute inset-0 bg-black/5 group-hover:bg-transparent transition-colors z-10"></div>
                   {cat.image_url ? (
-                    <img loading="lazy" src={cat.image_url} alt={cat.name} className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500" />
+                    <OptimizedImage loading="lazy" src={cat.image_url} alt={cat.name} imgClassName="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500" className="w-full h-full flex items-center justify-center bg-transparent" />
                   ) : (
                     <ImageIcon className="w-10 h-10 text-[#8B857D] transform group-hover:scale-110 transition-transform duration-500" />
                   )}
                   {cat.icon && (
                     <div className="absolute top-3 right-3 w-8 h-8 bg-[#FFFDF8] rounded-full flex items-center justify-center shadow-sm z-20 text-lg">
                       {cat.icon.startsWith('http') || cat.icon.startsWith('/') ? (
-                        <img src={cat.icon} alt={cat.name} className="w-full h-full object-contain rounded-full p-1" />
+                        <OptimizedImage src={cat.icon} alt={cat.name} imgClassName="w-full h-full object-contain rounded-full p-1" className="w-full h-full flex items-center justify-center bg-transparent" />
                       ) : (
                         cat.icon
                       )}

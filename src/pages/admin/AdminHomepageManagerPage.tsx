@@ -1,3 +1,4 @@
+import { OptimizedImage } from "../../components/ui/OptimizedImage";
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { HomepageSection, SectionType } from '../../types/homepage';
@@ -423,7 +424,7 @@ function ManualProductSelector({ sectionId }: { sectionId: string }) {
   const fetchSelectedProducts = async () => {
     const { data, error } = await supabase
       .from('featured_products')
-      .select('*, products(id, name, price, image_url)')
+      .select('*, products(id, name, regular_price)').limit(100)
       .eq('section_id', sectionId)
       .order('sort_order', { ascending: true });
     
@@ -442,7 +443,7 @@ function ManualProductSelector({ sectionId }: { sectionId: string }) {
 
     const { data } = await supabase
       .from('products')
-      .select('id, name, price, image_url')
+      .select('id, name, regular_price').limit(100)
       .ilike('name', `%${query}%`)
       .limit(5);
     
@@ -489,7 +490,7 @@ function ManualProductSelector({ sectionId }: { sectionId: string }) {
             {searchResults.map(p => (
               <div key={p.id} className="flex items-center justify-between p-3 border-b border-[#E8DCC9] hover:bg-[#FAF5EC]">
                 <div className="flex items-center gap-3">
-                  <img src={p.image_url} alt="" className="w-10 h-10 rounded object-cover" />
+                  <OptimizedImage src={p.image_url} alt="" imgClassName="w-10 h-10 rounded object-cover" className="w-full h-full flex items-center justify-center bg-transparent" />
                   <div>
                     <div className="text-sm font-medium">{p.name}</div>
                     <div className="text-xs text-[#5F5A54]">Ksh {p.price}</div>
@@ -512,7 +513,7 @@ function ManualProductSelector({ sectionId }: { sectionId: string }) {
           <div key={sp.id} className="flex items-center justify-between bg-[#FAF5EC] border border-[#E8DCC9] p-2 rounded-lg">
             <div className="flex items-center gap-3">
               <GripVertical className="w-4 h-4 text-[#8B857D] cursor-grab" />
-              <img src={sp.products.image_url} alt="" className="w-8 h-8 rounded object-cover" />
+              <OptimizedImage src={sp.products.image_url} alt="" imgClassName="w-8 h-8 rounded object-cover" className="w-full h-full flex items-center justify-center bg-transparent" />
               <span className="text-sm font-medium">{sp.products.name}</span>
             </div>
             <button 

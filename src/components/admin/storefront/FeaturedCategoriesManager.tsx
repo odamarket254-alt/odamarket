@@ -1,3 +1,4 @@
+import { OptimizedImage } from "../../../components/ui/OptimizedImage";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { supabase } from "../../../lib/supabase";
@@ -20,7 +21,7 @@ export function FeaturedCategoriesManager() {
       // Fetch categories
       const { data: cats, error: catsError } = await supabase
         .from('categories')
-        .select('*')
+        .select('*').limit(100)
         .order('name');
       
       if (catsError) throw catsError;
@@ -29,7 +30,7 @@ export function FeaturedCategoriesManager() {
       // Fetch featured setting
       const { data: settings, error: settingsError } = await supabase
         .from('settings')
-        .select('value')
+        .select('value').limit(100)
         .eq('group_name', 'storefront')
         .eq('key', 'featured_categories')
         .single();
@@ -61,7 +62,7 @@ export function FeaturedCategoriesManager() {
     try {
       const { data: existing } = await supabase
         .from('settings')
-        .select('id')
+        .select('id').limit(100)
         .eq('group_name', 'storefront')
         .eq('key', 'featured_categories')
         .single();
@@ -149,7 +150,7 @@ export function FeaturedCategoriesManager() {
               )}
               <div className="w-16 h-16 bg-[#FAF5EC] rounded-full flex items-center justify-center mb-3 text-2xl overflow-hidden border border-[#E8DCC9]">
                 {category.image_url ? (
-                  <img src={category.image_url} alt={category.name} className="w-full h-full object-cover" />
+                  <OptimizedImage src={category.image_url} alt={category.name} imgClassName="w-full h-full object-cover" className="w-full h-full flex items-center justify-center bg-transparent" />
                 ) : (
                   category.icon || "📦"
                 )}

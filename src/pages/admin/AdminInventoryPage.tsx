@@ -17,11 +17,9 @@ export default function AdminInventoryPage() {
   useEffect(() => {
     fetchInventory();
     
-    const channel = supabase.channel('public:inventory')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, fetchInventory)
-      .subscribe();
+    
 
-    return () => { supabase.removeChannel(channel); };
+    
   }, []);
 
   const fetchInventory = async () => {
@@ -29,7 +27,7 @@ export default function AdminInventoryPage() {
       setLoading(true);
       const { data, error } = await supabase
         .from('products')
-        .select('id, name, sku, stock_quantity, low_stock_threshold, price, image_url')
+        .select('id, name, sku, stock_quantity, low_stock_threshold, regular_price').limit(100)
         .order('stock_quantity', { ascending: true });
 
       if (error) throw error;

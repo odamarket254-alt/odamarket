@@ -61,7 +61,7 @@ export default function RootLayout() {
     const fetchCategories = async () => {
       const { data, error } = await supabase
         .from("categories")
-        .select("*")
+        .select('*').limit(100)
         .eq("is_active", true)
         .order("sort_order", { ascending: true });
         
@@ -83,13 +83,9 @@ export default function RootLayout() {
     
     fetchCategories();
 
-    const channel = supabase.channel('public:categories:root')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, () => {
-        fetchCategories();
-      })
-      .subscribe();
+    
 
-    return () => { supabase.removeChannel(channel); };
+    
   }, []);
 
   useEffect(() => {

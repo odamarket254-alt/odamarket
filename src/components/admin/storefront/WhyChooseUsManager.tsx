@@ -15,7 +15,7 @@ export function WhyChooseUsManager() {
     try {
       const { data, error } = await supabase
         .from('settings')
-        .select('value')
+        .select('value').limit(100)
         .eq('key', 'storefront_whychooseusmanager')
         .single();
       

@@ -14,33 +14,47 @@ export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const itemsPerPage = 20;
   const [activeTab, setActiveTab] = useState<'all' | 'pending' | 'processing' | 'shipped' | 'delivered'>('all');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
 
   useEffect(() => {
     fetchOrders();
     
-    const channel = supabase.channel('public:orders')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
-        fetchOrders();
-      })
-      .subscribe();
+    
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    
   }, []);
 
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      const { data, error } = await supabase
+      
+      let query = supabase
         .from('orders')
-        .select('*, profiles:user_id(full_name, email)')
-        .order('created_at', { ascending: false });
+        .select('*, profiles:user_id(full_name, email)', { count: 'exact' });
+
+      // Search by order ID is possible, but ilike on UUID might fail. Let's just filter by status for now if UUID is complex, or let search handle it.
+      if (search) {
+        query = query.ilike('id', `%${search}%`);
+      }
+
+      if (activeTab !== 'all') {
+        query = query.eq('status', activeTab);
+      }
+
+      const from = (currentPage - 1) * itemsPerPage;
+      const to = from + itemsPerPage - 1;
+
+      const { data, error, count } = await query
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
       if (error) throw error;
       setOrders(data || []);
+      setTotalCount(count || 0);
     } catch (error) {
       console.error('Error fetching orders:', error);
     } finally {
@@ -50,7 +64,7 @@ export default function AdminOrdersPage() {
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
-      setSelectedIds(filteredOrders.map(o => o.id));
+      setSelectedIds(orders.map(o => o.id));
     } else {
       setSelectedIds([]);
     }
@@ -62,16 +76,10 @@ export default function AdminOrdersPage() {
     );
   };
 
-  const filteredOrders = orders.filter(o => {
-    const searchString = `${o.id} ${o.profiles?.full_name} ${o.profiles?.email}`.toLowerCase();
-    const matchesSearch = searchString.includes(search.toLowerCase());
-    
-    if (activeTab === 'all') return matchesSearch;
-    return matchesSearch && o.status === activeTab;
-  });
+  const filteredOrders = orders;
 
   const tabs = [
-    { id: 'all', label: 'All Orders', count: orders.length },
+    { id: 'all', label: 'All Orders', count: totalCount },
     { id: 'pending', label: 'Pending', count: orders.filter(o => o.status === 'pending').length },
     { id: 'processing', label: 'Processing', count: orders.filter(o => o.status === 'processing').length },
     { id: 'shipped', label: 'Shipped', count: orders.filter(o => o.status === 'shipped').length },
@@ -181,7 +189,7 @@ export default function AdminOrdersPage() {
                 <th className="py-3 px-4 w-12 text-center">
                   <input 
                     type="checkbox" 
-                    checked={selectedIds.length === filteredOrders.length && filteredOrders.length > 0}
+                    checked={selectedIds.length === orders.length && orders.length > 0}
                     onChange={handleSelectAll}
                     className="rounded border-slate-300 text-[#C65A28] focus:ring-[#C65A28] text-[#3A2418] dark:text-[#3A2418] placeholder:text-[#8B857D] caret-slate-900" 
                   />
@@ -202,7 +210,7 @@ export default function AdminOrdersPage() {
                     <p className="text-[#5F5A54] font-medium">Loading orders...</p>
                   </td>
                 </tr>
-              ) : filteredOrders.length === 0 ? (
+              ) : orders.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="py-16 text-center">
                     <div className="w-16 h-16 bg-[#E8DCC9] rounded-2xl flex items-center justify-center mx-auto mb-4">
@@ -213,7 +221,7 @@ export default function AdminOrdersPage() {
                   </td>
                 </tr>
               ) : (
-                filteredOrders.map((order) => (
+                orders.map((order) => (
                   <tr key={order.id} className={cn("hover:bg-[#FAF5EC] transition-colors group", selectedIds.includes(order.id) && "bg-[#F3F6F4]/50")}>
                     <td className="py-3 px-4 text-center">
                       <input 
@@ -267,7 +275,7 @@ export default function AdminOrdersPage() {
         
         {/* Pagination */}
         <div className="border-t border-[#E8DCC9] p-4 flex items-center justify-between text-sm text-[#5F5A54] bg-[#FAF5EC]">
-          <div>Showing {filteredOrders.length} orders</div>
+          <div>Showing {orders.length} orders</div>
           <div className="flex items-center gap-2">
             <button className="px-3 py-1.5 border border-[#E8DCC9] rounded-md bg-[#FFFDF8] hover:bg-[#FAF5EC] disabled:opacity-50">Previous</button>
             <button className="px-3 py-1.5 border border-[#E8DCC9] rounded-md bg-[#FFFDF8] hover:bg-[#FAF5EC] disabled:opacity-50">Next</button>

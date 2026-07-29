@@ -1,3 +1,4 @@
+import { OptimizedImage } from "../../components/ui/OptimizedImage";
 import { useState, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
@@ -152,7 +153,7 @@ export default function AdminBrandsPage() {
                 <div key={brand.id} className="flex flex-col sm:flex-row sm:items-center gap-4 py-4 px-6 hover:bg-[#FAF5EC] group">
                   <div className="w-16 h-16 rounded-xl bg-[#E8DCC9] border border-[#E8DCC9] flex items-center justify-center shrink-0 overflow-hidden">
                     {brand.logo_url ? (
-                      <img src={brand.logo_url} alt={brand.name} className="w-full h-full object-contain p-2" />
+                      <OptimizedImage src={brand.logo_url} alt={brand.name} imgClassName="w-full h-full object-contain p-2" className="w-full h-full flex items-center justify-center bg-transparent" />
                     ) : (
                       <ImageIcon className="w-6 h-6 text-[#8B857D]" />
                     )}

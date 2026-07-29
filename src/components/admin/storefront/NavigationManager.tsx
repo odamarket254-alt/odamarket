@@ -15,7 +15,7 @@ export function NavigationManager() {
     try {
       const { data, error } = await supabase
         .from('settings')
-        .select('value')
+        .select('value').limit(100)
         .eq('key', 'storefront_navigationmanager')
         .single();
       

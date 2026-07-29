@@ -1,3 +1,4 @@
+import { OptimizedImage } from "../components/ui/OptimizedImage";
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -15,7 +16,7 @@ export default function CategoriesPage() {
       try {
         const { data, error } = await supabase
           .from("categories")
-          .select("*")
+          .select('*').limit(100)
           .eq('status', 'active')
           .is('parent_id', null) // only top level categories
           .order('sort_order', { ascending: true })
@@ -79,7 +80,7 @@ export default function CategoriesPage() {
                 {category.image_url ? (
                   <>
                     <div className="absolute inset-0 z-0">
-                      <img src={category.image_url} alt={category.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 opacity-90 group-hover:opacity-100" />
+                      <OptimizedImage src={category.image_url} alt={category.name} imgClassName="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700 opacity-90 group-hover:opacity-100" className="w-full h-full flex items-center justify-center bg-transparent" />
                       <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent group-hover:from-black/90 transition-all" />
                     </div>
                     <div className="relative z-10 p-4 sm:p-6 w-full mt-auto flex flex-col justify-end h-full text-center sm:text-left">

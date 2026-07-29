@@ -62,7 +62,7 @@ export function Header() {
       try {
         const { data, error } = await supabase
           .from("categories")
-          .select("name, slug")
+          .select('name, slug').limit(100)
           .eq('status', 'active')
           .eq('navigation_status', true)
           .is('parent_id', null)
@@ -88,15 +88,10 @@ export function Header() {
           ========================================================= */}
       <div className="md:hidden flex flex-col bg-white w-full">
         {/* Top Header Row */}
-        <div className="flex items-center justify-between h-[64px] px-4 sm:px-6 border-b border-gray-200 bg-white shadow-sm">
-          <div className="flex items-center gap-2">
-            <button className="w-11 h-11 flex items-center justify-center text-[#3A2418] hover:bg-gray-100 rounded-full transition-colors shrink-0">
-              <Menu className="w-6 h-6" />
-            </button>
-            <Link to="/" className="flex items-center justify-center shrink-0 ml-1 py-1">
-              <Logo className="w-[110px] sm:w-[130px]" />
-            </Link>
-          </div>
+        <div className="flex items-center justify-between h-[72px] px-4 sm:px-6 border-b border-gray-200 bg-white shadow-sm">
+          <Link to="/" className="flex items-center justify-center shrink-0 py-1">
+            <Logo className="w-[130px] min-[360px]:w-[150px] sm:w-[180px]" />
+          </Link>
           
           <div className="flex items-center gap-1 sm:gap-2">
             <Link to={user ? (profile?.role === 'admin' ? '/admin/dashboard' : `/${profile?.role || 'buyer'}/dashboard`) : '/login'} className="w-11 h-11 flex items-center justify-center text-[#5F5A54] hover:bg-gray-100 rounded-full transition-colors shrink-0">
@@ -193,13 +188,10 @@ export function Header() {
         <div className="hidden md:flex border-b border-[#EAEAEA] py-4 md:py-0 md:h-[72px] lg:h-[80px] items-center bg-white">
           <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 flex flex-wrap md:flex-nowrap items-center justify-between gap-4 lg:gap-8">
             
-            {/* Mobile Menu & Logo */}
+            {/* Logo */}
             <div className="flex items-center gap-4 shrink-0">
-              <button className="md:hidden w-10 h-10 flex shrink-0 items-center justify-center text-[#3A2418] hover:bg-[#E8DCC9] rounded-full">
-                <Menu className="w-6 h-6" />
-              </button>
               <Link to="/" className="shrink-0 flex items-center justify-center">
-                <Logo className="w-[130px] md:w-[150px] lg:w-[170px]" />
+                <Logo className="w-[180px] lg:w-[200px]" />
               </Link>
             </div>
 

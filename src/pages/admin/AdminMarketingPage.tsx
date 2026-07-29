@@ -1,3 +1,4 @@
+import { OptimizedImage } from "../../components/ui/OptimizedImage";
 import { useState, useEffect } from "react";
 import { Megaphone, LayoutTemplate, MessageSquare, Ticket, BellRing, ArrowLeft, Upload, Plus, Trash2 } from "lucide-react";
 import { Button } from "../../components/ui/Button";
@@ -14,11 +15,8 @@ export default function AdminMarketingPage() {
 
   useEffect(() => {
     fetchBanners();
-    const channel = supabase.channel('public:banners')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'banners' }, () => {
-        fetchBanners();
-      }).subscribe();
-    return () => { supabase.removeChannel(channel); };
+    
+    
   }, []);
 
   const fetchBanners = async () => {
@@ -127,7 +125,7 @@ export default function AdminMarketingPage() {
                  <Label>Desktop Image (1920x600)</Label>
                  <div className="relative h-24 border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center hover:bg-muted/50 cursor-pointer transition-colors overflow-hidden">
                     {newBanner.image_url ? (
-                      <img src={newBanner.image_url} alt="Preview" className="w-full h-full object-cover" />
+                      <OptimizedImage src={newBanner.image_url} alt="Preview" imgClassName="w-full h-full object-cover" className="w-full h-full flex items-center justify-center bg-transparent" />
                     ) : (
                       <>
                         <Upload className="h-5 w-5 text-muted-foreground mb-1" />

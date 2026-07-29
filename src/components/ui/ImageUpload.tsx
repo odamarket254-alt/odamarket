@@ -18,24 +18,36 @@ export function ImageUpload({ value, onChange, bucket = 'products', folder = 'me
       const file = e.target.files?.[0];
       if (!file) return;
 
-      setIsUploading(true);
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random().toString(36).substring(2)}_${Date.now()}.${fileExt}`;
-      const filePath = `${folder}/${fileName}`;
-
-      const { error: uploadError, data } = await supabase.storage
-        .from(bucket)
-        .upload(filePath, file);
-
-      if (uploadError) {
-        throw uploadError;
+      const allowedMimeTypes = ["image/jpeg", "image/png", "image/webp", "image/avif", "application/pdf", "image/svg+xml"];
+      const allowedExtensions = /\.(jpg|jpeg|png|webp|avif|pdf|svg)$/i;
+      
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error("File size must be less than 10MB");
+        return;
+      }
+      
+      if (!allowedMimeTypes.includes(file.type) || !allowedExtensions.test(file.name)) {
+        toast.error("Invalid file type. Only JPEG, PNG, WebP, AVIF, SVG, and PDF are allowed.");
+        return;
       }
 
-      const { data: { publicUrl } } = supabase.storage
-        .from(bucket)
-        .getPublicUrl(filePath);
+      setIsUploading(true);
 
-      onChange(publicUrl);
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/gcs/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to upload image');
+      }
+
+      onChange(result.url);
       toast.success('Image uploaded successfully');
     } catch (error: any) {
       toast.error(error.message || 'Error uploading image');
@@ -72,7 +84,7 @@ export function ImageUpload({ value, onChange, bucket = 'products', folder = 'me
           <input 
             type="file" 
             className="hidden text-[#3A2418] dark:text-[#3A2418] placeholder:text-[#8B857D] caret-slate-900" 
-            accept="image/*" 
+            accept="image/jpeg, image/png, image/webp, image/avif, image/svg+xml, application/pdf" 
             onChange={handleUpload}
             disabled={isUploading}
           />

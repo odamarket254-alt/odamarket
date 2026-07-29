@@ -79,8 +79,8 @@ export default function SearchModal() {
         ] = await Promise.all([
           supabase.from('products').select('id, name, slug').ilike('name', searchTerm).limit(5),
           supabase.from('categories').select('id, name, slug').ilike('name', searchTerm).limit(5),
-          supabase.from('orders').select('id, order_number').ilike('order_number', searchTerm).limit(5),
-          supabase.from('profiles').select('id, full_name, email').ilike('full_name', searchTerm).limit(5),
+          supabase.from('orders').select('id, order_number').limit(100).ilike('order_number', searchTerm).limit(5),
+          supabase.from('profiles').select('id, full_name, email').limit(100).ilike('full_name', searchTerm).limit(5),
           supabase.from('suppliers').select('id, name').ilike('name', searchTerm).limit(5),
           supabase.from('brands').select('id, name').ilike('name', searchTerm).limit(5),
           supabase.from('coupons').select('id, code').ilike('code', searchTerm).limit(5)

@@ -25,41 +25,12 @@ export function NotificationBell() {
 
     fetchNotifications();
 
-    const subscription = supabase
-      .channel(`notifications-${user.id}-${Math.random()}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "INSERT",
-          schema: "public",
-          table: "notifications",
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload) => {
-          const newNotif = payload.new;
-          setNotifications((prev) => [newNotif, ...prev]);
-          setUnreadCount((prev) => prev + 1);
-          toast(newNotif.title, {
-            description: newNotif.message,
-            icon: <Bell className="h-4 w-4 text-[#C65A28] dark:text-[#C65A28]" />,
-            action: newNotif.link ? {
-              label: "View",
-              onClick: () => window.location.href = newNotif.link
-            } : undefined
-          });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(subscription);
-    };
-  }, [user?.id]);
+    }, [user?.id]);
 
   const fetchNotifications = async () => {
     const { data, error } = await supabase
       .from("notifications")
-      .select("*")
+      .select('*').limit(100)
       .eq("user_id", user!.id)
       .order("created_at", { ascending: false })
       .limit(20);

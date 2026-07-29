@@ -1,17 +1,35 @@
 import express from "express";
+import os from "os";
+import fsModule from "fs";
 import path from "path";
 import { createServer as createViteServer } from "vite";
 import { Storage } from "@google-cloud/storage";
 import multer from "multer";
 import aiRoutes from "./routes/aiRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
+import checkoutRoutes from "./routes/checkoutRoutes.js";
+import imageRoutes from "./routes/imageRoutes.js";
 import rateLimit from "express-rate-limit";
 
+const allowedMimeTypes = ["image/jpeg", "image/png", "image/webp", "image/avif", "application/pdf", "image/svg+xml"];
+const allowedExtensions = /\.(jpg|jpeg|png|webp|avif|pdf|svg)$/i;
+
 const upload = multer({
-  storage: multer.memoryStorage(),
+  dest: os.tmpdir(),
   limits: {
     fileSize: 10 * 1024 * 1024, // 10MB limit
   },
+  fileFilter: (req, file, cb) => {
+    
+    const isMimeValid = allowedMimeTypes.includes(file.mimetype);
+    const isExtValid = allowedExtensions.test(path.extname(file.originalname).toLowerCase());
+
+    if (isMimeValid && isExtValid) {
+      cb(null, true);
+    } else {
+      cb(new Error("Invalid file type. Only JPEG, PNG, WebP, AVIF, SVG, and PDF are allowed."));
+    }
+  }
 });
 
 // Rate limiting setup
@@ -67,6 +85,10 @@ async function startServer() {
 
   // Auth Routes
   app.use("/api/auth", authRoutes);
+
+  // Checkout Route
+  app.use("/api/checkout", checkoutRoutes);
+  app.use("/api/image", imageRoutes);
 
   // AI Routes
   app.use("/api/ai", aiRoutes);
@@ -135,6 +157,7 @@ async function startServer() {
       const bucketName = process.env.GOOGLE_CLOUD_BUCKET_NAME;
 
       if (!gcs || !bucketName) {
+        if (req.file && req.file.path) fsModule.unlink(req.file.path, () => {});
         return res.status(500).json({ error: "Google Cloud Storage is not fully configured." });
       }
 
@@ -153,17 +176,21 @@ async function startServer() {
       });
 
       stream.on("error", (err) => {
+        if (req.file && req.file.path) fsModule.unlink(req.file.path, () => {});
         console.error("GCS Upload Error:", err);
         res.status(500).json({ error: "Failed to upload to Google Cloud Storage" });
       });
 
       stream.on("finish", () => {
+        if (req.file && req.file.path) fsModule.unlink(req.file.path, () => {});
         const publicUrl = `https://storage.googleapis.com/${bucketName}/${uniqueFileName}`;
         res.status(200).json({ success: true, url: publicUrl, fileName: uniqueFileName });
       });
 
-      stream.end(req.file.buffer);
+      const readStream = fsModule.createReadStream(req.file.path);
+      readStream.pipe(stream);
     } catch (error) {
+      if (req.file && req.file.path) fsModule.unlink(req.file.path, () => {});
       console.error("Upload proxy error:", error);
       res.status(500).json({ error: "Upload process failed" });
     }
@@ -204,6 +231,12 @@ async function startServer() {
 
   // Global Error Handler for API routes to prevent HTML responses
   app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (err instanceof multer.MulterError) {
+      return res.status(400).json({ error: err.message });
+    }
+    if (err.message && err.message.includes("Invalid file type")) {
+      return res.status(400).json({ error: err.message });
+    }
     if (req.originalUrl.startsWith("/api")) {
       console.error("API Error:", err);
       res.status(err.status || 500).json({ error: err.message || "Internal Server Error" });

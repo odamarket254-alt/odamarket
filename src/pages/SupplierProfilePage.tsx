@@ -1,3 +1,4 @@
+import { OptimizedImage } from "../components/ui/OptimizedImage";
 import { useEffect, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
@@ -64,26 +65,6 @@ export default function SupplierProfilePage() {
   useEffect(() => {
     if (id) {
       fetchSupplierDetails(id);
-
-      const channel = supabase
-        .channel(`supplier-products-${id}`)
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "products",
-            filter: `seller_id=eq.${id}`,
-          },
-          () => {
-            fetchSupplierDetails(id);
-          },
-        )
-        .subscribe();
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
     }
   }, [id]);
 
@@ -93,7 +74,7 @@ export default function SupplierProfilePage() {
       // Fetch Supplier Profile
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
-        .select("*")
+        .select('*').limit(100)
         .eq("id", supplierId)
         .eq("role", "seller")
         .single();
@@ -104,7 +85,7 @@ export default function SupplierProfilePage() {
       // Fetch Supplier Products
       const { data: productsData, error: productsError } = await supabase
         .from("products")
-        .select("*")
+        .select('*').limit(100)
         .eq("seller_id", supplierId)
         .eq("status", "active")
         .order("created_at", { ascending: false });
@@ -167,10 +148,9 @@ export default function SupplierProfilePage() {
           <div className="flex flex-col md:flex-row items-center md:items-end gap-6 md:gap-8 -mt-20 mb-8 text-center md:text-left">
             <div className="w-32 h-32 sm:w-40 sm:h-40 rounded-full border-[6px] border-background bg-muted flex items-center justify-center shrink-0 shadow-lg overflow-hidden relative z-10">
               {supplier.logo_url ? (
-                <img
-                  src={supplier.logo_url}
+                <OptimizedImage                   src={supplier.logo_url}
                   alt={supplier.business_name}
-                  className="w-full h-full object-cover"
+                  imgClassName="w-full h-full object-cover" className="w-full h-full flex items-center justify-center bg-transparent"
                 />
               ) : (
                 <span className="text-5xl text-[#C65A28] dark:text-[#C65A28] font-extrabold uppercase tracking-tight">

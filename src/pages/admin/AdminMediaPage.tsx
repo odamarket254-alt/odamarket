@@ -1,3 +1,4 @@
+import { OptimizedImage } from "../../components/ui/OptimizedImage";
 import { Image as ImageIcon, UploadCloud, Folder, Search, Trash2 } from "lucide-react";
 import { Button } from "../../components/ui/Button";
 import { Input } from "../../components/ui/Input";
@@ -50,13 +51,13 @@ export default function AdminMediaPage() {
            
            {/* Images */}
            <div className="aspect-square rounded-xl border border-border/50 bg-muted/20 flex flex-col items-center justify-center gap-2 overflow-hidden group relative">
-              <img src="https://images.unsplash.com/photo-1542838132-92c53300491e?w=200&q=80" alt="Fresh Produce" className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
+              <OptimizedImage src="https://images.unsplash.com/photo-1542838132-92c53300491e?w=200&q=80" alt="Fresh Produce" imgClassName="w-full h-full object-cover group-hover:scale-110 transition-transform" className="w-full h-full flex items-center justify-center bg-transparent" />
               <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                  <Button size="sm" variant="outline" className="text-white border-white hover:bg-[#FFFDF8]/20">Select</Button>
               </div>
            </div>
            <div className="aspect-square rounded-xl border border-border/50 bg-muted/20 flex flex-col items-center justify-center gap-2 overflow-hidden group relative">
-              <img src="https://images.unsplash.com/photo-1608686207856-001b95cf60ca?w=200&q=80" alt="Meat" className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
+              <OptimizedImage src="https://images.unsplash.com/photo-1608686207856-001b95cf60ca?w=200&q=80" alt="Meat" imgClassName="w-full h-full object-cover group-hover:scale-110 transition-transform" className="w-full h-full flex items-center justify-center bg-transparent" />
               <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
                  <Button size="sm" variant="outline" className="text-white border-white hover:bg-[#FFFDF8]/20">Select</Button>
               </div>

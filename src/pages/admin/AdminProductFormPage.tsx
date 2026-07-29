@@ -1,3 +1,4 @@
+import { OptimizedImage } from "../../components/ui/OptimizedImage";
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import {
@@ -100,9 +101,9 @@ export default function AdminProductFormPage() {
   const fetchTaxonomies = async () => {
     try {
       const [catRes, brandsRes, suppliersRes] = await Promise.all([
-        supabase.from('categories').select('*').order('name'),
-        supabase.from('brands').select('*').order('name'),
-        supabase.from('suppliers').select('*').order('name')
+        supabase.from('categories').select('*').limit(100).order('name').limit(100),
+        supabase.from('brands').select('*').limit(100).order('name').limit(100),
+        supabase.from('suppliers').select('*').limit(100).order('name').limit(100)
       ]);
 
       if (catRes.data) setCategories(catRes.data);
@@ -126,7 +127,7 @@ export default function AdminProductFormPage() {
         });
         
         // Fetch images
-        const { data: imgData } = await supabase.from('product_images').select('*').eq('product_id', id).order('sort_order');
+        const { data: imgData } = await supabase.from('product_images').select('*').limit(100).eq('product_id', id).order('sort_order').limit(100);
         if (imgData) {
           setImages(imgData.map(img => img.image_url));
         }
@@ -440,7 +441,7 @@ export default function AdminProductFormPage() {
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3 sm:gap-4">
                 {images.map((url, index) => (
                   <div key={index} className="relative group aspect-square bg-[#E8DCC9] rounded-xl border border-[#E8DCC9] overflow-hidden">
-                    <img src={url} alt={`Product ${index + 1}`} className="w-full h-full object-cover" />
+                    <OptimizedImage src={url} alt={`Product ${index + 1}`} imgClassName="w-full h-full object-cover" className="w-full h-full flex items-center justify-center bg-transparent" />
                     {index === 0 && (
                       <div className="absolute top-2 left-2 bg-[#C65A28] text-white text-[10px] font-bold px-2 py-1 rounded shadow-sm">
                         PRIMARY

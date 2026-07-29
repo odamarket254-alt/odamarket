@@ -18,7 +18,7 @@ export default function SalesAnalytics() {
       
       const { data: orders, error } = await supabase
         .from('orders')
-        .select('created_at, total_amount')
+        .select('created_at, total_amount').limit(100)
         .gte('created_at', startOfDay(startDate).toISOString())
         .lte('created_at', endOfDay(new Date()).toISOString());
         

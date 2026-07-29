@@ -17,12 +17,12 @@ export const DynamicHomepage = () => {
       const [sectionsRes, featuredProductsRes] = await Promise.all([
         supabase
           .from('homepage_sections')
-          .select('*')
+          .select('*').limit(100)
           .eq('is_active', true)
           .order('sort_order', { ascending: true }),
         supabase
           .from('featured_products')
-          .select('*')
+          .select('*').limit(100)
       ]);
 
       if (sectionsRes.error && sectionsRes.error.code !== 'PGRST205') throw sectionsRes.error;
@@ -55,23 +55,12 @@ export const DynamicHomepage = () => {
     fetchHomepageData();
 
     // Subscribe to changes in homepage_sections
-    const sectionsSub = supabase.channel('homepage_sections_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'homepage_sections' }, () => {
-        fetchHomepageData();
-      })
-      .subscribe();
+    
 
     // Subscribe to changes in featured_products
-    const productsSub = supabase.channel('featured_products_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'featured_products' }, () => {
-        fetchHomepageData();
-      })
-      .subscribe();
+    
 
-    return () => {
-      supabase.removeChannel(sectionsSub);
-      supabase.removeChannel(productsSub);
-    };
+    
   }, []);
 
   if (error) {

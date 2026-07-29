@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { format } from "date-fns";
-import { Shield, ShieldAlert, ShieldCheck, Mail, Building, MapPin, Search } from "lucide-react";
+import { Shield, ShieldAlert, ShieldCheck, Mail, Building, MapPin, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
@@ -23,6 +23,9 @@ export default function UsersPage() {
   const [users, setUsers] = useState<Profile[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalCount, setTotalCount] = useState(0);
+  const itemsPerPage = 20;
 
   const fetchUsers = async () => {
     try {
@@ -48,25 +51,7 @@ export default function UsersPage() {
     fetchUsers();
     
     // Listen to real-time profile updates for verification requests
-    const channel = supabase
-      .channel('public:profiles:verification_changes')
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'profiles' },
-        (payload) => {
-          setUsers(currentUsers => 
-            currentUsers.map(user => 
-              user.id === payload.new.id ? { ...user, ...payload.new } : user
-            )
-          );
-        }
-      )
-      .subscribe();
-      
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
+    }, []);
 
   const handleVerify = async (userId: string, currentStatus: boolean) => {
     try {
@@ -115,21 +100,7 @@ export default function UsersPage() {
     }
   };
 
-  const filtered = users.filter((u) => {
-    const q = search.toLowerCase();
-    return (
-      u.business_name?.toLowerCase().includes(q) ||
-      u.role?.toLowerCase().includes(q) ||
-      u.id.toLowerCase().includes(q)
-    );
-  }).sort((a, b) => {
-    // Sort pending requests to the top
-    const aPending = (a as any).verification_requested && !a.verified;
-    const bPending = (b as any).verification_requested && !b.verified;
-    if (aPending && !bPending) return -1;
-    if (!aPending && bPending) return 1;
-    return 0;
-  });
+  const filtered = users;
 
   return (
     <div className="space-y-6">
@@ -183,14 +154,14 @@ export default function UsersPage() {
                         <p className="text-muted-foreground">Loading users...</p>
                       </td>
                     </tr>
-                  ) : filtered.length === 0 ? (
+                  ) : totalCount === 0 ? (
                     <tr>
                       <td colSpan={4} className="px-6 py-12 text-center">
                         <p className="text-muted-foreground">No users found.</p>
                       </td>
                     </tr>
                   ) : (
-                    filtered.map((user) => (
+                    users.map((user) => (
                       <tr
                         key={user.id}
                         className="hover:bg-muted/30 transition-colors"
@@ -268,8 +239,35 @@ export default function UsersPage() {
                   )}
                 </tbody>
               </table>
+        </div>
+
+        {/* Pagination */}
+        {totalCount > 0 && (
+          <div className="flex items-center justify-between px-6 py-4 border-t border-[#E8DCC9] bg-[#FFFDF8] rounded-b-2xl">
+            <div className="text-sm text-[#5F5A54]">
+              Showing <span className="font-medium text-[#3A2418]">{(currentPage - 1) * itemsPerPage + 1}</span> to <span className="font-medium text-[#3A2418]">{Math.min(currentPage * itemsPerPage, totalCount)}</span> of <span className="font-medium text-[#3A2418]">{totalCount}</span> results
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="p-2 border border-[#E8DCC9] rounded-lg text-[#5F5A54] hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4" />
+              </button>
+              <div className="text-sm font-medium text-[#3A2418]">Page {currentPage}</div>
+              <button
+                onClick={() => setCurrentPage(p => p + 1)}
+                disabled={currentPage * itemsPerPage >= totalCount}
+                className="p-2 border border-[#E8DCC9] rounded-lg text-[#5F5A54] hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </button>
             </div>
           </div>
+        )}
+
+      </div>
         </CardContent>
       </Card>
     </div>

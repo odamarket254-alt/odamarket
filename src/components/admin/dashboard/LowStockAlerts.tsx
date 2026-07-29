@@ -13,7 +13,7 @@ export default function LowStockAlerts() {
       // Find products where stock is <= threshold
       const { data, error } = await supabase
         .from('products')
-        .select('id, name, stock_quantity, low_stock_threshold, price')
+        .select('id, name, stock_quantity, low_stock_threshold, regular_price').limit(100)
         .order('stock_quantity', { ascending: true })
         .limit(5);
         
@@ -25,16 +25,9 @@ export default function LowStockAlerts() {
   });
 
   useEffect(() => {
-    const channel = supabase.channel('low_stock_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => {
-        queryClient.invalidateQueries({ queryKey: ['low-stock-alerts'] });
-        queryClient.invalidateQueries({ queryKey: ['admin-kpi'] });
-      })
-      .subscribe();
+    
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    
   }, [queryClient]);
 
   return (

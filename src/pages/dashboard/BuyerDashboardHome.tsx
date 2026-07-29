@@ -1,3 +1,4 @@
+import { OptimizedImage } from "../../components/ui/OptimizedImage";
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -36,27 +37,7 @@ export function BuyerDashboardHome() {
   useEffect(() => {
     fetchDashboardData();
 
-    // Setup real-time subscription for inquiries (acting as orders)
-    const inquiriesSubscription = supabase
-      .channel('public:inquiries')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'inquiries' }, payload => {
-        fetchDashboardData(); // Refresh data on change
-      })
-      .subscribe();
-      
-    // Setup real-time subscription for products (for recommendations)
-    const productsSubscription = supabase
-      .channel('public:products')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, payload => {
-        fetchDashboardData(); // Refresh data on change
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(inquiriesSubscription);
-      supabase.removeChannel(productsSubscription);
-    };
-  }, [user]);
+    }, [user]);
 
   const fetchDashboardData = async () => {
     if (!user) return;
@@ -66,7 +47,7 @@ export function BuyerDashboardHome() {
       // Fetch active orders (using inquiries as orders for now based on previous structure)
       const { data: orders } = await supabase
         .from('inquiries')
-        .select('*')
+        .select('*').limit(100)
         .eq('buyer_id', user.id)
         .order('created_at', { ascending: false })
         .limit(5);
@@ -141,7 +122,7 @@ export function BuyerDashboardHome() {
           <div className="flex items-center gap-6">
             <div className="h-20 w-20 rounded-full border-4 border-white/10 overflow-hidden bg-[#FAF5EC] shrink-0">
               {profile?.logo_url ? (
-                <img src={profile.logo_url} alt="Profile" className="h-full w-full object-cover" />
+                <OptimizedImage src={profile.logo_url} alt="Profile" imgClassName="h-full w-full object-cover" className="w-full h-full flex items-center justify-center bg-transparent" />
               ) : (
                 <div className="h-full w-full flex items-center justify-center text-2xl font-bold text-[#3A2418]">
                   {profile?.business_name?.charAt(0) || user?.email?.charAt(0) || 'U'}
@@ -280,7 +261,7 @@ export function BuyerDashboardHome() {
                 <div key={product.id} className="min-w-[200px] max-w-[200px] snap-start shrink-0 rounded-2xl bg-white border border-gray-100 p-4 shadow-sm group hover:shadow-md transition-all">
                   <div className="aspect-square rounded-xl bg-gray-50 mb-3 overflow-hidden relative">
                     {product.image_url ? (
-                      <img src={product.image_url} alt={product.name} className="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                      <OptimizedImage src={product.image_url} alt={product.name} imgClassName="h-full w-full object-cover group-hover:scale-105 transition-transform duration-500" className="w-full h-full flex items-center justify-center bg-transparent" />
                     ) : (
                       <div className="h-full w-full flex items-center justify-center text-gray-300">
                         <ImageIcon className="h-10 w-10" />
@@ -294,7 +275,7 @@ export function BuyerDashboardHome() {
                   </div>
                   <h3 className="text-sm font-bold text-gray-900 truncate mb-1">{product.name}</h3>
                   <div className="flex items-center gap-2 mb-3">
-                    <span className="text-sm font-bold text-[#C65A28]">{formatCurrency(product.price)}</span>
+                    <span className="text-sm font-bold text-[#C65A28]">{formatCurrency(product.regular_price)}</span>
                     {product.compare_at_price && (
                       <span className="text-xs text-gray-400 line-through">{formatCurrency(product.compare_at_price)}</span>
                     )}

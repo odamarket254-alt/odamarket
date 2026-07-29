@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { HomepageSection } from '../../../types/homepage';
-import { Link } from 'react-router-dom';
+import { Link } from "react-router-dom";
+import { OptimizedImage } from "../../ui/OptimizedImage";
 import { Layers } from 'lucide-react';
 
 export const CategoryGridSection = ({ section }: { section: HomepageSection }) => {
@@ -60,11 +61,7 @@ export const CategoryGridSection = ({ section }: { section: HomepageSection }) =
           >
             <div className="w-20 h-20 mb-4 rounded-2xl bg-gradient-to-br from-[#FAF5EC] to-[#E8DCC9]/30 flex items-center justify-center p-3 overflow-hidden relative shadow-inner">
               {category.image_url ? (
-                <img 
-                  src={category.image_url} 
-                  alt={category.name} 
-                  className="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500 mix-blend-multiply"
-                />
+                <OptimizedImage src={category.image_url} alt={category.name} imgClassName="w-full h-full object-contain group-hover:scale-110 transition-transform duration-500 mix-blend-multiply" className="w-full h-full" />
               ) : (
                 <Layers className="w-8 h-8 text-[#D9A62E] group-hover:scale-110 transition-transform duration-500" />
               )}

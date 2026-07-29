@@ -32,7 +32,7 @@ export function SellerViewQuotationModal({ isOpen, onClose, rfq }: SellerViewQuo
     try {
       const { data, error } = await supabase
         .from("rfq_responses")
-        .select("*")
+        .select('*').limit(100)
         .eq("rfq_id", rfq.id)
         .eq("supplier_id", user.id)
         .single();

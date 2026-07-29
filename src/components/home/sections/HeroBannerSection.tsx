@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { HomepageSection } from '../../../types/homepage';
-import { Link } from 'react-router-dom';
+import { Link } from "react-router-dom";
+import { OptimizedImage } from "../../ui/OptimizedImage";
 import { motion } from 'framer-motion';
 import { ArrowRight, ShoppingBag } from 'lucide-react';
 
@@ -42,7 +43,7 @@ export const HeroBannerSection = ({ section }: HeroBannerSectionProps) => {
     const fetchBanners = async () => {
       const { data, error } = await supabase
         .from('banners')
-        .select('*')
+        .select('*').limit(100)
         .eq('is_active', true)
         .order('sort_order', { ascending: true });
       if (!error && data) {
@@ -51,11 +52,9 @@ export const HeroBannerSection = ({ section }: HeroBannerSectionProps) => {
     };
     fetchBanners();
 
-    const sub = supabase.channel('banners_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'banners' }, fetchBanners)
-      .subscribe();
+    
 
-    return () => { supabase.removeChannel(sub); };
+    
   }, []);
 
   const hasBanners = banners.length > 0;
@@ -70,51 +69,48 @@ export const HeroBannerSection = ({ section }: HeroBannerSectionProps) => {
   }, [banners.length, section.settings?.auto_play, hasBanners]);
 
   return (
-    <div className="w-full relative overflow-hidden bg-[#FAF5EC] group rounded-b-[40px] shadow-sm mb-12">
-      <OrganicShapes />
-      <AfricaWatermark />
-      <UpwardArrow />
-      
-      <div 
-        className="flex transition-transform duration-1000 ease-[cubic-bezier(0.25,1,0.5,1)] aspect-[4/3] sm:aspect-[16/9] md:aspect-[21/9] xl:aspect-[2.5/1] min-h-[480px] max-h-[700px] z-10 relative"
-        style={{ transform: `translateX(-${currentIndex * 100}%)` }}
-      >
+    <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 mb-4 sm:mb-8 mt-2 sm:mt-6">
+      <div className="w-auto -mx-4 sm:mx-0 sm:w-full relative overflow-hidden bg-[#FAF5EC] group rounded-none sm:rounded-xl md:rounded-2xl shadow-none sm:shadow-sm aspect-[16/8] sm:aspect-[16/7] lg:aspect-[16/6]">
+        <OrganicShapes />
+        <AfricaWatermark />
+        <UpwardArrow />
+        
+        <div 
+          className="flex transition-transform duration-1000 ease-[cubic-bezier(0.25,1,0.5,1)] h-full z-10 relative"
+          style={{ transform: `translateX(-${currentIndex * 100}%)` }}
+        >
         {!hasBanners ? (
           <div className="min-w-full h-full relative flex-shrink-0 flex items-center">
             <div className="absolute inset-0 bg-gradient-to-r from-[#FAF5EC] via-[#FAF5EC]/90 to-transparent z-10 pointer-events-none" />
-            <img 
-              src="https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80" 
-              alt="Premium Groceries" 
-              className="absolute right-0 top-0 w-2/3 h-full object-cover rounded-bl-[100px] opacity-80"
-            />
-            <div className="max-w-[1400px] mx-auto w-full px-6 lg:px-12 z-20 relative">
+            <OptimizedImage src="https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80" alt="Premium Groceries" imgClassName="absolute right-0 top-0 w-[65%] sm:w-2/3 h-full object-cover rounded-none md:rounded-bl-[100px] opacity-80" className="absolute right-0 top-0 w-[65%] sm:w-2/3 h-full rounded-none md:rounded-bl-[100px] overflow-hidden" />
+            <div className="w-full px-4 sm:px-8 lg:px-16 z-20 relative">
               <motion.div 
                 initial={{ opacity: 0, x: -30 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ duration: 0.8, delay: 0.2 }}
-                className="max-w-2xl"
+                className="max-w-[210px] min-[375px]:max-w-[240px] sm:max-w-[280px] md:max-w-2xl"
               >
-                <span className="inline-block py-1.5 px-4 rounded-full bg-[#D9A62E]/20 text-[#C65A28] text-sm font-bold tracking-widest uppercase mb-6 border border-[#D9A62E]/40 shadow-sm">
+                <span className="inline-block py-0.5 px-2 sm:py-1 sm:px-3 md:py-1.5 md:px-4 rounded-full bg-[#D9A62E]/20 text-[#C65A28] text-[9px] min-[375px]:text-[10px] sm:text-[11px] md:text-sm font-bold tracking-widest uppercase mb-1 sm:mb-3 md:mb-6 border border-[#D9A62E]/40 shadow-sm">
                   Welcome to ODA Market
                 </span>
-                <h2 className="text-5xl md:text-7xl font-bold text-[#3A2418] mb-6 leading-[1.1] tracking-tight">
-                  E-Commerce <br/>in <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#C65A28] to-[#D9A62E]">Africa</span>
+                <h2 className="text-[18px] min-[375px]:text-[22px] leading-[1.15] sm:text-2xl md:text-5xl lg:text-7xl font-bold text-[#3A2418] mb-1 sm:mb-3 md:mb-6 tracking-tight">
+                  E-Commerce <br className="hidden sm:block"/>in <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#C65A28] to-[#D9A62E]">Africa</span>
                 </h2>
-                <p className="text-lg text-[#3A2418]/70 mb-10 max-w-lg leading-relaxed">
+                <p className="text-[10px] min-[375px]:text-[12px] sm:text-xs md:text-lg text-[#3A2418]/70 mb-2 sm:mb-4 md:mb-10 max-w-[190px] min-[375px]:max-w-[220px] sm:max-w-[240px] md:max-w-lg leading-tight md:leading-relaxed line-clamp-2 md:line-clamp-none">
                   The premium destination for fresh groceries, electronics, and daily essentials. Farm-to-table quality delivered directly to your doorstep.
                 </p>
-                <div className="flex flex-wrap items-center gap-4">
+                <div className="flex flex-row flex-wrap items-center gap-1.5 sm:gap-2 md:gap-4 w-full">
                   <Link 
                     to="/products"
-                    className="inline-flex items-center justify-center gap-2 bg-[#C65A28] text-white px-8 py-4 rounded-full font-semibold hover:bg-[#A84A1E] hover:scale-105 transition-all shadow-[0_8px_20px_rgba(198,90,40,0.3)]"
+                    className="inline-flex items-center justify-center gap-1 md:gap-2 bg-[#C65A28] text-white px-3 py-1.5 sm:px-4 sm:py-2 md:px-8 md:py-4 rounded-full font-semibold hover:bg-[#A84A1E] hover:scale-105 transition-all shadow-[0_8px_20px_rgba(198,90,40,0.3)] text-[10px] min-[375px]:text-[12px] sm:text-xs md:text-base"
                   >
-                    Start Shopping <ArrowRight className="w-5 h-5" />
+                    Start Shopping <ArrowRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 md:w-5 md:h-5" />
                   </Link>
                   <Link 
                     to="/offers"
-                    className="inline-flex items-center justify-center gap-2 bg-white text-[#3A2418] px-8 py-4 rounded-full font-semibold hover:bg-[#FAF5EC] border border-[#E8DCC9] hover:scale-105 transition-all shadow-sm"
+                    className="inline-flex items-center justify-center gap-1 md:gap-2 bg-white text-[#3A2418] px-3 py-1.5 sm:px-4 sm:py-2 md:px-8 md:py-4 rounded-full font-semibold hover:bg-[#FAF5EC] border border-[#E8DCC9] hover:scale-105 transition-all shadow-sm text-[10px] min-[375px]:text-[12px] sm:text-xs md:text-base"
                   >
-                    <ShoppingBag className="w-5 h-5 text-[#D9A62E]" /> View Offers
+                    <ShoppingBag className="w-2.5 h-2.5 sm:w-3 sm:h-3 md:w-5 md:h-5 text-[#D9A62E]" /> <span className="hidden sm:inline">View Offers</span><span className="sm:hidden">Offers</span>
                   </Link>
                 </div>
               </motion.div>
@@ -122,53 +118,47 @@ export const HeroBannerSection = ({ section }: HeroBannerSectionProps) => {
           </div>
         ) : (
           banners.map((banner, index) => (
-            <div key={banner.id} className="min-w-full h-full relative flex-shrink-0">
+            <div key={banner.id} className="min-w-full h-full relative flex-shrink-0 flex items-center">
               <div className="absolute inset-0 bg-gradient-to-r from-[#FAF5EC] via-[#FAF5EC]/90 to-transparent z-10 pointer-events-none" />
-              <img 
-                src={banner.image_url} 
-                alt={banner.title} 
-                className="absolute right-0 top-0 w-2/3 h-full object-cover rounded-bl-[100px] opacity-90"
-              />
-              <div className="absolute inset-0 flex items-center z-20">
-                <div className="max-w-[1400px] mx-auto w-full px-6 lg:px-12">
-                  <motion.div 
+              <OptimizedImage src={banner.image_url} alt={banner.title} imgClassName="absolute right-0 top-0 w-[65%] sm:w-2/3 h-full object-cover rounded-none md:rounded-bl-[100px] opacity-90" className="absolute right-0 top-0 w-[65%] sm:w-2/3 h-full rounded-none md:rounded-bl-[100px] overflow-hidden" />
+              <div className="w-full px-4 sm:px-8 lg:px-16 z-20 relative">
+                <motion.div 
                     initial={{ opacity: 0, y: 30 }}
                     animate={currentIndex === index ? { opacity: 1, y: 0 } : { opacity: 0, y: 30 }}
                     transition={{ duration: 0.8, delay: 0.2 }}
-                    className="max-w-2xl"
+                    className="max-w-[210px] min-[375px]:max-w-[240px] sm:max-w-[280px] md:max-w-2xl"
                   >
                     {banner.subtitle && (
-                      <span className="inline-block py-1.5 px-4 rounded-full bg-[#D9A62E]/20 text-[#C65A28] text-sm font-bold tracking-widest uppercase mb-6 border border-[#D9A62E]/40 shadow-sm">
+                      <span className="inline-block py-0.5 px-2 sm:py-1 sm:px-3 md:py-1.5 md:px-4 rounded-full bg-[#D9A62E]/20 text-[#C65A28] text-[9px] min-[375px]:text-[10px] sm:text-[11px] md:text-sm font-bold tracking-widest uppercase mb-1 sm:mb-3 md:mb-6 border border-[#D9A62E]/40 shadow-sm">
                         {banner.subtitle}
                       </span>
                     )}
-                    <h2 className="text-5xl md:text-7xl font-bold text-[#3A2418] mb-6 leading-[1.1] tracking-tight">
+                    <h2 className="text-[18px] min-[375px]:text-[22px] leading-[1.15] sm:text-2xl md:text-5xl lg:text-7xl font-bold text-[#3A2418] mb-1 sm:mb-3 md:mb-6 tracking-tight">
                       {banner.title.split(' ').map((word: string, i: number, arr: any[]) => (
                         i === arr.length - 1 ? <span key={i} className="text-transparent bg-clip-text bg-gradient-to-r from-[#C65A28] to-[#D9A62E]">{word}</span> : <span key={i}>{word} </span>
                       ))}
                     </h2>
-                    <p className="text-lg text-[#3A2418]/70 mb-10 max-w-lg leading-relaxed">
+                    <p className="text-[10px] min-[375px]:text-[12px] sm:text-xs md:text-lg text-[#3A2418]/70 mb-2 sm:mb-4 md:mb-10 max-w-[190px] min-[375px]:max-w-[220px] sm:max-w-[240px] md:max-w-lg leading-tight md:leading-relaxed line-clamp-2 md:line-clamp-none">
                       Experience the finest selection of products with ODA Market's premium delivery service.
                     </p>
-                    <div className="flex flex-wrap items-center gap-4">
+                    <div className="flex flex-row flex-wrap items-center gap-1.5 sm:gap-2 md:gap-4 w-full">
                       {banner.link_url && (
                         <Link 
                           to={banner.link_url}
-                          className="inline-flex items-center justify-center gap-2 bg-[#C65A28] text-white px-8 py-4 rounded-full font-semibold hover:bg-[#A84A1E] hover:scale-105 transition-all shadow-[0_8px_20px_rgba(198,90,40,0.3)]"
+                          className="inline-flex items-center justify-center gap-1 md:gap-2 bg-[#C65A28] text-white px-3 py-1.5 sm:px-4 sm:py-2 md:px-8 md:py-4 rounded-full font-semibold hover:bg-[#A84A1E] hover:scale-105 transition-all shadow-[0_8px_20px_rgba(198,90,40,0.3)] text-[10px] min-[375px]:text-[12px] sm:text-xs md:text-base"
                         >
-                          Shop Collection <ArrowRight className="w-5 h-5" />
+                          Shop Collection <ArrowRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 md:w-5 md:h-5" />
                         </Link>
                       )}
                       <Link 
                         to="/offers"
-                        className="inline-flex items-center justify-center gap-2 bg-white text-[#3A2418] px-8 py-4 rounded-full font-semibold hover:bg-[#FAF5EC] border border-[#E8DCC9] hover:scale-105 transition-all shadow-sm"
+                        className="inline-flex items-center justify-center gap-1 md:gap-2 bg-white text-[#3A2418] px-3 py-1.5 sm:px-4 sm:py-2 md:px-8 md:py-4 rounded-full font-semibold hover:bg-[#FAF5EC] border border-[#E8DCC9] hover:scale-105 transition-all shadow-sm text-[10px] min-[375px]:text-[12px] sm:text-xs md:text-base"
                       >
-                        <ShoppingBag className="w-5 h-5 text-[#D9A62E]" /> View Offers
+                        <ShoppingBag className="w-2.5 h-2.5 sm:w-3 sm:h-3 md:w-5 md:h-5 text-[#D9A62E]" /> <span className="hidden sm:inline">View Offers</span><span className="sm:hidden">Offers</span>
                       </Link>
                     </div>
                   </motion.div>
                 </div>
-              </div>
             </div>
           ))
         )}
@@ -176,18 +166,19 @@ export const HeroBannerSection = ({ section }: HeroBannerSectionProps) => {
       
       {/* Indicators */}
       {hasBanners && banners.length > 1 && (
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex gap-3 z-30 bg-white/50 backdrop-blur-md px-4 py-2 rounded-full border border-white/40 shadow-sm">
+        <div className="absolute bottom-3 md:bottom-8 left-1/2 -translate-x-1/2 flex gap-1.5 md:gap-3 z-30 bg-white/50 backdrop-blur-md px-2 py-1 md:px-4 md:py-2 rounded-full border border-white/40 shadow-sm">
           {banners.map((_, i) => (
             <button
               key={i}
               onClick={() => setCurrentIndex(i)}
-              className={`h-2.5 rounded-full transition-all duration-300 ${
-                i === currentIndex ? 'bg-[#C65A28] w-8' : 'bg-[#3A2418]/20 hover:bg-[#3A2418]/40 w-2.5'
+              className={`h-1.5 md:h-2.5 rounded-full transition-all duration-300 ${
+                i === currentIndex ? 'bg-[#C65A28] w-4 md:w-8' : 'bg-[#3A2418]/20 hover:bg-[#3A2418]/40 w-1.5 md:w-2.5'
               }`}
             />
           ))}
         </div>
       )}
     </div>
+  </div>
   );
 };

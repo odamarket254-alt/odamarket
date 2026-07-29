@@ -1,3 +1,4 @@
+import { OptimizedImage } from "../components/ui/OptimizedImage";
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Heart, Search, Grid, List, Trash2, Eye, Minus, Plus, ShoppingCart, Info, Loader2 } from "lucide-react";
@@ -21,23 +22,13 @@ export default function WishlistPage() {
     
     fetchWishlist();
 
-    const channel = supabase
-      .channel(`public:wishlists:${user.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'wishlists', filter: `buyer_id=eq.${user.id}` }, () => {
-        fetchWishlist();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user]);
+    }, [user]);
 
   const fetchWishlist = async () => {
     try {
       const { data, error } = await supabase
         .from('wishlists')
-        .select('id, product_id, products(*)')
+        .select('id, product_id, products(*)').limit(100)
         .eq('buyer_id', user!.id)
         .order('created_at', { ascending: false });
 
@@ -71,7 +62,7 @@ export default function WishlistPage() {
     addItem({
       id: product.id,
       name: product.name,
-      price: String(product.price),
+      price: String(product.regular_price),
       image_url: product.image_url || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&q=80',
       seller_id: product.seller_id
     });
@@ -140,10 +131,10 @@ export default function WishlistPage() {
                   {wishlist.map((item) => (
                     <div key={item.id} className="group relative bg-[#F8FAFC] rounded-[16px] border border-[#E5E7EB] overflow-hidden flex shadow-sm hover:shadow-md transition-all">
                       <div className="w-[140px] shrink-0 relative bg-white border-r border-[#E5E7EB]">
-                        <img 
+                        <OptimizedImage 
                           src={item.products.image_url || 'https://images.unsplash.com/photo-1542838132-92c53300491e?w=500&q=80'} 
                           alt={item.products.name} 
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" 
+                          imgClassName="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" className="w-full h-full flex items-center justify-center bg-transparent" 
                         />
                         {item.products.compare_at_price > item.products.price && (
                           <span className="absolute top-2 left-2 bg-[#EF4444] text-white text-[11px] font-bold px-2 py-1 rounded-[6px]">

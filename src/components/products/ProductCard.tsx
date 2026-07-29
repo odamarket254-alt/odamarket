@@ -5,6 +5,7 @@ import { useCartStore } from "../../store/useCartStore";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
 import { cn } from "../../lib/utils";
+import { OptimizedImage } from "../ui/OptimizedImage";
 
 export const ProductCard = ({ product, index, viewMode = "grid" }: { product: any; index?: number; viewMode?: "grid" | "list" }) => {
   const addItem = useCartStore((state) => state.addItem);
@@ -61,11 +62,7 @@ export const ProductCard = ({ product, index, viewMode = "grid" }: { product: an
 
       {/* Image Container */}
       <div className={cn("relative bg-[#FAF5EC] overflow-hidden flex items-center justify-center p-4 sm:p-6", isList ? "w-48 shrink-0" : "w-full aspect-[4/3]")}>
-        <img
-          src={product.image_url || "https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&q=80"}
-          alt={product.name}
-          className="w-full h-full object-contain mix-blend-multiply transform group-hover:scale-110 transition-transform duration-500"
-        />
+        <OptimizedImage src={product.image_url || "https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&q=80"} alt={product.name} imgClassName="w-full h-full object-contain mix-blend-multiply transform group-hover:scale-110 transition-transform duration-500" className="w-full h-full" />
 
         {/* Action Buttons Overlay */}
         <div 

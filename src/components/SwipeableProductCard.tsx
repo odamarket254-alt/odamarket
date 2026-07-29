@@ -1,3 +1,4 @@
+import { OptimizedImage } from "../components/ui/OptimizedImage";
 import React, { MouseEvent } from "react";
 import { motion } from "motion/react";
 import { Card, CardContent } from "./ui/Card";
@@ -77,8 +78,7 @@ export const SwipeableProductCard = React.memo(({ product }: { product: Marketpl
         className="relative z-10 w-full h-full cursor-pointer flex flex-col"
       >
         <div className="aspect-[4/3] overflow-hidden relative bg-[#FFFDF8] flex items-center justify-center p-6 flex-shrink-0">
-          <img
-            src={
+          <OptimizedImage             src={
               product.image_url
                 ? (product.image_url.includes('unsplash.com') ? `${product.image_url}&auto=format&fit=crop&w=500&q=80` : product.image_url)
                 : "https://images.unsplash.com/photo-1559525839-b184a4d698c7?w=500&auto=format&fit=crop&q=80"
@@ -86,7 +86,7 @@ export const SwipeableProductCard = React.memo(({ product }: { product: Marketpl
             alt={product.name}
             loading="lazy"
             draggable={false}
-            className="object-contain w-full h-full group-hover:scale-105 transition-transform duration-500"
+            imgClassName="object-contain w-full h-full group-hover:scale-105 transition-transform duration-500" className="w-full h-full flex items-center justify-center bg-transparent"
           />
         </div>
         

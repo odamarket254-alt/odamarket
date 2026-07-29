@@ -23,7 +23,7 @@ export default function ProductsPage() {
       let q = supabase
         .from("products")
         .select(`
-          id, name, price, stock, image_url, seller_id, 
+          id, name, regular_price, stock_quantity, supplier_id, 
           product_type:product_types(name),
           category:categories!inner(slug, name)
         `)
@@ -46,12 +46,8 @@ export default function ProductsPage() {
     };
     fetchProducts();
     
-    const channel = supabase.channel('public:products:store')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => {
-        fetchProducts();
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    
+    
   }, [query, categoryFilter]);
 
   const filterCategories = [

@@ -1,3 +1,4 @@
+import { OptimizedImage } from "../components/ui/OptimizedImage";
 import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
@@ -18,7 +19,7 @@ export default function ProductDetailsPage() {
     const fetchProduct = async () => {
       const { data } = await supabase
         .from("products")
-        .select("*, profiles(business_name, verified), product_type:product_types(name)")
+        .select('*, profiles(business_name, verified), product_type:product_types(name)').limit(100)
         .eq("id", id)
         .single();
       
@@ -28,13 +29,9 @@ export default function ProductDetailsPage() {
     
     if (id) {
       fetchProduct();
-      const channel = supabase.channel(`public:products:details:${id}`)
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'products', filter: `id=eq.${id}` }, () => {
-          fetchProduct();
-        })
-        .subscribe();
+      
 
-      return () => { supabase.removeChannel(channel); };
+      
     }
   }, [id]);
 
@@ -44,7 +41,7 @@ export default function ProductDetailsPage() {
       addItem({
         id: product.id,
         name: product.name,
-        price: product.price || "Ksh 0",
+        price: product.regular_price || "Ksh 0",
         image_url: product.image_url,
         seller_id: product.seller_id
       });
@@ -83,11 +80,7 @@ export default function ProductDetailsPage() {
                 <Share2 className="h-4 w-4 sm:h-5 sm:w-5" />
               </Button>
             </div>
-            <img 
-              src={product.image_url || "https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&q=80"} 
-              alt={product.name}
-              className="w-full h-full object-contain drop-shadow-xl hover:scale-105 transition-transform duration-500"
-            />
+            <OptimizedImage src={product.image_url || "https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&q=80"} alt={product.name} imgClassName="w-full h-full object-contain drop-shadow-xl hover:scale-105 transition-transform duration-500" className="w-full h-full" />
           </motion.div>
 
           {/* Product Info */}
@@ -113,10 +106,10 @@ export default function ProductDetailsPage() {
               
               <div className="flex items-end gap-3 sm:gap-4 mb-6 sm:mb-8">
                 <span className="text-[clamp(32px,5vw,48px)] font-bold text-[#C65A28] leading-none">
-                  Ksh {product.price ? product.price.toString().replace(/\D/g, '') : "0"}
+                  Ksh {product.regular_price ? product.regular_price.toString().replace(/\D/g, '') : "0"}
                 </span>
                 <span className="text-base sm:text-xl text-[#8B857D] line-through mb-1 sm:mb-2">
-                  Ksh {(parseInt(String(product.price).replace(/\D/g, '')) * 1.2) || 500}
+                  Ksh {(parseInt(String(product.regular_price).replace(/\D/g, '')) * 1.2) || 500}
                 </span>
               </div>
               

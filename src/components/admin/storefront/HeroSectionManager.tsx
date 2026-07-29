@@ -1,3 +1,4 @@
+import { OptimizedImage } from "../../../components/ui/OptimizedImage";
 import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { toast } from "sonner";
@@ -17,7 +18,7 @@ export function HeroSectionManager() {
     try {
       const { data, error } = await supabase
         .from('settings')
-        .select('value')
+        .select('value').limit(100)
         .eq('group_name', 'storefront')
         .eq('key', 'hero_slides')
         .single();
@@ -52,7 +53,7 @@ export function HeroSectionManager() {
       // Check if setting exists
       const { data: existing } = await supabase
         .from('settings')
-        .select('id')
+        .select('id').limit(100)
         .eq('group_name', 'storefront')
         .eq('key', 'hero_slides')
         .single();
@@ -215,10 +216,10 @@ export function HeroSectionManager() {
                 
                 {/* Image Preview */}
                 <div className="w-full aspect-[21/9] bg-[#E8DCC9] rounded-xl overflow-hidden relative border border-[#E8DCC9]">
-                  <img 
+                  <OptimizedImage 
                     src={slide.background_image} 
                     alt="Preview" 
-                    className="w-full h-full object-cover"
+                    imgClassName="w-full h-full object-cover" className="w-full h-full flex items-center justify-center bg-transparent"
                     onError={(e) => {
                       (e.target as HTMLImageElement).src = 'https://placehold.co/1200x500/e2e8f0/64748b?text=Invalid+Image+URL';
                     }}

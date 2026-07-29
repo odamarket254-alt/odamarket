@@ -1,3 +1,4 @@
+import { OptimizedImage } from "../../components/ui/OptimizedImage";
 import { useState, useEffect, type FormEvent, type ChangeEvent } from "react";
 // Cache invalidation forced
 import {
@@ -56,11 +57,11 @@ interface Product {
   category_id?: string;
   categories?: { name: string; slug: string };
   product_type?: { name: string };
-  price: string;
-  moq: string;
-  stock: string | number;
+  regular_price: string;
+  moq?: string;
+  stock_quantity: string | number;
   status: "active" | "draft";
-  image_url: string | null;
+  image_url?: string | null;
   supplier_id?: string;
   description?: string;
   tags?: string[];
@@ -119,7 +120,7 @@ export default function DashboardProductsPage() {
     const fetchCategories = async () => {
       const { data } = await supabase
         .from("categories")
-        .select("id, name, slug")
+        .select('id, name, slug').limit(100)
         .eq("is_active", true)
         .order("name", { ascending: true });
       if (data) setCategories(data);
@@ -137,26 +138,7 @@ export default function DashboardProductsPage() {
     
     const filterOption = isAdmin ? {} : { filter: `supplier_id=eq.${user.id}` };
 
-    const channel = supabase
-      .channel("products-changes")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "products",
-          ...filterOption
-        },
-        () => {
-          fetchProducts();
-        },
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [user]);
+    }, [user]);
 
   const fetchProducts = async () => {
     try {
@@ -226,9 +208,9 @@ export default function DashboardProductsPage() {
       name: formData.get("name") as string,
       title: formData.get("name") as string, // Backwards compatibility
       category_id: formData.get("category_id") as string || null,
-      price: formData.get("price") as string,
+      regular_price: formData.get("price") as string,
       moq: formData.get("moq") as string || "1",
-      stock: formData.get("stock") as string,
+      stock_quantity: formData.get("stock") as string,
       status: formData.get("status") as "active" | "draft",
       description: formData.get("description") as string,
       image_url: imagePreview || null,
@@ -321,10 +303,9 @@ export default function DashboardProductsPage() {
                 <div className="flex items-center gap-4">
                   <div className="h-20 w-20 rounded-xl border-2 border-dashed border-border bg-muted/50">
                     {imagePreview ? (
-                      <img
-                        src={imagePreview}
+                      <OptimizedImage                         src={imagePreview}
                         alt="Preview"
-                        className="h-full w-full object-cover"
+                        imgClassName="h-full w-full object-cover" className="w-full h-full flex items-center justify-center bg-transparent"
                       />
                     ) : (
                       <ImageIcon className="h-6 w-6 text-muted-foreground" />
@@ -390,7 +371,7 @@ export default function DashboardProductsPage() {
                     id="price"
                     name="price"
                     required
-                    defaultValue={editingProduct?.price || ""}
+                    defaultValue={editingProduct?.regular_price || ""}
                     placeholder="e.g. Ksh 45,000/mt"
                     className="bg-background"
                   />
@@ -399,7 +380,7 @@ export default function DashboardProductsPage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="stock" className="text-foreground/80">Stock Availability</Label>
-                  <Select name="stock" defaultValue={editingProduct?.stock || "In Stock"}>
+                  <Select name="stock" defaultValue={editingProduct?.stock_quantity || "In Stock"}>
                     <SelectTrigger className="bg-background">
                       <SelectValue placeholder="Select availability" />
                     </SelectTrigger>
@@ -565,10 +546,9 @@ export default function DashboardProductsPage() {
                 >
                   <div className="h-20 w-20 rounded-xl bg-muted overflow-hidden shrink-0 border border-border/50">
                     {product.image_url ? (
-                      <img
-                        src={product.image_url}
+                      <OptimizedImage                         src={product.image_url}
                         alt={product.name}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                        imgClassName="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" className="w-full h-full flex items-center justify-center bg-transparent"
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center text-muted-foreground/50">
@@ -584,10 +564,10 @@ export default function DashboardProductsPage() {
                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-sm font-medium text-muted-foreground">
                       <span className="truncate">{product.product_type?.name || product.category}</span>
                       <span className="w-1 h-1 rounded-full bg-border shrink-0" />
-                      <span>{product.stock} in stock</span>
+                      <span>{product.stock_quantity} in stock</span>
                       <span className="w-1 h-1 rounded-full bg-border shrink-0" />
                       <span className="text-foreground">
-                        {product.price}
+                        {product.regular_price}
                       </span>
                     </div>
                   </div>

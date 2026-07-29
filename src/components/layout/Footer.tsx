@@ -5,13 +5,13 @@ import { Logo } from '../ui/Logo';
 
 export function Footer() {
   return (
-    <footer className="bg-[#3A2418] text-[#FAF5EC] font-sans pt-20 pb-10 border-t border-[#D9A62E]/20">
+    <footer className="bg-[#3A2418] text-[#FAF5EC] font-sans pt-20 pb-24 md:pb-10 border-t border-[#D9A62E]/20">
       <div className="max-w-[1400px] mx-auto px-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-12 mb-16">
         
         {/* Brand & Newsletter Column */}
         <div className="lg:col-span-2">
           <Link to="/" className="inline-block mb-6"> 
-             <div className="bg-white p-2 rounded-xl inline-block"><Logo className="w-[130px] md:w-[150px]" /></div>
+             <div className="bg-white px-3 py-2 rounded-xl inline-flex items-center justify-center"><Logo className="w-[140px] md:w-[160px]" /></div>
           </Link>
           <p className="text-[#FAF5EC]/80 text-sm mb-8 leading-relaxed max-w-md">
             The premium destination for fresh groceries, electronics, and daily essentials in Africa. 

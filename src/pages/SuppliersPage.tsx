@@ -1,3 +1,4 @@
+import { OptimizedImage } from "../components/ui/OptimizedImage";
 import { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
@@ -28,7 +29,7 @@ export default function SuppliersPage() {
         setLoading(true);
         const { data, error } = await supabase
           .from("profiles")
-          .select("*")
+          .select('*').limit(100)
           .eq("role", "seller")
           .eq("verified", true);
 
@@ -44,42 +45,7 @@ export default function SuppliersPage() {
     fetchSuppliers();
 
     // Listen to real-time profile updates
-    const channel = supabase
-      .channel('public:profiles:suppliers')
-      .on(
-        'postgres_changes',
-        { event: '*', schema: 'public', table: 'profiles' },
-        (payload) => {
-          if (payload.eventType === 'INSERT' && payload.new.role === 'seller' && payload.new.verified === true) {
-            setSuppliers(current => [payload.new, ...current]);
-          } else if (payload.eventType === 'UPDATE') {
-            setSuppliers(current => {
-              const isCurrentlyInList = current.some(s => s.id === payload.new.id);
-              const shouldBeInList = payload.new.role === 'seller' && payload.new.verified === true;
-              
-              if (isCurrentlyInList && shouldBeInList) {
-                // Update
-                return current.map(s => s.id === payload.new.id ? payload.new : s);
-              } else if (isCurrentlyInList && !shouldBeInList) {
-                // Remove
-                return current.filter(s => s.id !== payload.new.id);
-              } else if (!isCurrentlyInList && shouldBeInList) {
-                // Add
-                return [payload.new, ...current];
-              }
-              return current;
-            });
-          } else if (payload.eventType === 'DELETE') {
-            setSuppliers(current => current.filter(s => s.id !== payload.old.id));
-          }
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
+    }, []);
 
   return (
     <div className="container mx-auto px-4 py-8 lg:py-12">
@@ -120,10 +86,9 @@ export default function SuppliersPage() {
               <div className="flex flex-col h-full relative z-10">
                 <div className="h-16 w-16 bg-muted/80 rounded-2xl flex items-center justify-center overflow-hidden shrink-0 border border-border/50 shadow-sm mb-5">
                   {supplier.logo_url ? (
-                    <img
-                      src={supplier.logo_url}
+                    <OptimizedImage                       src={supplier.logo_url}
                       alt={supplier.business_name || ""}
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                      imgClassName="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" className="w-full h-full flex items-center justify-center bg-transparent"
                     />
                   ) : (
                     <span className="text-xl font-extrabold tracking-tight uppercase text-muted-foreground">

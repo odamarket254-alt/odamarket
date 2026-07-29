@@ -67,7 +67,7 @@ export function HomepageLayoutManager() {
     try {
       const { data, error } = await supabase
         .from('settings')
-        .select('value')
+        .select('value').limit(100)
         .eq('group_name', 'storefront')
         .eq('key', 'homepage_layout')
         .single();

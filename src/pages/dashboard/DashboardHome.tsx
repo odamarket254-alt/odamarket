@@ -1,3 +1,4 @@
+import { OptimizedImage } from "../../components/ui/OptimizedImage";
 import { useState, useEffect } from "react";
 import { motion } from "motion/react";
 import {
@@ -71,25 +72,25 @@ export default function DashboardHome() {
             supabase
               .from("products")
               .select("*", { count: "exact", head: true })
-              .eq("seller_id", user.id),
+              .eq("supplier_id", user.id),
             supabase
               .from("inquiries")
               .select("*", { count: "exact", head: true })
-              .eq("seller_id", user.id),
+              .eq("supplier_id", user.id),
             supabase
               .from("inquiries")
-              .select("*, buyer:profiles!buyer_id(business_name, name)")
-              .eq("seller_id", user.id)
+              .select('*, buyer:profiles!buyer_id(business_name, name)').limit(100)
+              .eq("supplier_id", user.id)
               .order("created_at", { ascending: false })
               .limit(3),
             supabase
               .from("recent_views")
-              .select("id, products!inner(seller_id)", { count: "exact", head: true })
-              .eq("products.seller_id", user.id),
+              .select("id, products!inner(supplier_id)", { count: "exact", head: true })
+              .eq("products.supplier_id", user.id),
             supabase
               .from("favorites")
-              .select("id, products!inner(seller_id)", { count: "exact", head: true })
-              .eq("products.seller_id", user.id),
+              .select("id, products!inner(supplier_id)", { count: "exact", head: true })
+              .eq("products.supplier_id", user.id),
             supabase
               .from("products")
               .select(`
@@ -98,10 +99,10 @@ export default function DashboardHome() {
                 favorites(count),
                 recent_views(count)
               `)
-              .eq("seller_id", user.id)
+              .eq("supplier_id", user.id)
               .order("created_at", { ascending: false })
               .limit(4),
-            supabase.from("ai_quotations").select("status").eq("user_id", user.id).then(res => res, err => ({ data: [] }))
+            supabase.from("ai_quotations").select('status').limit(100).eq("user_id", user.id).then(res => res, err => ({ data: [] }))
           ]);
           setProductCount(pCount || 0);
           setInquiryCount(iCount || 0);
@@ -140,7 +141,7 @@ export default function DashboardHome() {
               .eq("buyer_id", user.id),
             supabase
               .from("inquiries")
-              .select("*")
+              .select('*').limit(100)
               .eq("buyer_id", user.id)
               .order("created_at", { ascending: false })
               .limit(3),
@@ -179,98 +180,24 @@ export default function DashboardHome() {
     let viewsChannel: any;
 
     if (profile?.role === "seller") {
-      pChannel = supabase
-        .channel("home-products")
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "products",
-            filter: `seller_id=eq.${user.id}`,
-          },
-          fetchStats,
-        )
-        .subscribe();
+      
 
-      iChannel = supabase
-        .channel("home-inquiries")
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "inquiries",
-            filter: `seller_id=eq.${user.id}`,
-          },
-          fetchStats,
-        )
-        .subscribe();
+      
     } else if (profile?.role === "buyer") {
-      iChannel = supabase
-        .channel("home-inquiries-buyer")
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "inquiries",
-            filter: `buyer_id=eq.${user.id}`,
-          },
-          fetchStats,
-        )
-        .subscribe();
+      
 
-      favChannel = supabase
-        .channel("home-favorites-buyer")
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "favorites",
-            filter: `buyer_id=eq.${user.id}`,
-          },
-          fetchStats,
-        )
-        .subscribe();
+      
 
-      viewsChannel = supabase
-        .channel("home-recent-views-buyer")
-        .on(
-          "postgres_changes",
-          {
-            event: "*",
-            schema: "public",
-            table: "recent_views",
-            filter: `buyer_id=eq.${user.id}`,
-          },
-          fetchStats,
-        )
-        .subscribe();
+      
     } else if (["admin", "super_admin", "moderator", "support_agent", "content_manager"].includes(profile?.role || "")) {
-      pChannel = supabase
-        .channel("home-admin-products")
-        .on("postgres_changes", { event: "*", schema: "public", table: "products" }, fetchStats)
-        .subscribe();
+      
 
-      iChannel = supabase
-        .channel("home-admin-inquiries")
-        .on("postgres_changes", { event: "*", schema: "public", table: "inquiries" }, fetchStats)
-        .subscribe();
+      
 
-      viewsChannel = supabase
-        .channel("home-admin-profiles")
-        .on("postgres_changes", { event: "*", schema: "public", table: "profiles" }, fetchStats)
-        .subscribe();
+      
     }
 
-    return () => {
-      if (pChannel) supabase.removeChannel(pChannel);
-      if (iChannel) supabase.removeChannel(iChannel);
-      if (favChannel) supabase.removeChannel(favChannel);
-      if (viewsChannel) supabase.removeChannel(viewsChannel);
-    };
+    
   }, [user, profile]);
 
   const [productViews, setProductViews] = useState(0);
@@ -562,7 +489,7 @@ export default function DashboardHome() {
                       >
                         <div className="h-12 w-12 rounded-xl bg-muted/80 border border-border/50 flex items-center justify-center shrink-0 overflow-hidden shadow-sm group-hover:border-[#C65A28]/20 transition-colors">
                           {product.image_url ? (
-                            <img src={product.image_url} alt={product.name} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                            <OptimizedImage src={product.image_url} alt={product.name} imgClassName="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" className="w-full h-full flex items-center justify-center bg-transparent" />
                           ) : (
                             <ImageIcon className="h-5 w-5 text-muted-foreground/60" />
                           )}

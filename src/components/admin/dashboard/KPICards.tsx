@@ -29,8 +29,8 @@ const fetchKPIData = async () => {
     supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', today.toISOString()),
     supabase.from('products').select('*', { count: 'exact', head: true }),
     supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'supplier'),
-    supabase.from('orders').select('total_amount').gte('created_at', today.toISOString()),
-    supabase.from('products').select('stock_quantity, low_stock_threshold')
+    supabase.from('orders').select('total_amount').limit(100).gte('created_at', today.toISOString()),
+    supabase.from('products').select('stock_quantity, low_stock_threshold').limit(100)
   ]);
 
   const todayRevenue = revenueData?.reduce((sum, order) => sum + Number(order.total_amount || 0), 0) || 0;
@@ -67,15 +67,9 @@ export default function KPICards() {
   });
 
   useEffect(() => {
-    const ordersChannel = supabase.channel('kpi_orders_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
-        queryClient.invalidateQueries({ queryKey: ['admin-kpi'] });
-      })
-      .subscribe();
+    
 
-    return () => {
-      supabase.removeChannel(ordersChannel);
-    };
+    
   }, [queryClient]);
 
   if (isLoading) {

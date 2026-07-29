@@ -111,15 +111,27 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        setLoading(true);
-        fetchProfile(session.user.id);
-      } else {
-        setLoading(false);
+    const initSession = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) {
+          console.warn("Session check error:", error.message);
+          if (error.message.includes("Refresh Token") || error.message.includes("refresh_token")) {
+            await supabase.auth.signOut().catch(() => {});
+          }
+        }
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          setLoading(true);
+          fetchProfile(session.user.id);
+        } else {
+          setLoading(false);
+        }
+      } catch (e) {
+        console.warn("Session check failed", e);
       }
-    }).catch(e => console.warn("Session check failed", e));
+    };
+    initSession();
 
     // Listen for changes on auth state (logged in, signed out, etc.)
     const {
@@ -142,7 +154,7 @@ export default function App() {
     try {
       const { data, error } = await supabase
         .from("profiles")
-        .select("*")
+        .select('*').limit(100)
         .eq("id", userId)
         .single();
 

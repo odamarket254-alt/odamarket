@@ -1,3 +1,4 @@
+import { OptimizedImage } from "../../components/ui/OptimizedImage";
 import { useState, useEffect } from "react";
 import { VerifiedBadge } from "../../components/ui/VerifiedBadge";
 import { useAuthStore } from "../../store/useAuthStore";
@@ -84,39 +85,7 @@ export default function SettingsPage() {
   useEffect(() => {
     if (!profile?.id) return;
 
-    const channel = supabase
-      .channel(`profile_changes_${profile.id}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "UPDATE",
-          schema: "public",
-          table: "profiles",
-          filter: `id=eq.${profile.id}`,
-        },
-        (payload) => {
-          const updatedProfile = payload.new as any;
-          // Only show verification toasts if verification status changed
-          if (updatedProfile.verified !== profile.verified) {
-            if (updatedProfile.verified) {
-              toast.success("Congratulations! Your account has been verified.", {
-                icon: <ShieldCheck className="h-5 w-5 text-[#D9A62E] dark:text-[#D9A62E]" />
-              });
-              setHasRequested(false);
-            } else {
-              toast.error("Your verification badge has been revoked.");
-            }
-          }
-          
-          setProfile({ ...profile, ...updatedProfile });
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [profile, setProfile]);
+    }, [profile, setProfile]);
 
   const handleRequestVerification = async () => {
     if (!user?.id) return;
@@ -194,7 +163,7 @@ export default function SettingsPage() {
                 <div className="flex items-center gap-4">
                   <div className="h-16 w-16 rounded-full overflow-hidden border-2 border-border bg-background flex flex-shrink-0 items-center justify-center relative shadow-sm">
                     {profile.logo_url ? (
-                      <img src={profile.logo_url} alt="Profile" className="h-full w-full object-cover" />
+                      <OptimizedImage src={profile.logo_url} alt="Profile" imgClassName="h-full w-full object-cover" className="w-full h-full flex items-center justify-center bg-transparent" />
                     ) : (
                       <User className="h-8 w-8 text-muted-foreground/50" />
                     )}
@@ -281,7 +250,7 @@ export default function SettingsPage() {
                         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
                           <div className="h-16 w-16 shrink-0 rounded-full overflow-hidden border-2 border-border bg-background flex items-center justify-center relative">
                             {editForm.logo_url ? (
-                              <img src={editForm.logo_url} className="h-full w-full object-cover" alt="Preview" />
+                              <OptimizedImage src={editForm.logo_url} imgClassName="h-full w-full object-cover" className="w-full h-full flex items-center justify-center bg-transparent" alt="Preview" />
                             ) : (
                               <User className="h-6 w-6 text-muted-foreground/30" />
                             )}

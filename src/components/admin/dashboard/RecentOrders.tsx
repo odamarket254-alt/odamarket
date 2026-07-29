@@ -24,16 +24,9 @@ export default function RecentOrders() {
   });
 
   useEffect(() => {
-    const channel = supabase.channel('recent_orders_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
-        queryClient.invalidateQueries({ queryKey: ['recent-orders'] });
-        queryClient.invalidateQueries({ queryKey: ['admin-kpi'] });
-      })
-      .subscribe();
+    
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    
   }, [queryClient]);
 
   const getStatusColor = (status: string) => {
@@ -65,7 +58,7 @@ export default function RecentOrders() {
             <Loader2 className="w-8 h-8 text-[#C65A28] animate-spin" />
           </div>
         ) : orders && orders.length > 0 ? (
-          <table className="w-full text-left border-collapse">
+          <div className="overflow-x-auto w-full"><table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-[#FAF5EC] border-b border-[#E8DCC9]">
                 <th className="py-3 px-6 text-xs font-semibold text-[#5F5A54] uppercase tracking-wider">Order ID</th>
@@ -102,7 +95,7 @@ export default function RecentOrders() {
                 </tr>
               ))}
             </tbody>
-          </table>
+          </table></div>
         ) : (
           <div className="h-64 flex flex-col items-center justify-center text-[#8B857D]">
             <ShoppingBag className="w-12 h-12 mb-3 opacity-20" />

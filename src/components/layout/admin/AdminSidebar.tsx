@@ -71,7 +71,7 @@ export default function AdminSidebar({
         {/* Logo Area */}
         <div className="h-16 flex items-center justify-between px-4 border-b border-[#E8DCC9] shrink-0">
           <NavLink to="/admin/dashboard" className="flex items-center gap-3 overflow-hidden" onClick={() => setIsOpen(false)}>
-            <Logo className="w-[120px]" />
+            <Logo className="w-[130px]" />
           </NavLink>
           
           <button 

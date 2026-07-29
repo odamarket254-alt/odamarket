@@ -44,18 +44,11 @@ export default function RecentActivities() {
 
   useEffect(() => {
     // Listen to profile changes and order changes to update activities
-    const ordersChannel = supabase.channel('activities_orders')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, () => queryClient.invalidateQueries({ queryKey: ['recent-activities'] }))
-      .subscribe();
+    
 
-    const profilesChannel = supabase.channel('activities_profiles')
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'profiles' }, () => queryClient.invalidateQueries({ queryKey: ['recent-activities'] }))
-      .subscribe();
+    
 
-    return () => {
-      supabase.removeChannel(ordersChannel);
-      supabase.removeChannel(profilesChannel);
-    };
+    
   }, [queryClient]);
 
   return (

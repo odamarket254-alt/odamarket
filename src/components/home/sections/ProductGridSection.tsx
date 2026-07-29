@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { HomepageSection, SectionProduct } from '../../../types/homepage';
-import { PremiumProductCard } from '../../products/PremiumProductCard';
+import { ProductCard } from '../../products/ProductCard';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Flame } from 'lucide-react';
 import { cn } from '../../../lib/utils';
@@ -192,7 +192,7 @@ export const ProductGridSection = ({ section, sectionProducts }: ProductGridSect
               key={product.id} 
               className="snap-start shrink-0 w-[240px] md:w-[280px] lg:w-[300px]"
             >
-              <PremiumProductCard product={product} />
+              <ProductCard product={product} />
             </div>
           ))}
         </div>
@@ -206,7 +206,7 @@ export const ProductGridSection = ({ section, sectionProducts }: ProductGridSect
           section.settings?.products_per_row_desktop === 6 && "xl:grid-cols-6"
         )}>
           {products.map((product) => (
-            <PremiumProductCard key={product.id} product={product} />
+            <ProductCard key={product.id} product={product} />
           ))}
         </div>
       )}

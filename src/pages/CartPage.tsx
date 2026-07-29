@@ -1,3 +1,4 @@
+import { OptimizedImage } from "../components/ui/OptimizedImage";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useCartStore } from "../store/useCartStore";
@@ -187,7 +188,7 @@ export default function CartPage() {
                   {RECOMMENDED_PRODUCTS.map(product => (
                     <div key={product.id} className="min-w-[180px] border border-[#E5E7EB] rounded-[16px] p-4 flex flex-col snap-start group hover:shadow-md hover:-translate-y-1 transition-all duration-300">
                       <div className="aspect-square bg-[#F8FAFC] rounded-[12px] mb-4 overflow-hidden">
-                        <img src={product.image} alt={product.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                        <OptimizedImage src={product.image} alt={product.name} imgClassName="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" className="w-full h-full" />
                       </div>
                       <h4 className="text-[slate-900] font-semibold text-[14px] line-clamp-1">{product.name}</h4>
                       <p className="text-[#6B7280] text-[12px] mb-3">{product.weight}</p>
@@ -213,7 +214,7 @@ export default function CartPage() {
                       <div className="flex items-center gap-4">
                         <input type="checkbox" className="w-5 h-5 rounded border-[#E5E7EB] text-[#C65A28] focus:ring-[#C65A28] text-[#3A2418] dark:text-[#3A2418] placeholder:text-[#8B857D] caret-slate-900" defaultChecked />
                         <div className="w-[100px] h-[100px] shrink-0 bg-[#F8FAFC] rounded-[16px] p-2 flex items-center justify-center border border-[#E5E7EB]">
-                          <img src={item.image_url} alt={item.name} className="max-w-full max-h-full object-contain group-hover:scale-105 transition-transform duration-300" />
+                          <OptimizedImage src={item.image_url} alt={item.name} imgClassName="max-w-full max-h-full object-contain group-hover:scale-105 transition-transform duration-300" className="w-full h-full" />
                         </div>
                       </div>
                       <div className="flex-1 flex flex-col justify-between">

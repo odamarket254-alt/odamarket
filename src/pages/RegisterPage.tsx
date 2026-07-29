@@ -79,10 +79,13 @@ export default function RegisterPage() {
   
   // OTP State
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
-  const [countdown, setCountdown] = useState(30);
+  const [countdown, setCountdown] = useState(60);
+  const onLoad = (autocomplete: any) => {};
+  const onPlaceChanged = () => {};
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   // Form Data Aggregation
+  const [createdUserId, setCreatedUserId] = useState<string | null>(null);
   const [accountData, setAccountData] = useState<AccountFormValues | null>(null);
   const [addressData, setAddressData] = useState<AddressFormValues | null>(null);
 
@@ -116,7 +119,7 @@ export default function RegisterPage() {
   // Countdown timer for OTP
   useEffect(() => {
     let timer: any;
-    if (step === 3 && countdown > 0) {
+    if (step === 2 && countdown > 0) {
       timer = setInterval(() => {
         setCountdown((prev) => prev - 1);
       }, 1000);
@@ -124,48 +127,52 @@ export default function RegisterPage() {
       return () => clearInterval(timer);
   }, [step, countdown]);
 
-  const onAccountSubmit = (data: AccountFormValues) => {
+  const onAccountSubmit = async (data: AccountFormValues) => {
     setAccountData(data);
-    setStep(2);
+    setIsLoading(true);
+    try {
+      const res = await fetch('/api/auth/register-step1', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accountData: data })
+      });
+      const resData = await res.json();
+      if (!res.ok) throw new Error(resData.error || "Failed to create account.");
+      
+      setCreatedUserId(resData.userId);
+      toast.success("Verification code sent via SMS!");
+      setCountdown(60);
+      setStep(2); // Move to Verification step
+    } catch (error: any) {
+      toast.error(error.message || "Failed to create account.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  
   const onAddressSubmit = async (data: AddressFormValues) => {
     setAddressData(data);
     setIsLoading(true);
     try {
-      if (!accountData) return;
+      if (!accountData || !createdUserId) return;
+
+      const { error } = await supabase.from("delivery_addresses").insert({
+        user_id: createdUserId,
+        full_name: `${accountData.first_name} ${accountData.last_name}`,
+        phone_number: accountData.phone,
+        street_address: data.street || data.formatted_address || "",
+        apartment_suite: data.apartment || data.house_number || "",
+        city: data.town || "",
+        county: data.county,
+        postal_code: "",
+        is_default: true,
+      });
       
-      let formattedPhone = accountData.phone.trim().replace(/[\s\-()]/g, '');
-      if (formattedPhone.startsWith('0')) {
-        formattedPhone = '+254' + formattedPhone.substring(1);
-      } else if (!formattedPhone.startsWith('+')) {
-        formattedPhone = '+' + formattedPhone;
-      }
+      if (error) throw error;
 
-      // Check if user exists
-      const checkRes = await fetch('/api/auth/check-user', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: accountData.email, phone: formattedPhone }),
-      });
-      const checkData = await checkRes.json();
-      if (!checkRes.ok) throw new Error(checkData.error || "Failed to verify details");
-
-      // Send OTP
-      const otpRes = await fetch('/api/auth/send-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phone: formattedPhone }),
-      });
-      const otpData = await otpRes.json();
-      if (!otpRes.ok) throw new Error(otpData.error || "Failed to send OTP");
-
-      toast.success("Verification code sent via SMS!");
-      setCountdown(30);
-      setStep(3);
+      setStep(4);
     } catch (error: any) {
-      toast.error(error.message || "Failed to create account.");
+      toast.error(error.message || "Failed to save address.");
     } finally {
       setIsLoading(false);
     }
@@ -191,7 +198,7 @@ export default function RegisterPage() {
       if (!otpRes.ok) throw new Error(otpData.error || "Failed to send OTP");
 
       toast.success("A new verification code has been sent!");
-      setCountdown(30);
+      setCountdown(60);
       setOtp(["", "", "", "", "", ""]);
       otpRefs.current[0]?.focus();
     } catch (error: any) {
@@ -201,43 +208,6 @@ export default function RegisterPage() {
     }
   };
 
-  const onLoad = (autocompleteObj: google.maps.places.Autocomplete) => {
-    setAutocomplete(autocompleteObj);
-  };
-
-  const onPlaceChanged = () => {
-    if (autocomplete !== null) {
-      const place = autocomplete.getPlace();
-      if (place.geometry && place.geometry.location) {
-        const lat = place.geometry.location.lat();
-        const lng = place.geometry.location.lng();
-        const formatted_address = place.formatted_address;
-
-        setAddressValue("lat", lat);
-        setAddressValue("lng", lng);
-        setAddressValue("formatted_address", formatted_address || "");
-
-        // Try to parse address components
-        let street = "";
-        let town = "";
-        let county = "";
-
-        place.address_components?.forEach((component) => {
-          const types = component.types;
-          if (types.includes("route")) street = component.long_name;
-          if (types.includes("locality")) town = component.long_name;
-          if (types.includes("administrative_area_level_1")) county = component.long_name;
-        });
-
-        if (street) setAddressValue("street", street);
-        if (town) setAddressValue("town", town);
-        if (county) setAddressValue("county", county);
-      }
-    }
-  };
-
-
-
   const verifyOtp = async () => {
     const code = otp.join("");
     if (code.length !== 6) {
@@ -246,7 +216,7 @@ export default function RegisterPage() {
     }
     setIsLoading(true);
     try {
-      if (!accountData) return;
+      if (!accountData || !createdUserId) return;
 
       let formattedPhone = accountData.phone.trim().replace(/[\s\-()]/g, '');
       if (formattedPhone.startsWith('0')) {
@@ -261,7 +231,7 @@ export default function RegisterPage() {
         body: JSON.stringify({
           phone: formattedPhone,
           otp: code,
-          accountData: accountData
+          userId: createdUserId
         })
       });
       const verifyData = await verifyRes.json();
@@ -275,22 +245,8 @@ export default function RegisterPage() {
 
       if (signInError) throw signInError;
 
-      if (signInData.user && addressData) {
-        // Create address
-        await supabase.from("delivery_addresses").insert({
-          user_id: signInData.user.id,
-          full_name: `${accountData.first_name} ${accountData.last_name}`,
-          phone_number: accountData.phone,
-          street_address: addressData.street || addressData.formatted_address || "",
-          apartment_suite: addressData.apartment || addressData.house_number || "",
-          city: addressData.town || "",
-          county: addressData.county,
-          postal_code: "",
-          is_default: true,
-        });
-      }
-
-      setStep(4);
+      toast.success("Phone number verified successfully!");
+      setStep(3);
     } catch (error: any) {
       toast.error(error.message || "Invalid or expired verification code.");
     } finally {
@@ -380,14 +336,14 @@ export default function RegisterPage() {
             <div className={cn("w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-colors", step >= 2 ? "bg-[#D96A27] text-white shadow-md" : "bg-white border-2 border-[#E8DCC9] text-[#9CA3AF]")}>
               {step > 2 ? <Check className="w-5 h-5" /> : "2"}
             </div>
-            <span className={cn("text-[11px] font-bold uppercase tracking-wider", step >= 2 ? "text-[#D96A27]" : "text-[#9CA3AF]")}>Address</span>
+            <span className={cn("text-[11px] font-bold uppercase tracking-wider", step >= 2 ? "text-[#D96A27]" : "text-[#9CA3AF]")}>Verification</span>
           </div>
           
           <div className="flex flex-col items-center gap-2 bg-[#F8F3EB] px-2">
             <div className={cn("w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-colors", step >= 3 ? "bg-[#D96A27] text-white shadow-md" : "bg-white border-2 border-[#E8DCC9] text-[#9CA3AF]")}>
               3
             </div>
-            <span className={cn("text-[11px] font-bold uppercase tracking-wider", step >= 3 ? "text-[#D96A27]" : "text-[#9CA3AF]")}>Verification</span>
+            <span className={cn("text-[11px] font-bold uppercase tracking-wider", step >= 3 ? "text-[#D96A27]" : "text-[#9CA3AF]")}>Address</span>
           </div>
         </div>
       )}
@@ -574,8 +530,8 @@ export default function RegisterPage() {
               </motion.form>
             )}
 
-            {/* STEP 2: ADDRESS */}
-            {step === 2 && (
+            {/* STEP 3: ADDRESS */}
+            {step === 3 && (
               <motion.form 
                 key="step2"
                 initial={{ opacity: 0, x: -20 }}
@@ -729,8 +685,8 @@ export default function RegisterPage() {
               </motion.form>
             )}
 
-            {/* STEP 3: OTP VERIFICATION */}
-            {step === 3 && (
+            {/* STEP 2: OTP VERIFICATION */}
+            {step === 2 && (
               <motion.div 
                 key="step3"
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -773,7 +729,7 @@ export default function RegisterPage() {
                   {isLoading ? (
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                   ) : (
-                    "Verify & Create Account"
+                    "Verify & Continue"
                   )}
                 </button>
 
@@ -790,6 +746,14 @@ export default function RegisterPage() {
                       Resend Code
                     </button>
                   )}
+                  <div className="flex items-center justify-center gap-2 mt-4">
+                    <button
+                      onClick={() => setStep(1)}
+                      className="text-[13px] font-medium text-[#4B5563] hover:text-[#1A1A1A] transition-colors"
+                    >
+                      Change phone number
+                    </button>
+                  </div>
                   <p className="text-[12px] text-[#9CA3AF] mt-3">Code expires after 5 minutes.</p>
                 </div>
               </motion.div>

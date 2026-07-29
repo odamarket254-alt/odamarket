@@ -1,3 +1,6 @@
+import { OptimizedImage } from "../components/ui/OptimizedImage";
+import { toast } from "sonner";
+import { supabase } from "../lib/supabase";
 import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useCartStore } from "../store/useCartStore";
@@ -41,21 +44,59 @@ export default function CheckoutPage() {
     }
   }, [items, navigate, isSuccess, isProcessing]);
 
-  const handlePlaceOrder = () => {
+  const handlePlaceOrder = async () => {
     setIsProcessing(true);
-    setLoadingText("Connecting to M-Pesa...");
+    setLoadingText("Connecting to secure checkout...");
     
-    setTimeout(() => {
-      setLoadingText("Requesting STK Push...");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        toast.error("Please login to place an order");
+        setIsProcessing(false);
+        return;
+      }
+
+      setLoadingText("Validating inventory and processing...");
+      
+      const response = await fetch('/api/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`
+        },
+        body: JSON.stringify({
+          items: items.map(item => ({
+            product_id: item.id,
+            quantity: item.quantity
+          })),
+          shippingDetails: {
+            county: "Nairobi",
+            address: "Default Address"
+          },
+          paymentMethod: 'M-Pesa'
+        })
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to place order');
+      }
+
+      setLoadingText("Finalizing order...");
+      
       setTimeout(() => {
-        setLoadingText("Please complete payment on your phone.");
-        setTimeout(() => {
-          setIsProcessing(false);
-          setIsSuccess(true);
-          clearCart();
-        }, 3000);
-      }, 2000);
-    }, 1500);
+        setIsProcessing(false);
+        setIsSuccess(true);
+        clearCart();
+      }, 1500);
+      
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Checkout failed. Please try again.");
+      setIsProcessing(false);
+    }
   };
 
   const getSubtotal = (priceStr: string, qty: number) => {
@@ -301,7 +342,7 @@ export default function CheckoutPage() {
                   {items.map(item => (
                     <div key={item.id} className="flex gap-4">
                       <div className="w-16 h-16 bg-[#F8FAFC] border border-[#E5E7EB] rounded-[12px] shrink-0 p-1 flex items-center justify-center overflow-hidden">
-                        <img src={item.image_url} alt={item.name} className="max-w-full max-h-full object-contain" />
+                        <OptimizedImage src={item.image_url} alt={item.name} imgClassName="max-w-full max-h-full object-contain" className="w-full h-full flex items-center justify-center bg-transparent" />
                       </div>
                       <div className="flex-1 min-w-0 flex flex-col justify-center">
                         <h4 className="text-[slate-900] font-semibold text-[13px] line-clamp-2 leading-snug mb-1">{item.name}</h4>

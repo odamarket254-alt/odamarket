@@ -30,7 +30,7 @@ const fetchKPIData = async () => {
     supabase.from('products').select('*', { count: 'exact', head: true }),
     supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'supplier'),
     supabase.from('orders').select('total_amount').limit(100).gte('created_at', today.toISOString()),
-    supabase.from('products').select('stock_quantity, low_stock_threshold').limit(100)
+    supabase.from('products').select('stock, low_stock_threshold').limit(100)
   ]);
 
   const todayRevenue = revenueData?.reduce((sum, order) => sum + Number(order.total_amount || 0), 0) || 0;
@@ -39,8 +39,8 @@ const fetchKPIData = async () => {
   let outOfStockCount = 0;
   
   lowStockData?.forEach(p => {
-    if (p.stock_quantity === 0) outOfStockCount++;
-    else if (p.stock_quantity <= (p.low_stock_threshold || 10)) lowStockCount++;
+    if (p.stock === 0) outOfStockCount++;
+    else if (p.stock <= (p.low_stock_threshold || 10)) lowStockCount++;
   });
 
   return {

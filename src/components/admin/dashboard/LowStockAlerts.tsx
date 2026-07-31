@@ -13,14 +13,14 @@ export default function LowStockAlerts() {
       // Find products where stock is <= threshold
       const { data, error } = await supabase
         .from('products')
-        .select('id, name, stock_quantity, low_stock_threshold, regular_price').limit(100)
-        .order('stock_quantity', { ascending: true })
+        .select('id, name, stock, low_stock_threshold, regular_price').limit(100)
+        .order('stock', { ascending: true })
         .limit(5);
         
       if (error) throw error;
       
       // Filter out those that are actually above threshold (if threshold is null, default to 10)
-      return data.filter(p => p.stock_quantity <= (p.low_stock_threshold || 10));
+      return data.filter(p => p.stock <= (p.low_stock_threshold || 10));
     }
   });
 
@@ -69,7 +69,7 @@ export default function LowStockAlerts() {
                 </div>
                 <div className="text-right">
                    <div className="inline-flex items-center justify-center px-2 py-1 bg-[#B94A48]/10 text-[#B94A48] text-xs font-bold rounded">
-                     {product.stock_quantity} left
+                     {product.stock} left
                    </div>
                 </div>
               </div>

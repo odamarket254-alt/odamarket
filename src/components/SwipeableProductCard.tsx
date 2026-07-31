@@ -9,7 +9,6 @@ import { toast } from "sonner";
 import { useAuthStore } from "../store/useAuthStore";
 import { useCartStore } from "../store/useCartStore";
 
-import { VerifiedBadge } from "./ui/VerifiedBadge";
 
 export interface MarketplaceProduct {
   id: string;

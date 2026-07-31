@@ -23,7 +23,7 @@ export default function ProductsPage() {
       let q = supabase
         .from("products")
         .select(`
-          id, name, regular_price, stock_quantity, supplier_id, 
+          id, name, regular_price, stock, supplier_id, 
           product_type:product_types(name),
           category:categories!inner(slug, name)
         `)
@@ -39,7 +39,7 @@ export default function ProductsPage() {
       
       const { data, error } = await q;
       if (error) {
-        console.error("Error fetching products:", error);
+        console.error("Error fetching products:", JSON.stringify(error));
       } else if (data) {
         setProducts(data);
       }

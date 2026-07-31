@@ -38,7 +38,7 @@ export const ProductCard = ({ product, index, viewMode = "grid" }: { product: an
   const reviews = product.reviews_count || Math.floor(Math.random() * 200) + 10;
   
   const categoryName = product.product_type?.name || "Groceries";
-  const stock = product.stock_quantity || product.stock || Math.floor(Math.random() * 50) + 1;
+  const stock = product.stock || product.stock || Math.floor(Math.random() * 50) + 1;
   const isList = viewMode === "list";
 
   return (

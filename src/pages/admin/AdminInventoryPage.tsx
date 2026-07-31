@@ -27,8 +27,8 @@ export default function AdminInventoryPage() {
       setLoading(true);
       const { data, error } = await supabase
         .from('products')
-        .select('id, name, sku, stock_quantity, low_stock_threshold, regular_price').limit(100)
-        .order('stock_quantity', { ascending: true });
+        .select('id, name, sku, stock, low_stock_threshold, regular_price').limit(100)
+        .order('stock', { ascending: true });
 
       if (error) throw error;
       setProducts(data || []);
@@ -44,16 +44,16 @@ export default function AdminInventoryPage() {
                           (p.sku && p.sku.toLowerCase().includes(search.toLowerCase()));
     
     if (activeTab === 'all') return matchesSearch;
-    if (activeTab === 'low_stock') return matchesSearch && p.stock_quantity > 0 && p.stock_quantity <= (p.low_stock_threshold || 10);
-    if (activeTab === 'out_of_stock') return matchesSearch && p.stock_quantity === 0;
+    if (activeTab === 'low_stock') return matchesSearch && p.stock > 0 && p.stock <= (p.low_stock_threshold || 10);
+    if (activeTab === 'out_of_stock') return matchesSearch && p.stock === 0;
     return matchesSearch;
   });
 
   const stats = {
-    totalItems: products.reduce((sum, p) => sum + p.stock_quantity, 0),
-    lowStock: products.filter(p => p.stock_quantity > 0 && p.stock_quantity <= (p.low_stock_threshold || 10)).length,
-    outOfStock: products.filter(p => p.stock_quantity === 0).length,
-    value: products.reduce((sum, p) => sum + (p.stock_quantity * p.price), 0),
+    totalItems: products.reduce((sum, p) => sum + p.stock, 0),
+    lowStock: products.filter(p => p.stock > 0 && p.stock <= (p.low_stock_threshold || 10)).length,
+    outOfStock: products.filter(p => p.stock === 0).length,
+    value: products.reduce((sum, p) => sum + (p.stock * p.price), 0),
   };
 
   return (
@@ -176,17 +176,17 @@ export default function AdminInventoryPage() {
                     <td className="py-3 px-6 text-right">
                       <span className={cn(
                         "inline-flex px-2 py-1 rounded text-sm font-bold",
-                        product.stock_quantity === 0 ? "bg-[#B94A48]/10 text-[#B94A48]" :
-                        product.stock_quantity <= (product.low_stock_threshold || 10) ? "bg-[#D9A62E]/10 text-[#D9A62E]" :
+                        product.stock === 0 ? "bg-[#B94A48]/10 text-[#B94A48]" :
+                        product.stock <= (product.low_stock_threshold || 10) ? "bg-[#D9A62E]/10 text-[#D9A62E]" :
                         "text-[#3A2418]"
                       )}>
-                        {product.stock_quantity}
+                        {product.stock}
                       </span>
                     </td>
                     <td className="py-3 px-6 text-right">
                        <input 
                          type="number" 
-                         defaultValue={product.stock_quantity} 
+                         defaultValue={product.stock} 
                          className="w-20 px-2 py-1 border border-[#E8DCC9] rounded text-sm focus:outline-none focus:border-[#C65A28] ml-auto text-right text-[#3A2418] dark:text-[#3A2418] placeholder:text-[#8B857D] caret-slate-900"
                        />
                     </td>

@@ -2,6 +2,10 @@ import { useState, useEffect } from "react";
 import { Outlet, Navigate, Link, useLocation } from "react-router-dom";
 import { useAuthStore } from "../../store/useAuthStore";
 import {
+  Store,
+  Heart,
+  ShoppingCart,
+  Ticket,
   LayoutDashboard,
   Inbox,
   Package,
@@ -237,23 +241,22 @@ export default function DashboardLayout() {
         return baseAdminNav;
       }
       case "buyer":
+      case "customer":
       default:
         return [
-          {
-            icon: LayoutDashboard,
-            label: "Overview",
-            path: "/buyer/dashboard",
-          },
-          {
-            icon: Inbox,
-            label: "My Orders",
-            path: "/buyer/dashboard/orders",
-          },
-          {
-            icon: Settings,
-            label: "Settings",
-            path: "/buyer/dashboard/settings",
-          },
+          { icon: LayoutDashboard, label: "Dashboard", path: "/buyer/dashboard" },
+          { icon: Store, label: "Shop", path: "/products" },
+          { icon: FolderTree, label: "Categories", path: "/categories" },
+          { icon: Package, label: "My Orders", path: "/buyer/dashboard/orders" },
+          { icon: Truck, label: "Track Delivery", path: "/buyer/dashboard/track" },
+          { icon: Heart, label: "Wishlist", path: "/wishlist" },
+          { icon: ShoppingCart, label: "Shopping Cart", path: "/cart" },
+          { icon: Gift, label: "Rewards", path: "/buyer/dashboard/rewards" },
+          { icon: Ticket, label: "Coupons", path: "/buyer/dashboard/coupons" },
+          { icon: CreditCard, label: "Payment Methods", path: "/buyer/dashboard/payments" },
+          { icon: MapPin, label: "Delivery Addresses", path: "/buyer/dashboard/addresses" },
+          { icon: Bell, label: "Notifications", path: "/buyer/dashboard/notifications" },
+          { icon: Settings, label: "Settings", path: "/buyer/dashboard/settings" },
         ];
     }
   };
@@ -284,7 +287,7 @@ export default function DashboardLayout() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-foreground truncate flex items-center gap-1.5">
-                {profile?.business_name || "My Business"}
+                {profile?.full_name || profile?.email || "Customer"}
                 {profile?.role === "seller" && profile?.verified && (
                   <ShieldCheck className="h-4 w-4 text-[#D9A62E] dark:text-[#D9A62E] shrink-0" />
                 )}
@@ -299,7 +302,7 @@ export default function DashboardLayout() {
               >
                 {profile?.role === "seller" && profile?.verified
                   ? "Premium Seller"
-                  : `${profile?.role || "User"} Profile`}
+                  : `Customer Profile`}
               </p>
             </div>
           </div>
@@ -410,7 +413,7 @@ export default function DashboardLayout() {
                 >
                   <div className="flex flex-col">
                     <span className="text-sm font-medium text-foreground truncate flex items-center gap-1.5">
-                      {profile?.business_name || "My Business"}
+                      {profile?.full_name || profile?.email || "Customer"}
                       {profile?.role === "seller" && profile?.verified && (
                         <ShieldCheck className="h-4 w-4 text-[#D9A62E] dark:text-[#D9A62E] shrink-0" />
                       )}
@@ -425,7 +428,7 @@ export default function DashboardLayout() {
                     >
                       {profile?.role === "seller" && profile?.verified
                         ? "Premium Seller"
-                        : `${profile?.role || "User"} Profile`}
+                        : `Customer Profile`}
                     </span>
                   </div>
                   <Button

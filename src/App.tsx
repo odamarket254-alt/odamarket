@@ -10,6 +10,7 @@ import { supabase } from "./lib/supabase";
 import { useAuthStore } from "./store/useAuthStore";
 import { Loader2 } from "lucide-react";
 import { ErrorBoundary } from "./components/ErrorBoundary";
+import { CookieConsent } from "./components/ui/CookieConsent";
 import OneSignal from 'react-onesignal';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -32,36 +33,20 @@ const ResetPasswordPage = lazy(() => import("./pages/ResetPasswordPage"));
 const ProductsPage = lazy(() => import("./pages/ProductsPage"));
 const ProductDetailsPage = lazy(() => import("./pages/ProductDetailsPage"));
 const ContactPage = lazy(() => import("./pages/ContactPage"));
+const CookiePolicyPage = lazy(() => import("./pages/CookiePolicyPage"));
 const CartPage = lazy(() => import("./pages/CartPage"));
 const WishlistPage = lazy(() => import("./pages/WishlistPage"));
 const CheckoutPage = lazy(() => import("./pages/CheckoutPage"));
-const SupplierProfilePage = lazy(() => import("./pages/SupplierProfilePage"));
 const CategoriesPage = lazy(() => import("./pages/CategoriesPage"));
-const SuppliersPage = lazy(() => import("./pages/SuppliersPage"));
-const PublicRFQPage = lazy(() => import("./pages/PublicRFQPage"));
 
 // Lazy Loaded Dashboard Pages
-const DashboardHome = lazy(() => import("./pages/dashboard/DashboardHome"));
 const BuyerDashboardHome = lazy(() => import("./pages/dashboard/BuyerDashboardHome").then(m => ({ default: m.BuyerDashboardHome })));
-const InquiriesPage = lazy(() => import("./pages/dashboard/InquiriesPage"));
+const OrdersPage = lazy(() => import("./pages/dashboard/OrdersPage"));
 const SupportMessagesPage = lazy(
   () => import("./pages/dashboard/SupportMessagesPage"),
 );
-const DashboardProductsPage = lazy(
-  () => import("./pages/dashboard/SellerProductsPage"),
-);
 const AdminProductsPage = lazy(() => import("./pages/admin/AdminProductsPage"));
 const AdminProductFormPage = lazy(() => import("./pages/admin/AdminProductFormPage"));
-const BuyerRFQsPage = lazy(() =>
-  import("./pages/dashboard/BuyerRFQsPage").then((module) => ({
-    default: module.BuyerRFQsPage,
-  })),
-);
-const SellerRFQsPage = lazy(() =>
-  import("./pages/dashboard/SellerRFQsPage").then((module) => ({
-    default: module.SellerRFQsPage,
-  })),
-);
 const SettingsPage = lazy(() => import("./pages/dashboard/SettingsPage"));
 const AdminSettingsPage = lazy(() => import("./pages/admin/AdminSettingsPage"));
 const AdminOrdersPage = lazy(() => import("./pages/dashboard/AdminOrdersPage"));
@@ -75,7 +60,6 @@ const AdminStorefrontPage = lazy(() => import("./pages/admin/AdminStorefrontPage
 const AdminDashboardHome = lazy(() => import("./pages/admin/AdminDashboardHome"));
 const AdminAnalyticsPage = lazy(() => import("./pages/admin/AdminAnalyticsPage"));
 const AdminSecurityPage = lazy(() => import("./pages/admin/AdminSecurityPage"));
-const AdminRFQsPage = lazy(() => import("./pages/admin/AdminRFQsPage"));
 const AdminReportsPage = lazy(() => import("./pages/admin/AdminReportsPage"));
 const AdminAIPage = lazy(() => import("./pages/admin/AdminAIPage"));
 const AdminContentPage = lazy(() => import("./pages/admin/AdminContentPage"));
@@ -195,34 +179,24 @@ export default function App() {
               <Route path="/cart" element={<CartPage />} />
               <Route path="/wishlist" element={<WishlistPage />} />
               <Route path="/checkout" element={<CheckoutPage />} />
-              <Route path="/suppliers" element={<SuppliersPage />} />
-              <Route path="/suppliers/:id" element={<SupplierProfilePage />} />
-              <Route path="/rfq" element={<PublicRFQPage />} />
-              <Route path="/contact" element={<ContactPage />} />
+                                                        <Route path="/contact" element={<ContactPage />} />
+                                                        <Route path="/cookie-policy" element={<CookiePolicyPage />} />
             </Route>
 
             {/* Role Routing Interceptor */}
             <Route path="/dashboard" element={<RoleRedirect />} />
 
             {/* Buyer Routes */}
-            <Route element={<ProtectedRoute allowedRoles={["buyer"]} />}>
+            <Route element={<ProtectedRoute allowedRoles={["buyer", "customer"]} />}>
               <Route path="/buyer/dashboard" element={<DashboardLayout />}>
                 <Route index element={<BuyerDashboardHome />} />
-                <Route path="orders" element={<InquiriesPage />} />
+                <Route path="orders" element={<OrdersPage />} />
                 <Route path="settings" element={<SettingsPage />} />
               </Route>
             </Route>
 
             {/* Seller Routes */}
-            <Route element={<ProtectedRoute allowedRoles={["seller"]} />}>
-              <Route path="/seller/dashboard" element={<DashboardLayout />}>
-                <Route index element={<DashboardHome />} />
-                <Route path="inquiries" element={<InquiriesPage />} />
-                <Route path="products" element={<DashboardProductsPage />} />
-                <Route path="rfqs" element={<SellerRFQsPage />} />
-                <Route path="settings" element={<SettingsPage />} />
-              </Route>
-            </Route>
+            
 
             {/* Admin Routes */}
             <Route element={<ProtectedRoute allowedRoles={["admin", "super_admin", "moderator", "support_agent", "content_manager"]} />}>
@@ -235,8 +209,7 @@ export default function App() {
                 <Route path="products/:id" element={<AdminProductFormPage />} />
                 <Route path="orders" element={<AdminOrdersPage />} />
                 <Route path="discounts" element={<AdminDiscountsPage />} />
-                <Route path="rfqs" element={<AdminRFQsPage />} />
-                <Route path="categories" element={<AdminCategoriesPage />} />
+                                <Route path="categories" element={<AdminCategoriesPage />} />
                 <Route path="support" element={<SupportMessagesPage />} />
                 <Route path="content" element={<AdminContentPage />} />
                 <Route path="marketing" element={<AdminMarketingPage />} />
@@ -258,6 +231,7 @@ export default function App() {
         </Suspense>
       </ErrorBoundary>
       <Toaster position="top-center" richColors />
+      <CookieConsent />
     </BrowserRouter>
     </QueryClientProvider>
   );

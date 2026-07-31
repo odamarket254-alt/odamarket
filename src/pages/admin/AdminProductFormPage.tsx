@@ -36,7 +36,7 @@ const productSchema = z.object({
   cost_price: z.coerce.number().min(0).optional().nullable(),
   weight: z.coerce.number().min(0).optional().nullable(),
   unit: z.string().optional(),
-  stock_quantity: z.coerce.number().min(0, 'Stock cannot be negative'),
+  stock: z.coerce.number().min(0, 'Stock cannot be negative'),
   min_stock: z.coerce.number().min(0).optional(),
   max_stock: z.coerce.number().min(0).optional(),
   sku: z.string().optional(),
@@ -60,7 +60,7 @@ const STEPS = [
   { id: 'details', label: 'Product Details', icon: FileText, fields: ['short_description', 'description'] },
   { id: 'media', label: 'Media', icon: ImageIcon, fields: [] },
   { id: 'pricing', label: 'Pricing', icon: CreditCard, fields: ['regular_price', 'sale_price', 'cost_price', 'tax_class'] },
-  { id: 'inventory', label: 'Inventory', icon: Package, fields: ['stock_quantity', 'min_stock', 'max_stock', 'warehouse_location', 'unit', 'weight'] },
+  { id: 'inventory', label: 'Inventory', icon: Package, fields: ['stock', 'min_stock', 'max_stock', 'warehouse_location', 'unit', 'weight'] },
   { id: 'seo', label: 'SEO', icon: Search, fields: ['seo_title', 'seo_description', 'seo_keywords', 'slug'] },
   { id: 'status', label: 'Status', icon: Check, fields: ['status', 'is_featured'] }
 ];
@@ -85,7 +85,7 @@ export default function AdminProductFormPage() {
     defaultValues: {
       status: 'draft',
       is_featured: false,
-      stock_quantity: 0,
+      stock: 0,
       regular_price: 0,
       category_id: '',
     }
@@ -512,9 +512,9 @@ export default function AdminProductFormPage() {
               
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
                 <div>
-                  <Label htmlFor="stock_quantity" className="text-[#5F5A54] block mb-1.5">Stock Quantity <span className="text-[#B94A48]">*</span></Label>
-                  <Input id="stock_quantity" type="number" {...register('stock_quantity')} className={errors.stock_quantity ? 'border-rose-500' : ''} />
-                  {errors.stock_quantity && <p className="text-sm text-[#B94A48] mt-1.5 flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5"/>{errors.stock_quantity.message as string}</p>}
+                  <Label htmlFor="stock" className="text-[#5F5A54] block mb-1.5">Stock Quantity <span className="text-[#B94A48]">*</span></Label>
+                  <Input id="stock" type="number" {...register('stock')} className={errors.stock ? 'border-rose-500' : ''} />
+                  {errors.stock && <p className="text-sm text-[#B94A48] mt-1.5 flex items-center gap-1"><AlertCircle className="w-3.5 h-3.5"/>{errors.stock.message as string}</p>}
                 </div>
                 <div>
                   <Label htmlFor="min_stock" className="text-[#5F5A54] block mb-1.5">Low Stock Alert</Label>

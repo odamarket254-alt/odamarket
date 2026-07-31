@@ -3,7 +3,7 @@ import { useAuthStore } from "../../store/useAuthStore";
 import { Loader2 } from "lucide-react";
 
 interface ProtectedRouteProps {
-  allowedRoles: Array<"buyer" | "seller" | "admin" | "super_admin" | "moderator" | "support_agent" | "content_manager">;
+  allowedRoles: Array<"customer" | "buyer" | "seller" | "admin" | "super_admin" | "moderator" | "support_agent" | "content_manager">;
 }
 
 export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {

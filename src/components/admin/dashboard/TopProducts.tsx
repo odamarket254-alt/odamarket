@@ -12,7 +12,7 @@ export default function TopProducts() {
       // A real implementation would query order_items and aggregate.
       const { data, error } = await supabase
         .from('products')
-        .select('id, name, regular_price, stock_quantity')
+        .select('id, name, regular_price, stock')
         .limit(5);
         
       if (error) throw error;

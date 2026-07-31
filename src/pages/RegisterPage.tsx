@@ -136,8 +136,13 @@ export default function RegisterPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ accountData: data })
       });
-      const resData = await res.json();
-      if (!res.ok) throw new Error(resData.error || "Failed to create account.");
+      let resData;
+      try {
+        resData = await res.json();
+      } catch (e) {
+        throw new Error("Server returned an invalid response. Please try again.");
+      }
+      if (!res.ok) throw new Error(resData?.error || "Failed to create account.");
       
       setCreatedUserId(resData.userId);
       toast.success("Verification code sent via SMS!");
@@ -194,8 +199,13 @@ export default function RegisterPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ phone: formattedPhone }),
       });
-      const otpData = await otpRes.json();
-      if (!otpRes.ok) throw new Error(otpData.error || "Failed to send OTP");
+      let otpData;
+      try {
+        otpData = await otpRes.json();
+      } catch (e) {
+        throw new Error("Server returned an invalid response. Please try again.");
+      }
+      if (!otpRes.ok) throw new Error(otpData?.error || "Failed to send OTP");
 
       toast.success("A new verification code has been sent!");
       setCountdown(60);
@@ -234,8 +244,13 @@ export default function RegisterPage() {
           userId: createdUserId
         })
       });
-      const verifyData = await verifyRes.json();
-      if (!verifyRes.ok) throw new Error(verifyData.error || "Invalid verification code.");
+      let verifyData;
+      try {
+        verifyData = await verifyRes.json();
+      } catch (e) {
+        throw new Error("Server returned an invalid response. Please try again.");
+      }
+      if (!verifyRes.ok) throw new Error(verifyData?.error || "Invalid verification code.");
 
       // Sign in automatically
       const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({

@@ -230,7 +230,7 @@ export function Header() {
                 <div className="hidden xl:flex flex-col">
                   <span className="text-[12px] text-[#5F5A54] group-hover:text-[#C65A28] transition-colors">Welcome</span>
                   <span className="text-[14px] font-semibold text-[#3A2418] leading-tight">
-                    {user ? (profile?.business_name?.split(' ')[0] || 'My Account') : 'ODAMARKET'}
+                    {user ? (profile?.full_name?.split(' ')[0] || 'My Account') : 'ODAMARKET'}
                   </span>
                 </div>
               </Link>

@@ -57,7 +57,7 @@
         }
       });
       window.addEventListener('unhandledrejection', function(event) {
-        console.error('Unhandled promise rejection caught:', event.reason);
+        console.error('Unhandled promise rejection caught:', event.reason?.message || event.reason);
       });
     </script>
 

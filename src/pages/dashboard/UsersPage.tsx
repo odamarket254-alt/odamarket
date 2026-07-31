@@ -5,7 +5,6 @@ import { Shield, ShieldAlert, ShieldCheck, Mail, Building, MapPin, Search, Chevr
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/Card";
 import { Input } from "@/components/ui/Input";
 import { Badge } from "@/components/ui/Badge";
-import { VerifiedBadge } from "@/components/ui/VerifiedBadge";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/Button";
 
@@ -206,9 +205,7 @@ export default function UsersPage() {
                           </select>
                         </td>
                         <td className="px-6 py-4">
-                          {user.verified ? (
-                            <VerifiedBadge country={user.country} className="pointer-events-none" />
-                          ) : (user as any).verification_requested ? (
+                          {user.verified ? (<Badge variant="outline" className="text-green-500 border-green-500/30 gap-1.5 pointer-events-none">Verified</Badge>) : (user as any).verification_requested ? (
                             <Badge variant="outline" className="text-[#D9A62E]/80 border-amber-500/30 gap-1.5 pointer-events-none bg-[#D9A62E]/10">
                               <ShieldAlert className="h-3.5 w-3.5" /> Pending Request
                             </Badge>

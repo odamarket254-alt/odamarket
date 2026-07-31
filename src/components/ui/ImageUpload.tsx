@@ -33,21 +33,23 @@ export function ImageUpload({ value, onChange, bucket = 'products', folder = 'me
 
       setIsUploading(true);
 
-      const formData = new FormData();
-      formData.append('file', file);
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2, 15)}_${Date.now()}.${fileExt}`;
+      const filePath = `${folder ? folder + '/' : ''}${fileName}`;
 
-      const response = await fetch('/api/gcs/upload', {
-        method: 'POST',
-        body: formData,
-      });
+      const { data, error } = await supabase.storage
+        .from(bucket)
+        .upload(filePath, file);
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to upload image');
+      if (error) {
+        throw error;
       }
 
-      onChange(result.url);
+      const { data: { publicUrl } } = supabase.storage
+        .from(bucket)
+        .getPublicUrl(filePath);
+
+      onChange(publicUrl);
       toast.success('Image uploaded successfully');
     } catch (error: any) {
       toast.error(error.message || 'Error uploading image');

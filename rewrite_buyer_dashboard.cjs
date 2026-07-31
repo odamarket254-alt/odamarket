@@ -1,4 +1,6 @@
-import { OptimizedImage } from "../../components/ui/OptimizedImage";
+const fs = require('fs');
+
+const content = `import { OptimizedImage } from "../../components/ui/OptimizedImage";
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '../../store/useAuthStore';
@@ -6,7 +8,7 @@ import { supabase } from '../../lib/supabase';
 import { 
   Package, ShoppingBag, MapPin, CreditCard, Heart, Clock, TrendingUp, 
   ChevronRight, Star, Gift, Truck, Map, Bell, ArrowRight,
-  CheckCircle2, AlertCircle, Calendar, RefreshCcw, Search, Plus, Ticket, Image as ImageIcon
+  CheckCircle2, AlertCircle, Calendar, RefreshCcw, Search, Plus, Ticket
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
@@ -156,9 +158,9 @@ export function BuyerDashboardHome() {
               Welcome back to OdaMarket. Ready for your next grocery run?
             </p>
             <div className="pt-4 flex flex-wrap items-center gap-4">
-              <Link to="/products">
-                <Button size="lg" className="bg-white text-primary hover:bg-white/90">Shop Groceries</Button>
-              </Link>
+              <Button asChild size="lg" className="bg-white text-primary hover:bg-white/90">
+                <Link to="/products">Shop Groceries</Link>
+              </Button>
               <div className="flex items-center gap-2 bg-primary-foreground/20 backdrop-blur-sm px-4 py-2 rounded-full">
                 <Search className="w-4 h-4" />
                 <span className="text-sm font-medium">Search for daily essentials...</span>
@@ -187,7 +189,7 @@ export function BuyerDashboardHome() {
         <StatCard icon={ShoppingBag} label="In Cart" value={stats.cartItems} link="/cart" />
         <StatCard icon={Heart} label="Wishlist" value={stats.wishlistItems} link="/wishlist" />
         <StatCard icon={Gift} label="Points" value={stats.rewardPoints} link="/buyer/dashboard/rewards" />
-        <StatCard icon={TrendingUp} label="Savings" value={`Ksh ${stats.totalSavings}`} link="/buyer/dashboard/rewards" />
+        <StatCard icon={TrendingUp} label="Savings" value={\`Ksh \${stats.totalSavings}\`} link="/buyer/dashboard/rewards" />
         <StatCard icon={Truck} label="Deliveries" value={stats.pendingDeliveries} link="/buyer/dashboard/track" />
       </div>
 
@@ -200,9 +202,9 @@ export function BuyerDashboardHome() {
                 <h2 className="text-xl font-bold flex items-center gap-2">
                   <Truck className="w-5 h-5 text-primary" /> Active Delivery
                 </h2>
-                <Link to="/buyer/dashboard/track">
-                  <Button variant="outline" size="sm">View All Tracker</Button>
-                </Link>
+                <Button variant="outline" size="sm" asChild>
+                  <Link to="/buyer/dashboard/track">View All Tracker</Link>
+                </Button>
               </div>
               
               <div className="relative">
@@ -299,7 +301,7 @@ export function BuyerDashboardHome() {
                   </defs>
                   <Tooltip 
                     contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                    formatter={(value) => [`Ksh ${value}`, 'Saved']}
+                    formatter={(value) => [\`Ksh \${value}\`, 'Saved']}
                   />
                   <Area type="monotone" dataKey="amount" stroke="#C65A28" strokeWidth={3} fillOpacity={1} fill="url(#colorAmount)" />
                 </AreaChart>
@@ -378,14 +380,14 @@ function StatCard({ icon: Icon, label, value, link }: { icon: any, label: string
 function DeliveryStep({ icon: Icon, title, date, active, completed }: { icon: any, title: string, date: string, active: boolean, completed: boolean }) {
   return (
     <div className="flex flex-row md:flex-col items-center gap-4 md:gap-2 z-10">
-      <div className={`
+      <div className={\`
         w-10 h-10 rounded-full flex items-center justify-center border-4 border-card transition-colors
-        ${completed ? 'bg-primary text-white' : active ? 'bg-primary/20 text-primary border-primary/30' : 'bg-muted text-muted-foreground'}
-      `}>
+        \${completed ? 'bg-primary text-white' : active ? 'bg-primary/20 text-primary border-primary/30' : 'bg-muted text-muted-foreground'}
+      \`}>
         <Icon className="w-4 h-4" />
       </div>
       <div className="text-left md:text-center">
-        <div className={`font-semibold text-sm ${active || completed ? 'text-foreground' : 'text-muted-foreground'}`}>{title}</div>
+        <div className={\`font-semibold text-sm \${active || completed ? 'text-foreground' : 'text-muted-foreground'}\`}>{title}</div>
         <div className="text-xs text-muted-foreground">{date}</div>
       </div>
     </div>
@@ -400,7 +402,7 @@ function ProductCard({ product }: { product: any }) {
           <Heart className="w-4 h-4" />
         </button>
       </div>
-      <Link to={`/products/${product.id}`} className="aspect-square bg-muted relative overflow-hidden block">
+      <Link to={\`/products/\${product.id}\`} className="aspect-square bg-muted relative overflow-hidden block">
         {product.image_url ? (
           <OptimizedImage 
             src={product.image_url} 
@@ -432,7 +434,7 @@ function ProductCard({ product }: { product: any }) {
 
 function CategoryCard({ title, icon }: { title: string, icon: string }) {
   return (
-    <Link to={`/products?category=${title.toLowerCase()}`}>
+    <Link to={\`/products?category=\${title.toLowerCase()}\`}>
       <div className="bg-muted/50 hover:bg-primary/5 border border-transparent hover:border-primary/20 p-4 rounded-xl flex flex-col items-center justify-center gap-2 transition-colors cursor-pointer h-full text-center">
         <span className="text-3xl mb-1">{icon}</span>
         <span className="text-xs font-medium text-foreground">{title}</span>
@@ -440,3 +442,7 @@ function CategoryCard({ title, icon }: { title: string, icon: string }) {
     </Link>
   );
 }
+`;
+
+fs.writeFileSync('src/pages/dashboard/BuyerDashboardHome.tsx', content);
+console.log('Successfully updated BuyerDashboardHome.tsx');

@@ -134,8 +134,13 @@ export function CheckoutAuthModal({ isOpen, onClose, onSuccess }: CheckoutAuthMo
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: signupData.email, phone: formattedPhone }),
       });
-      const checkData = await checkRes.json();
-      if (!checkRes.ok) throw new Error(checkData.error || "Failed to verify details");
+      let checkData;
+      try {
+        checkData = await checkRes.json();
+      } catch (e) {
+        throw new Error("Server returned an invalid response. Please try again.");
+      }
+      if (!checkRes.ok) throw new Error(checkData?.error || "Failed to verify details");
 
       setSignupData({ ...signupData, phone: formattedPhone });
 
@@ -148,9 +153,14 @@ export function CheckoutAuthModal({ isOpen, onClose, onSuccess }: CheckoutAuthMo
         body: JSON.stringify({ phone: formattedPhone }),
       });
 
-      const resData = await response.json();
+      let resData;
+      try {
+        resData = await response.json();
+      } catch (e) {
+        throw new Error("Server returned an invalid response. Please try again.");
+      }
       if (!response.ok) {
-        throw new Error(resData.error || 'Failed to send OTP');
+        throw new Error(resData?.error || 'Failed to send OTP');
       }
 
       setView("otp");
@@ -200,9 +210,14 @@ export function CheckoutAuthModal({ isOpen, onClose, onSuccess }: CheckoutAuthMo
         },
         body: JSON.stringify({ phone: formattedPhone }),
       });
-      const resData = await response.json();
+      let resData;
+      try {
+        resData = await response.json();
+      } catch (e) {
+        throw new Error("Server returned an invalid response. Please try again.");
+      }
       if (!response.ok) {
-        throw new Error(resData.error || 'Failed to resend OTP');
+        throw new Error(resData?.error || 'Failed to resend OTP');
       }
       setCountdown(30);
     } catch (err: any) {
@@ -240,10 +255,14 @@ export function CheckoutAuthModal({ isOpen, onClose, onSuccess }: CheckoutAuthMo
           }
         }),
       });
-      const resData = await response.json();
-      
+      let resData;
+      try {
+        resData = await response.json();
+      } catch (e) {
+        throw new Error("Server returned an invalid response. Please try again.");
+      }
       if (!response.ok) {
-        throw new Error(resData.error || 'Failed to verify OTP');
+        throw new Error(resData?.error || 'Failed to verify OTP');
       }
 
       if (resData.userId) {

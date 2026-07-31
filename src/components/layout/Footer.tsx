@@ -108,6 +108,7 @@ export function Footer() {
           &copy; {new Date().getFullYear()} ODA Market. All rights reserved.
         </p>
         <div className="flex items-center gap-4">
+          <Link to="/cookie-policy" className="text-[#FAF5EC]/60 hover:text-[#D9A62E] transition-colors text-sm">Cookie Policy</Link>
           <span className="text-[#FAF5EC]/60 text-sm">Supported Payment:</span>
           <div className="px-3 py-1 bg-white/10 rounded border border-white/20 font-bold text-[#FAF5EC] tracking-wide text-sm">
             M-PESA

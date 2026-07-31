@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+const fs = require('fs');
+
+const content = `import React, { useState } from 'react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -35,11 +37,11 @@ export default function SettingsPage() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap ${
+                  className={\`flex items-center gap-3 px-4 py-2.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap \${
                     activeTab === tab.id 
                       ? 'bg-primary text-white' 
                       : 'text-muted-foreground hover:bg-muted'
-                  }`}
+                  }\`}
                 >
                   <Icon className="w-4 h-4" />
                   {tab.label}
@@ -122,3 +124,5 @@ export default function SettingsPage() {
     </div>
   );
 }
+`;
+fs.writeFileSync('src/pages/dashboard/SettingsPage.tsx', content);

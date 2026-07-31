@@ -49,8 +49,8 @@ export default function AdminProductsPage() {
         supabase.from('products').select('id', { count: 'exact', head: true }).eq('status', 'active'),
         supabase.from('products').select('id', { count: 'exact', head: true }).eq('status', 'draft'),
         supabase.from('products').select('id', { count: 'exact', head: true }).eq('status', 'archived'),
-        supabase.from('products').select('id', { count: 'exact', head: true }).lte('stock_quantity', 0),
-        supabase.from('products').select('id', { count: 'exact', head: true }).lte('stock_quantity', 10).gt('stock_quantity', 0)
+        supabase.from('products').select('id', { count: 'exact', head: true }).lte('stock', 0),
+        supabase.from('products').select('id', { count: 'exact', head: true }).lte('stock', 10).gt('stock', 0)
       ]);
       setStats({
         total: totalReq.count || 0,
@@ -78,7 +78,7 @@ export default function AdminProductsPage() {
       }
 
       if (activeTab === 'out_of_stock') {
-        query = query.lte('stock_quantity', 0);
+        query = query.lte('stock', 0);
       } else if (activeTab !== 'all') {
         query = query.eq('status', activeTab);
       }
@@ -96,7 +96,7 @@ export default function AdminProductsPage() {
       setTotalCount(count || 0);
       
     } catch (error: any) {
-      console.error('Error fetching products:', error);
+      console.error('Error fetching products:', JSON.stringify(error));
       toast.error('Failed to load products');
     } finally {
       setLoading(false);
@@ -355,8 +355,8 @@ export default function AdminProductsPage() {
                     </td>
                     <td className="py-4 px-4">
                       <div className="flex flex-col">
-                        <span className={cn("text-sm font-semibold", product.stock_quantity > 10 ? "text-[#5F5A54]" : product.stock_quantity > 0 ? "text-[#D9A62E]" : "text-[#B94A48]")}>
-                          {product.stock_quantity} in stock
+                        <span className={cn("text-sm font-semibold", product.stock > 10 ? "text-[#5F5A54]" : product.stock > 0 ? "text-[#D9A62E]" : "text-[#B94A48]")}>
+                          {product.stock} in stock
                         </span>
                         <span className="text-xs text-[#5F5A54] mt-0.5">for {product.variants_count || 1} variant(s)</span>
                       </div>

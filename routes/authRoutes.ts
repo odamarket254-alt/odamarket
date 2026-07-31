@@ -47,7 +47,7 @@ function hashOtp(otp: string) {
 router.post('/register-step1', async (req, res) => {
   try {
     const { accountData } = req.body;
-    let formattedPhone = accountData.phone.trim().replace(/[\s\-()]/g, '');
+    let formattedPhone = accountData.phone ? accountData.phone.trim().replace(/[\s\-()]/g, '') : '';
     if (formattedPhone.startsWith('0')) {
       formattedPhone = '+254' + formattedPhone.substring(1);
     } else if (!formattedPhone.startsWith('+')) {
@@ -141,7 +141,7 @@ router.post('/register-step1', async (req, res) => {
 router.post('/check-user', async (req, res) => {
   try {
     const { email, phone } = req.body;
-    let formattedPhone = phone.trim().replace(/[\s\-()]/g, '');
+    let formattedPhone = phone ? phone.trim().replace(/[\s\-()]/g, '') : '';
     if (formattedPhone.startsWith('0')) {
       formattedPhone = '+254' + formattedPhone.substring(1);
     } else if (!formattedPhone.startsWith('+')) {
@@ -172,7 +172,7 @@ router.post('/send-otp', async (req, res) => {
       return res.status(400).json({ error: 'Phone number is required' });
     }
 
-    let formattedPhone = phone.trim().replace(/[\s\-()]/g, '');
+    let formattedPhone = phone ? phone.trim().replace(/[\s\-()]/g, '') : '';
     if (formattedPhone.startsWith('0')) {
       formattedPhone = '+254' + formattedPhone.substring(1);
     } else if (!formattedPhone.startsWith('+')) {
@@ -223,7 +223,7 @@ router.post('/verify-otp', async (req, res) => {
       return res.status(400).json({ error: 'Phone and OTP are required' });
     }
 
-    let formattedPhone = phone.trim().replace(/[\s\-()]/g, '');
+    let formattedPhone = phone ? phone.trim().replace(/[\s\-()]/g, '') : '';
     if (formattedPhone.startsWith('0')) {
       formattedPhone = '+254' + formattedPhone.substring(1);
     } else if (!formattedPhone.startsWith('+')) {

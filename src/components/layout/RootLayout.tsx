@@ -62,7 +62,7 @@ export default function RootLayout() {
       const { data, error } = await supabase
         .from("categories")
         .select('*').limit(100)
-        .eq("is_active", true)
+        .eq("status", "active")
         .order("sort_order", { ascending: true });
         
       if (data && data.length > 0) {

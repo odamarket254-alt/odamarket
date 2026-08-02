@@ -1,3 +1,4 @@
+import { HomepageBannersManager } from "../../components/admin/storefront/HomepageBannersManager";
 import { OptimizedImage } from "../../components/ui/OptimizedImage";
 import { useState, useEffect } from "react";
 import { Megaphone, LayoutTemplate, MessageSquare, Ticket, BellRing, ArrowLeft, Upload, Plus, Trash2 } from "lucide-react";
@@ -98,76 +99,13 @@ export default function AdminMarketingPage() {
           </Button>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <Ticket className="h-6 w-6 text-primary" />
-            Homepage Banners
+            Marketing Center
           </h1>
         </div>
-        
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-           <div className="lg:col-span-1 glass-card p-6 rounded-2xl border border-border/50 space-y-4">
-              <h3 className="font-bold text-lg">Add New Banner</h3>
-              <div className="space-y-2">
-                 <Label>Banner Title</Label>
-                 <Input value={newBanner.title} onChange={e => setNewBanner({...newBanner, title: e.target.value})} placeholder="e.g. Summer Sale 2026" />
-              </div>
-              <div className="space-y-2">
-                 <Label>Subtitle</Label>
-                 <Input value={newBanner.subtitle} onChange={e => setNewBanner({...newBanner, subtitle: e.target.value})} placeholder="Get up to 50% off" />
-              </div>
-              <div className="space-y-2">
-                 <Label>Call to Action Text</Label>
-                 <Input value={newBanner.cta_text} onChange={e => setNewBanner({...newBanner, cta_text: e.target.value})} placeholder="Shop Now" />
-              </div>
-              <div className="space-y-2">
-                 <Label>Call to Action Link</Label>
-                 <Input value={newBanner.cta_link} onChange={e => setNewBanner({...newBanner, cta_link: e.target.value})} placeholder="/products?category=summer" />
-              </div>
-              <div className="space-y-2">
-                 <Label>Desktop Image (1920x600)</Label>
-                 <div className="relative h-24 border-2 border-dashed border-border rounded-xl flex flex-col items-center justify-center hover:bg-muted/50 cursor-pointer transition-colors overflow-hidden">
-                    {newBanner.image_url ? (
-                      <OptimizedImage src={newBanner.image_url} alt="Preview" imgClassName="w-full h-full object-cover" className="w-full h-full flex items-center justify-center bg-transparent" />
-                    ) : (
-                      <>
-                        <Upload className="h-5 w-5 text-muted-foreground mb-1" />
-                        <span className="text-sm text-muted-foreground">{isUploading ? "Uploading..." : "Upload Image"}</span>
-                      </>
-                    )}
-                    <input type="file" className="absolute inset-0 opacity-0 cursor-pointer text-[#3A2418] dark:text-[#3A2418] placeholder:text-[#8B857D] caret-slate-900" onChange={handleImageUpload} accept="image/*" />
-                 </div>
-              </div>
-              <Button className="w-full mt-2" onClick={createBanner}>Create Banner</Button>
-           </div>
-           
-           <div className="lg:col-span-2 space-y-4">
-             <h3 className="font-bold text-lg">Active Banners</h3>
-             {banners.length === 0 ? (
-                <div className="glass-card p-8 rounded-xl border border-border/50 text-center text-muted-foreground">
-                  No banners found. Create one to display on the homepage.
-                </div>
-             ) : (
-               banners.map(banner => (
-                 <div key={banner.id} className="glass-card p-4 rounded-xl border border-border/50 flex flex-col sm:flex-row gap-4 items-center">
-                    <div 
-                      className="h-24 w-full sm:w-48 bg-muted rounded-lg bg-cover bg-center" 
-                      style={{ backgroundImage: `url(${banner.image_url})`}} 
-                    />
-                    <div className="flex-1 w-full text-center sm:text-left">
-                       <h4 className="font-bold">{banner.title}</h4>
-                       <p className="text-sm text-muted-foreground">{banner.subtitle}</p>
-                       {banner.cta_link && <p className="text-xs text-muted-foreground mt-1">Target: {banner.cta_link}</p>}
-                    </div>
-                    <Button variant="outline" size="icon" className="text-[#B94A48] shrink-0" onClick={() => deleteBanner(banner.id)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                 </div>
-               ))
-             )}
-           </div>
-        </div>
+        <HomepageBannersManager />
       </div>
     );
   }
-
   // Simplified view for other tabs...
   return (
     <div className="space-y-6">

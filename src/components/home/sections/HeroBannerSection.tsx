@@ -41,20 +41,28 @@ export const HeroBannerSection = ({ section }: HeroBannerSectionProps) => {
 
   useEffect(() => {
     const fetchBanners = async () => {
+      try {
       const { data, error } = await supabase
-        .from('banners')
+        .from('homepage_banners')
         .select('*').limit(100)
         .eq('is_active', true)
-        .order('sort_order', { ascending: true });
+        .order('position', { ascending: true });
       if (!error && data) {
         setBanners(data);
       }
+      } catch (err) { console.error("hero fetch error"); }
     };
     fetchBanners();
 
-    
-
-    
+    const channel = supabase.channel('public:homepage_banners')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'homepage_banners' }, () => {
+        fetchBanners();
+      })
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   const hasBanners = banners.length > 0;
@@ -120,7 +128,12 @@ export const HeroBannerSection = ({ section }: HeroBannerSectionProps) => {
           banners.map((banner, index) => (
             <div key={banner.id} className="min-w-full h-full relative flex-shrink-0 flex items-center">
               <div className="absolute inset-0 bg-gradient-to-r from-[#FAF5EC] via-[#FAF5EC]/90 to-transparent z-10 pointer-events-none" />
-              <OptimizedImage src={banner.image_url} alt={banner.title} imgClassName="absolute right-0 top-0 w-[65%] sm:w-2/3 h-full object-cover rounded-none md:rounded-bl-[100px] opacity-90" className="absolute right-0 top-0 w-[65%] sm:w-2/3 h-full rounded-none md:rounded-bl-[100px] overflow-hidden" />
+              <>
+                <OptimizedImage src={banner.desktop_image_url} alt={banner.title} imgClassName="absolute right-0 top-0 w-full md:w-[65%] lg:w-2/3 h-full object-cover rounded-none md:rounded-bl-[100px] opacity-90" className={`absolute right-0 top-0 w-[65%] sm:w-2/3 h-full rounded-none md:rounded-bl-[100px] overflow-hidden ${banner.mobile_image_url ? 'hidden md:block' : ''}`} />
+                {banner.mobile_image_url && (
+                  <OptimizedImage src={banner.mobile_image_url} alt={banner.title} imgClassName="absolute right-0 top-0 w-[65%] sm:w-2/3 h-full object-cover rounded-none opacity-90" className="absolute right-0 top-0 w-[65%] sm:w-2/3 h-full rounded-none overflow-hidden block md:hidden" />
+                )}
+              </>
               <div className="w-full px-4 sm:px-8 lg:px-16 z-20 relative">
                 <motion.div 
                     initial={{ opacity: 0, y: 30 }}
@@ -142,12 +155,12 @@ export const HeroBannerSection = ({ section }: HeroBannerSectionProps) => {
                       Experience the finest selection of products with ODA Market's premium delivery service.
                     </p>
                     <div className="flex flex-row flex-wrap items-center gap-1.5 sm:gap-2 md:gap-4 w-full">
-                      {banner.link_url && (
+                      {banner.button_link && (
                         <Link 
-                          to={banner.link_url}
+                          to={banner.button_link}
                           className="inline-flex items-center justify-center gap-1 md:gap-2 bg-[#C65A28] text-white px-3 py-1.5 sm:px-4 sm:py-2 md:px-8 md:py-4 rounded-full font-semibold hover:bg-[#A84A1E] hover:scale-105 transition-all shadow-[0_8px_20px_rgba(198,90,40,0.3)] text-[10px] min-[375px]:text-[12px] sm:text-xs md:text-base"
                         >
-                          Shop Collection <ArrowRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 md:w-5 md:h-5" />
+                          {banner.button_text || 'Shop Now'} <ArrowRight className="w-2.5 h-2.5 sm:w-3 sm:h-3 md:w-5 md:h-5" />
                         </Link>
                       )}
                       <Link 

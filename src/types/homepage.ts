@@ -61,3 +61,20 @@ export interface SectionProduct {
   sort_order: number;
   created_at: string;
 }
+
+export interface HomepageBanner {
+  id: string;
+  title: string;
+  subtitle: string | null;
+  button_text: string | null;
+  button_link: string | null;
+  bg_color: string | null;
+  position: number;
+  start_date: string | null;
+  end_date: string | null;
+  is_active: boolean;
+  desktop_image_url: string;
+  mobile_image_url: string | null;
+  created_at: string;
+  updated_at: string;
+}

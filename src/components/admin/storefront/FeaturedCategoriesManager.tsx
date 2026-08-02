@@ -156,7 +156,7 @@ export function FeaturedCategoriesManager() {
                 )}
               </div>
               <h4 className="text-sm font-medium text-[#3A2418] line-clamp-1">{category.name}</h4>
-              <p className="text-xs text-[#8B857D] mt-1">{category.is_active ? 'Active' : 'Hidden'}</p>
+              <p className="text-xs text-[#8B857D] mt-1">{category.status === 'active' ? 'Active' : 'Hidden'}</p>
             </div>
           );
         })}

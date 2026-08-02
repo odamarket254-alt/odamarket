@@ -87,10 +87,10 @@ export default function App() {
   useEffect(() => {
     try {
       setTimeout(() => {
-        OneSignal.init({ appId: "39cacdbe-4c1c-40fe-b763-4462f792edae" }).catch(e => console.warn("OneSignal failed to initialize", e));
+        // OneSignal.init({ appId: "39cacdbe-4c1c-40fe-b763-4462f792edae" }).catch(e => console.warn("OneSignal failed to initialize", e));
       }, 2000);
     } catch (error) {
-      console.warn("OneSignal initialization error:", error);
+      console.warn("// OneSignal.initialization error:", error);
     }
   }, []);
 
@@ -174,7 +174,7 @@ export default function App() {
               <Route path="/reset-password" element={<ResetPasswordPage />} />
               <Route path="/products" element={<ProductsPage />} />
               <Route path="/products/:id" element={<ProductDetailsPage />} />
-              <Route path="/c/:categorySlug" element={<ProductsPage />} />
+              <Route path="/category/:categorySlug" element={<ProductsPage />} />
               <Route path="/categories" element={<CategoriesPage />} />
               <Route path="/cart" element={<CartPage />} />
               <Route path="/wishlist" element={<WishlistPage />} />

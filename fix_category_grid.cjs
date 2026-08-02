@@ -1,4 +1,7 @@
-import { useState, useEffect } from 'react';
+const fs = require('fs');
+const file = 'src/components/home/sections/CategoryGridSection.tsx';
+
+const newContent = `import { useState, useEffect } from 'react';
 import { supabase } from '../../../lib/supabase';
 import { HomepageSection } from '../../../types/homepage';
 import { Link } from "react-router-dom";
@@ -68,7 +71,7 @@ export const CategoryGridSection = ({ section }: { section: HomepageSection }) =
         {/* Unified Grid Skeleton */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6">
           {[...Array(8)].map((_, i) => (
-            <div key={i} className={`flex-col items-center p-4 md:p-6 bg-white md:bg-[#FFFDF8] rounded-[18px] md:rounded-[24px] border border-[#E8DCC9]/30 shadow-sm animate-pulse h-[160px] md:h-[180px] ${i >= 4 ? 'hidden md:flex' : 'flex'}`}>
+            <div key={i} className="flex flex-col items-center p-4 md:p-6 bg-white md:bg-[#FFFDF8] rounded-[18px] md:rounded-[24px] border border-[#E8DCC9]/30 shadow-sm animate-pulse h-[160px] md:h-[180px]">
               <div className="w-full h-[65%] md:h-[70%] mb-2 md:mb-4 rounded-xl md:rounded-2xl bg-[#E8DCC9]/50"></div>
               <div className="w-20 md:w-24 h-4 bg-[#E8DCC9]/50 rounded-full mt-auto"></div>
             </div>
@@ -100,11 +103,11 @@ export const CategoryGridSection = ({ section }: { section: HomepageSection }) =
       
       {/* Unified Grid View (Mobile: 2 cols, Tablet: 3 cols, Desktop: 4 cols) */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6">
-        {categories.map((category, index) => (
+        {categories.map((category) => (
           <Link
             key={category.id}
-            to={`/category/${category.slug || category.id}`}
-            className={`group flex-col items-center bg-white md:bg-[#FFFDF8] rounded-[18px] md:rounded-[24px] p-4 md:p-6 shadow-[0_2px_12px_rgba(45,45,45,0.03)] md:shadow-[0_8px_20px_rgba(45,45,45,0.04)] hover:shadow-[0_12px_30px_rgba(198,90,40,0.12)] border border-transparent md:border-[#E8DCC9]/50 active:scale-[0.97] hover:scale-100 md:hover:-translate-y-2 transition-all duration-300 h-[160px] md:h-auto ${index >= 4 ? 'hidden md:flex' : 'flex'}`}
+            to={\`/category/\${category.slug || category.id}\`}
+            className="group flex flex-col items-center bg-white md:bg-[#FFFDF8] rounded-[18px] md:rounded-[24px] p-4 md:p-6 shadow-[0_2px_12px_rgba(45,45,45,0.03)] md:shadow-[0_8px_20px_rgba(45,45,45,0.04)] hover:shadow-[0_12px_30px_rgba(198,90,40,0.12)] border border-transparent md:border-[#E8DCC9]/50 active:scale-[0.97] hover:scale-100 md:hover:-translate-y-2 transition-all duration-300 h-[160px] md:h-auto"
           >
             <div className="w-full flex-1 mb-2 md:mb-4 rounded-xl md:rounded-2xl bg-transparent md:bg-[#FAF5EC] md:bg-gradient-to-br md:from-[#FAF5EC] md:to-[#E8DCC9]/30 flex items-center justify-center overflow-hidden relative md:shadow-inner h-[65%] md:h-auto md:min-h-[100px]">
               {category.image_url ? (
@@ -137,3 +140,5 @@ export const CategoryGridSection = ({ section }: { section: HomepageSection }) =
     </section>
   );
 };
+`
+fs.writeFileSync(file, newContent);

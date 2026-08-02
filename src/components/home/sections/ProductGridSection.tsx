@@ -17,6 +17,7 @@ export const ProductGridSection = ({ section, sectionProducts }: ProductGridSect
 
   useEffect(() => {
     const fetchProducts = async () => {
+      try {
       setIsLoading(true);
       let query = supabase.from('products').select(`
         *,
@@ -85,6 +86,7 @@ export const ProductGridSection = ({ section, sectionProducts }: ProductGridSect
         }
       }
       setIsLoading(false);
+      } catch (err) { console.error("err", err); setIsLoading(false); }
     };
 
     fetchProducts();

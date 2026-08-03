@@ -2,6 +2,9 @@ import { OptimizedImage } from "../components/ui/OptimizedImage";
 import { toast } from "sonner";
 import { supabase } from "../lib/supabase";
 import { useState, useEffect } from "react";
+import { Input } from "../components/ui/Input";
+import { Label } from "../components/ui/Label";
+import { Button } from "../components/ui/Button";
 import { Link, useNavigate } from "react-router-dom";
 import { useCartStore } from "../store/useCartStore";
 import { useAuthStore } from "../store/useAuthStore";
@@ -34,6 +37,41 @@ export default function CheckoutPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [loadingText, setLoadingText] = useState("");
+  
+  const [shippingDetails, setShippingDetails] = useState({
+    recipientName: fullName,
+    recipientPhone: userPhone,
+    location: "Nairobi, Westlands",
+    fullAddress: "Spring Valley Estate, Peponi Road, Building A, Opposite Mall"
+  });
+  
+  const [contactDetails, setContactDetails] = useState({
+    fullName: fullName,
+    userPhone: userPhone,
+    userEmail: userEmail
+  });
+  
+  const [isEditingAddress, setIsEditingAddress] = useState(false);
+  const [editAddressData, setEditAddressData] = useState(shippingDetails);
+  
+  const [isEditingContact, setIsEditingContact] = useState(false);
+  const [editContactData, setEditContactData] = useState(contactDetails);
+
+  // Sync when user/profile loads
+  useEffect(() => {
+    setShippingDetails(prev => ({
+      ...prev,
+      recipientName: prev.recipientName === "Customer Name" ? (user?.user_metadata?.full_name || user?.user_metadata?.first_name || "Customer Name") : prev.recipientName,
+      recipientPhone: prev.recipientPhone === "+254 700 000000" ? (profile?.phone || user?.phone || user?.user_metadata?.phone || "+254 700 000000") : prev.recipientPhone
+    }));
+    
+    setContactDetails(prev => ({
+      ...prev,
+      fullName: prev.fullName === "Customer Name" ? (user?.user_metadata?.full_name || user?.user_metadata?.first_name || "Customer Name") : prev.fullName,
+      userPhone: prev.userPhone === "+254 700 000000" ? (profile?.phone || user?.phone || user?.user_metadata?.phone || "+254 700 000000") : prev.userPhone,
+      userEmail: prev.userEmail === "customer@example.com" ? (user?.email || "customer@example.com") : prev.userEmail
+    }));
+  }, [user, profile]);
 
   const cartTotal = getCartTotal();
 
@@ -70,10 +108,8 @@ export default function CheckoutPage() {
             product_id: item.id,
             quantity: item.quantity
           })),
-          shippingDetails: {
-            county: "Nairobi",
-            address: "Default Address"
-          },
+          shippingDetails: shippingDetails,
+          contactDetails: contactDetails,
           paymentMethod: 'M-Pesa'
         })
       });
@@ -81,7 +117,7 @@ export default function CheckoutPage() {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to place order');
+        throw new Error(data.error + (data.details ? " " + JSON.stringify(data.details) : ''));
       }
 
       setLoadingText("Finalizing order...");
@@ -207,47 +243,154 @@ export default function CheckoutPage() {
             <div className="bg-[#FFFDF8] rounded-[20px] shadow-sm border border-[#E5E7EB] p-6 md:p-8">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-[slate-900] font-bold text-[20px]">1. Contact Information</h2>
-                <button className="text-[slate-900] font-bold text-[14px] hover:underline">Edit</button>
+                {!isEditingContact && (
+                  <button 
+                    onClick={() => {
+                      setEditContactData(contactDetails);
+                      setIsEditingContact(true);
+                    }}
+                    className="text-[#C65A28] font-bold text-[14px] hover:underline"
+                  >
+                    Edit
+                  </button>
+                )}
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-[#6B7280] text-[13px] font-medium mb-1">Full Name</label>
-                  <div className="text-[slate-900] font-semibold text-[15px]">{fullName}</div>
+              
+              {isEditingContact ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="contactFullName">Full Name</Label>
+                      <Input 
+                        id="contactFullName" 
+                        value={editContactData.fullName} 
+                        onChange={(e) => setEditContactData({...editContactData, fullName: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="contactPhone">Phone Number</Label>
+                      <Input 
+                        id="contactPhone" 
+                        value={editContactData.userPhone} 
+                        onChange={(e) => setEditContactData({...editContactData, userPhone: e.target.value})}
+                      />
+                    </div>
+                    <div className="md:col-span-2">
+                      <Label htmlFor="contactEmail">Email (Optional)</Label>
+                      <Input 
+                        id="contactEmail" 
+                        type="email"
+                        value={editContactData.userEmail} 
+                        onChange={(e) => setEditContactData({...editContactData, userEmail: e.target.value})}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex justify-end gap-3 pt-2">
+                    <Button variant="outline" onClick={() => setIsEditingContact(false)}>Cancel</Button>
+                    <Button onClick={() => {
+                      setContactDetails(editContactData);
+                      setIsEditingContact(false);
+                    }} className="bg-[#C65A28] hover:bg-[#A0451C] text-white">Save Contact</Button>
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-[#6B7280] text-[13px] font-medium mb-1">Phone Number</label>
-                  <div className="text-[slate-900] font-semibold text-[15px]">{userPhone}</div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-[#6B7280] text-[13px] font-medium mb-1">Full Name</label>
+                    <div className="text-[slate-900] font-semibold text-[15px]">{contactDetails.fullName}</div>
+                  </div>
+                  <div>
+                    <label className="block text-[#6B7280] text-[13px] font-medium mb-1">Phone Number</label>
+                    <div className="text-[slate-900] font-semibold text-[15px]">{contactDetails.userPhone}</div>
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-[#6B7280] text-[13px] font-medium mb-1">Email (Optional)</label>
+                    <div className="text-[slate-900] font-semibold text-[15px]">{contactDetails.userEmail}</div>
+                  </div>
                 </div>
-                <div className="md:col-span-2">
-                  <label className="block text-[#6B7280] text-[13px] font-medium mb-1">Email (Optional)</label>
-                  <div className="text-[slate-900] font-semibold text-[15px]">{userEmail}</div>
-                </div>
-              </div>
+              )}
             </div>
 
             {/* Section 2: Delivery Address */}
             <div className="bg-[#FFFDF8] rounded-[20px] shadow-sm border border-[#E5E7EB] p-6 md:p-8">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-[slate-900] font-bold text-[20px]">2. Delivery Address</h2>
-                <button className="text-[slate-900] font-bold text-[14px] hover:underline">Change Address</button>
+                {!isEditingAddress && (
+                  <button 
+                    onClick={() => {
+                      setEditAddressData(shippingDetails);
+                      setIsEditingAddress(true);
+                    }}
+                    className="text-[#C65A28] font-bold text-[14px] hover:underline"
+                  >
+                    Change Address
+                  </button>
+                )}
               </div>
-              <div className="bg-[#F8FAFC] rounded-[16px] p-5 border border-[#E5E7EB] flex items-start gap-4">
-                <MapPin className="w-6 h-6 text-[#C65A28] shrink-0 mt-1" />
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3 w-full">
-                  <div>
-                    <span className="text-[#6B7280] text-[13px] block">Recipient</span>
-                    <span className="text-[slate-900] font-semibold text-[15px]">{fullName} ({userPhone})</span>
+              
+              {isEditingAddress ? (
+                <div className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="recipientName">Recipient Name</Label>
+                      <Input 
+                        id="recipientName" 
+                        value={editAddressData.recipientName} 
+                        onChange={(e) => setEditAddressData({...editAddressData, recipientName: e.target.value})}
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="recipientPhone">Phone Number</Label>
+                      <Input 
+                        id="recipientPhone" 
+                        value={editAddressData.recipientPhone} 
+                        onChange={(e) => setEditAddressData({...editAddressData, recipientPhone: e.target.value})}
+                      />
+                    </div>
                   </div>
                   <div>
-                    <span className="text-[#6B7280] text-[13px] block">Location</span>
-                    <span className="text-[slate-900] font-semibold text-[15px]">Nairobi, Westlands</span>
+                    <Label htmlFor="location">Location (City, Area)</Label>
+                    <Input 
+                      id="location" 
+                      value={editAddressData.location} 
+                      onChange={(e) => setEditAddressData({...editAddressData, location: e.target.value})}
+                    />
                   </div>
-                  <div className="md:col-span-2">
-                    <span className="text-[#6B7280] text-[13px] block">Full Address</span>
-                    <span className="text-[slate-900] font-semibold text-[15px]">Spring Valley Estate, Peponi Road, Building A, Opposite Mall</span>
+                  <div>
+                    <Label htmlFor="fullAddress">Full Address (Building, Street)</Label>
+                    <Input 
+                      id="fullAddress" 
+                      value={editAddressData.fullAddress} 
+                      onChange={(e) => setEditAddressData({...editAddressData, fullAddress: e.target.value})}
+                    />
+                  </div>
+                  <div className="flex justify-end gap-3 pt-2">
+                    <Button variant="outline" onClick={() => setIsEditingAddress(false)}>Cancel</Button>
+                    <Button onClick={() => {
+                      setShippingDetails(editAddressData);
+                      setIsEditingAddress(false);
+                    }} className="bg-[#C65A28] hover:bg-[#A0451C] text-white">Save Address</Button>
                   </div>
                 </div>
-              </div>
+              ) : (
+                <div className="bg-[#F8FAFC] rounded-[16px] p-5 border border-[#E5E7EB] flex items-start gap-4">
+                  <MapPin className="w-6 h-6 text-[#C65A28] shrink-0 mt-1" />
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3 w-full">
+                    <div>
+                      <span className="text-[#6B7280] text-[13px] block">Recipient</span>
+                      <span className="text-[slate-900] font-semibold text-[15px]">{shippingDetails.recipientName} ({shippingDetails.recipientPhone})</span>
+                    </div>
+                    <div>
+                      <span className="text-[#6B7280] text-[13px] block">Location</span>
+                      <span className="text-[slate-900] font-semibold text-[15px]">{shippingDetails.location}</span>
+                    </div>
+                    <div className="md:col-span-2">
+                      <span className="text-[#6B7280] text-[13px] block">Full Address</span>
+                      <span className="text-[slate-900] font-semibold text-[15px]">{shippingDetails.fullAddress}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Section 3: Delivery Details */}

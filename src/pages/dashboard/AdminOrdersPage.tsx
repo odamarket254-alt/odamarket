@@ -177,7 +177,7 @@ export default function AdminOrdersPage() {
                       </td>
                       <td className="px-6 py-4">
                         <span className="text-sm font-bold text-[#3A2418] dark:text-white">
-                          KSh {Number(order.total_amount || 0).toFixed(2)}
+                          KSh {Number(order.grand_total || 0).toFixed(2)}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right">

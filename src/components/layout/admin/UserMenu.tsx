@@ -15,7 +15,7 @@ export default function UserMenu({ user }: UserMenuProps) {
   const navigate = useNavigate();
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    await supabase.auth.signOut().catch(console.error);
     navigate('/login');
   };
 

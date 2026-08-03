@@ -112,7 +112,7 @@ export default function RootLayout() {
   };
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    await supabase.auth.signOut().catch(console.error);
   };
 
   return (

@@ -18,7 +18,7 @@ export default function SalesAnalytics() {
       
       const { data: orders, error } = await supabase
         .from('orders')
-        .select('created_at, total_amount').limit(100)
+        .select('created_at, grand_total').limit(100)
         .gte('created_at', startOfDay(startDate).toISOString())
         .lte('created_at', endOfDay(new Date()).toISOString());
         
@@ -39,7 +39,7 @@ export default function SalesAnalytics() {
         const dateStr = format(new Date(order.created_at), 'yyyy-MM-dd');
         const day = grouped.find(d => d.date === dateStr);
         if (day) {
-          day.revenue += Number(order.total_amount || 0);
+          day.revenue += Number(order.grand_total || 0);
           day.orders += 1;
         }
       });

@@ -80,7 +80,7 @@ export default function DashboardLayout() {
   }
 
   const handleSignOut = async () => {
-    await supabase.auth.signOut();
+    await supabase.auth.signOut().catch(console.error);
   };
 
   const getNavItems = () => {

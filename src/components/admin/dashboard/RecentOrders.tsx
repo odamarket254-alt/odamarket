@@ -80,7 +80,7 @@ export default function RecentOrders() {
                     <p className="text-xs text-[#5F5A54]">{(order.profiles as any)?.email}</p>
                   </td>
                   <td className="py-3 px-6 text-right">
-                    <p className="text-sm font-bold text-[#3A2418]">KSh {Number(order.total_amount).toLocaleString()}</p>
+                    <p className="text-sm font-bold text-[#3A2418]">KSh {Number(order.grand_total).toLocaleString()}</p>
                   </td>
                   <td className="py-3 px-6 text-center">
                     <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider", getStatusColor(order.status))}>

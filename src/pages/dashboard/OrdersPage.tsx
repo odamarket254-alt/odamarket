@@ -24,7 +24,7 @@ export default function OrdersPage() {
       const { data, error } = await supabase
         .from("orders")
         .select("*")
-        .eq("user_id", user.id)
+        .eq("buyer_id", user.id)
         .order("created_at", { ascending: false });
         
       if (data) {
@@ -32,8 +32,8 @@ export default function OrdersPage() {
       } else {
         // Mock data if table doesn't exist
         setOrders([
-          { id: 'ORD-2023-1045', status: 'shipped', total_amount: 4500, created_at: new Date().toISOString(), items_count: 5 },
-          { id: 'ORD-2023-1044', status: 'delivered', total_amount: 1250, created_at: new Date(Date.now() - 86400000).toISOString(), items_count: 2 },
+          { id: 'ORD-2023-1045', status: 'shipped', grand_total: 4500, created_at: new Date().toISOString(), items_count: 5 },
+          { id: 'ORD-2023-1044', status: 'delivered', grand_total: 1250, created_at: new Date(Date.now() - 86400000).toISOString(), items_count: 2 },
         ]);
       }
     } catch (err) {
@@ -90,7 +90,7 @@ export default function OrdersPage() {
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Total Amount</p>
-                  <p className="font-medium text-sm">Ksh {order.total_amount?.toLocaleString()}</p>
+                  <p className="font-medium text-sm">Ksh {order.grand_total?.toLocaleString()}</p>
                 </div>
               </div>
               <div className="flex items-center gap-2">

@@ -46,7 +46,7 @@ export function BuyerDashboardHome() {
       const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('buyer_id', user.id)
         .order('created_at', { ascending: false })
         .limit(5);
 
@@ -57,15 +57,15 @@ export function BuyerDashboardHome() {
       } else {
         // Fallback for demo
         const demoOrders = [
-          { id: 'ORD-123', status: 'shipped', total_amount: 4500, created_at: new Date().toISOString() },
-          { id: 'ORD-124', status: 'processing', total_amount: 1200, created_at: new Date().toISOString() }
+          { id: 'ORD-123', status: 'shipped', grand_total: 4500, created_at: new Date().toISOString() },
+          { id: 'ORD-124', status: 'processing', grand_total: 1200, created_at: new Date().toISOString() }
         ];
         setActiveOrders(demoOrders);
         setStats(s => ({ ...s, activeOrders: 2, pendingDeliveries: 1 }));
       }
 
       // 2. Fetch Wishlist Items
-      const { data: wlData } = await supabase.from('wishlists').select('product_id').eq('user_id', user.id);
+      const { data: wlData } = await supabase.from('wishlists').select('product_id').eq('buyer_id', user.id);
       
       let wlProducts: any[] = [];
       if (wlData && wlData.length > 0) {
@@ -77,7 +77,7 @@ export function BuyerDashboardHome() {
       setStats(s => ({ ...s, wishlistItems: wlData?.length || 0 }));
 
       // 3. Fetch Cart Items
-      const { data: cartData } = await supabase.from('cart_items').select('*').eq('user_id', user.id);
+      const { data: cartData } = await supabase.from('cart_items').select('*').eq('buyer_id', user.id);
       setStats(s => ({ ...s, cartItems: cartData?.length || 0 }));
 
       // 4. Fetch Recommended Products (just random popular products for now)

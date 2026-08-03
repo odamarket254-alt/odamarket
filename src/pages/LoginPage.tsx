@@ -95,7 +95,6 @@ export default function LoginPage() {
         navigate(from, { replace: true });
       }
     } catch (error: any) {
-      console.error(error);
       toast.error(error.message || "Failed to sign in. Please check your credentials.");
     } finally {
       setIsLoading(false);

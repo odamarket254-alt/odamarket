@@ -254,7 +254,7 @@ export default function AdminOrdersPage() {
                       </span>
                     </td>
                     <td className="py-3 px-4 text-sm font-bold text-[#3A2418] text-right">
-                      KSh {Number(order.total_amount).toLocaleString()}
+                      KSh {Number(order.grand_total).toLocaleString()}
                     </td>
                     <td className="py-3 px-4 text-right">
                       <div className="flex items-center justify-end opacity-0 group-hover:opacity-100 transition-opacity">

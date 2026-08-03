@@ -60,20 +60,21 @@ export function NotificationBell() {
 
   const markAllAsRead = async () => {
     if (unreadCount === 0) return;
-
     const unreadIds = notifications.filter(n => !n.read).map(n => n.id);
     
     if (unreadIds.length === 0) return;
-
-    const { error } = await supabase
-      .from("notifications")
-      .update({ read: true })
-      .in("id", unreadIds)
-      .eq("user_id", user!.id);
-
-    if (!error) {
+    try {
+      const { error } = await supabase
+        .from("notifications")
+        .update({ read: true })
+        .in("id", unreadIds)
+        .eq("user_id", user!.id);
+      if (!error) {
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
       setUnreadCount(0);
+      }
+    } catch(err) {
+      console.error(err);
     }
   };
 

@@ -1,4 +1,6 @@
-import { useState, useEffect, useRef, UIEvent } from "react";
+const fs = require('fs');
+
+const content = `import { useState, useEffect, useRef, UIEvent } from "react";
 import { Link } from "react-router-dom";
 import { Breadcrumbs } from "../components/ui/Breadcrumbs";
 import { cn } from "../lib/utils";
@@ -82,7 +84,7 @@ const CategorySection = ({ parent, children }: { parent: any, children: any[] })
 
   // Show only up to 3 subcategories as requested, though we can show more if they have them.
   // Wait, let's show all of them but limit in the parent fetch if needed. We'll show what is passed.
-  const displayChildren = children;
+  const displayChildren = children.slice(0, 3);
 
   if (displayChildren.length === 0) return null;
 
@@ -91,7 +93,7 @@ const CategorySection = ({ parent, children }: { parent: any, children: any[] })
       <div className="flex items-center justify-between mb-4 px-4 sm:px-6 lg:px-8">
         <h2 className="text-xl md:text-2xl font-bold text-[#3A2418]">{parent.name}</h2>
         <Link 
-          to={`/category/${parent.slug || parent.id}`}
+          to={\`/category/\${parent.slug || parent.id}\`}
           className="flex items-center text-sm md:text-base font-semibold text-[#E26A2C] hover:text-[#C65A28] transition-colors"
         >
           View All <ChevronRight className="w-4 h-4 ml-1" />
@@ -117,7 +119,7 @@ const CategorySection = ({ parent, children }: { parent: any, children: any[] })
           {displayChildren.map((child) => (
             <Link
               key={child.id}
-              to={`/category/${child.slug || child.id}`}
+              to={\`/category/\${child.slug || child.id}\`}
               className="snap-start flex-none flex flex-col bg-white rounded-[18px] p-3 shadow-sm hover:shadow-md border border-transparent hover:border-[#E8DCC9]/50 transition-all duration-250 hover:-translate-y-1"
               style={{ width: '105px', height: '130px' }}
             >
@@ -163,7 +165,7 @@ const CategorySection = ({ parent, children }: { parent: any, children: any[] })
         <div className="max-w-[100px] mx-auto mt-4 h-1 bg-[#E8DCC9] rounded-full overflow-hidden relative lg:hidden">
           <motion.div 
             className="absolute top-0 bottom-0 bg-[#E26A2C] rounded-full"
-            style={{ width: '30%', left: `${scrollProgress * 0.7}%` }}
+            style={{ width: '30%', left: \`\${scrollProgress * 0.7}%\` }}
             transition={{ type: 'tween', ease: 'easeOut', duration: 0.15 }}
           />
         </div>
@@ -190,16 +192,13 @@ export default function CategoriesPage() {
         if (error) throw error;
         
         if (data) {
+          // Get product counts
           const categoryIds = data.map(c => c.id);
-          let productsData = null;
-          if (categoryIds.length > 0) {
-            const { data: pData } = await supabase
-              .from("products")
-              .select("category_id")
-              .eq("status", "active")
-              .in("category_id", categoryIds);
-            productsData = pData;
-          }
+          const { data: productsData } = await supabase
+            .from("products")
+            .select("category_id")
+            .eq("status", "active")
+            .in("category_id", categoryIds);
             
           const productCounts: Record<string, number> = {};
           if (productsData) {
@@ -304,3 +303,6 @@ export default function CategoriesPage() {
     </div>
   );
 }
+`
+
+fs.writeFileSync('src/pages/CategoriesPage.tsx', content);

@@ -4,7 +4,6 @@ import { HomepageSection } from '../../../types/homepage';
 import { Link } from "react-router-dom";
 import { OptimizedImage } from "../../ui/OptimizedImage";
 import { Layers, ArrowRight } from 'lucide-react';
-import { motion } from 'framer-motion';
 
 export const CategoryGridSection = ({ section }: { section: HomepageSection }) => {
   const [categories, setCategories] = useState<any[]>([]);
@@ -14,14 +13,14 @@ export const CategoryGridSection = ({ section }: { section: HomepageSection }) =
     const fetchCategories = async () => {
       try {
         setIsLoading(true);
-        // Fetch up to 15 featured categories
+        // Fetch up to 18 featured categories
         const { data, error } = await supabase
           .from('categories')
           .select('id, name, slug, image_url, icon, sort_order')
           .is('parent_id', null)
           .eq('status', 'active')
           .order('sort_order', { ascending: true })
-          .limit(15);
+          .limit(18);
 
         if (!error && data) {
           const catIds = data.map(c => c.id);
@@ -60,17 +59,17 @@ export const CategoryGridSection = ({ section }: { section: HomepageSection }) =
 
   if (isLoading) {
     return (
-      <section className="max-w-[1400px] mx-auto w-full px-4 lg:px-8 py-6 md:py-8 bg-[#F8F6F2] md:bg-transparent">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-[#3A2418]">{section.title || "Shop by Category"}</h2>
+      <section className="max-w-[1400px] mx-auto w-full px-4 lg:px-8 py-8 md:py-12">
+        <div className="flex items-center justify-between mb-8">
+          <h2 className="text-[24px] md:text-[28px] font-bold text-gray-900 tracking-tight font-['Inter']">{section.title || "Top Categories"}</h2>
         </div>
         
         {/* Unified Grid Skeleton */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6">
-          {[...Array(8)].map((_, i) => (
-            <div key={i} className={`flex-col items-center p-4 md:p-6 bg-white md:bg-[#FFFDF8] rounded-[18px] md:rounded-[24px] border border-[#E8DCC9]/30 shadow-sm animate-pulse h-[160px] md:h-[180px] ${i >= 4 ? 'hidden md:flex' : 'flex'}`}>
-              <div className="w-full h-[65%] md:h-[70%] mb-2 md:mb-4 rounded-xl md:rounded-2xl bg-[#E8DCC9]/50"></div>
-              <div className="w-20 md:w-24 h-4 bg-[#E8DCC9]/50 rounded-full mt-auto"></div>
+        <div className="grid grid-cols-3 md:grid-cols-6 lg:grid-cols-9 gap-3 md:gap-4 lg:gap-5">
+          {[...Array(18)].map((_, i) => (
+            <div key={i} className={`flex flex-col items-center p-3 bg-white rounded-[18px] border border-gray-100 shadow-[0_2px_12px_rgba(0,0,0,0.03)] animate-pulse h-full ${i >= 6 ? 'hidden md:flex' : ''}`}>
+              <div className="w-full aspect-square rounded-[14px] bg-gradient-to-b from-white to-[#FAFAFA] mb-3"></div>
+              <div className="w-3/4 h-3 bg-gray-100 rounded-full mt-1"></div>
             </div>
           ))}
         </div>
@@ -83,53 +82,50 @@ export const CategoryGridSection = ({ section }: { section: HomepageSection }) =
   }
 
   return (
-    <section className="max-w-[1400px] mx-auto w-full px-4 lg:px-8 py-6 md:py-8 bg-[#F8F6F2] md:bg-transparent relative">
-      <div className="flex items-center justify-between mb-6">
+    <section className="max-w-[1400px] mx-auto w-full px-4 lg:px-8 py-8 md:py-12">
+      <div className="flex items-center justify-between mb-8">
         <div>
-          <h2 className="text-2xl md:text-3xl font-bold text-[#3A2418] tracking-tight">{section.title || "Shop by Category"}</h2>
-          {section.subtitle && <p className="text-[#5F5A54] mt-1 hidden md:block">{section.subtitle}</p>}
+          <h2 className="text-[24px] md:text-[28px] font-bold text-gray-900 tracking-tight font-['Inter']">
+            {section.title || "Top Categories"}
+          </h2>
+          {section.subtitle && <p className="text-gray-500 mt-1 hidden md:block text-[15px] font-['Inter']">{section.subtitle}</p>}
         </div>
         <Link 
           to="/categories" 
-          className="group flex items-center text-sm md:text-base font-bold md:font-semibold text-[#C65A28] hover:text-[#A0451C] transition-colors"
+          className="group flex items-center text-[15px] font-semibold text-gray-900 hover:text-[#C65A28] transition-colors font-['Inter']"
         >
           View All
-          <ArrowRight className="w-4 h-4 md:w-5 md:h-5 ml-1 group-hover:translate-x-1 transition-transform" />
+          <ArrowRight className="w-5 h-5 ml-1 group-hover:translate-x-1 transition-transform" />
         </Link>
       </div>
       
-      {/* Unified Grid View (Mobile: 2 cols, Tablet: 3 cols, Desktop: 4 cols) */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 lg:gap-6">
-        {categories.map((category, index) => (
+      <div className="grid grid-cols-3 md:grid-cols-6 lg:grid-cols-9 gap-3 md:gap-4 lg:gap-5">
+        {categories.map((category) => (
           <Link
             key={category.id}
             to={`/category/${category.slug || category.id}`}
-            className={`group flex-col items-center bg-white md:bg-[#FFFDF8] rounded-[18px] md:rounded-[24px] p-4 md:p-6 shadow-[0_2px_12px_rgba(45,45,45,0.03)] md:shadow-[0_8px_20px_rgba(45,45,45,0.04)] hover:shadow-[0_12px_30px_rgba(198,90,40,0.12)] border border-transparent md:border-[#E8DCC9]/50 active:scale-[0.97] hover:scale-100 md:hover:-translate-y-2 transition-all duration-300 h-[160px] md:h-auto ${index >= 4 ? 'hidden md:flex' : 'flex'}`}
+            className="group flex flex-col bg-white rounded-[18px] p-2 md:p-3 shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-gray-100 hover:shadow-[0_12px_24px_rgba(0,0,0,0.08)] hover:-translate-y-[6px] transition-all duration-300 ease-out cursor-pointer h-full"
           >
-            <div className="w-full flex-1 mb-2 md:mb-4 rounded-xl md:rounded-2xl bg-transparent md:bg-[#FAF5EC] md:bg-gradient-to-br md:from-[#FAF5EC] md:to-[#E8DCC9]/30 flex items-center justify-center overflow-hidden relative md:shadow-inner h-[65%] md:h-auto md:min-h-[100px]">
+            {/* Image Container (approx 70%) */}
+            <div className="w-full aspect-square bg-gradient-to-b from-white to-[#FAFAFA] rounded-[14px] flex items-center justify-center p-4 mb-3 overflow-hidden relative">
               {category.image_url ? (
                 <OptimizedImage 
                   src={category.image_url} 
                   alt={category.name} 
-                  className="w-full h-full"
-                  imgClassName="w-full h-full object-contain md:group-hover:scale-110 transition-transform duration-500 md:mix-blend-multiply" 
+                  className="w-full h-full flex items-center justify-center"
+                  imgClassName="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300 ease-out mix-blend-multiply" 
                   loading="lazy"
                 />
               ) : (
-                <Layers className="w-10 h-10 text-[#D9A62E] md:group-hover:scale-110 transition-transform duration-500" />
+                <Layers className="w-8 h-8 md:w-10 md:h-10 text-gray-300 group-hover:scale-105 transition-transform duration-300 ease-out" />
               )}
             </div>
             
-            <div className="flex-1 flex flex-col items-center justify-center w-full">
-              <span className="text-[14px] md:text-[15px] font-bold text-[#3A2418] text-center md:group-hover:text-[#C65A28] line-clamp-2 md:line-clamp-1 leading-[1.2] transition-colors">
+            {/* Text Container (approx 30%) */}
+            <div className="flex-1 flex flex-col justify-start items-center w-full px-1 pb-1">
+              <span className="text-[13px] md:text-[14px] font-semibold text-[#1F2937] text-center font-['Inter'] line-clamp-2 leading-snug">
                 {category.name}
               </span>
-              
-              {category.product_count > 0 && (
-                <span className="hidden md:block mt-1 text-[13px] font-medium text-[#8B857D] group-hover:text-[#C65A28]/80 transition-colors">
-                  {category.product_count} {category.product_count === 1 ? 'Item' : 'Items'}
-                </span>
-              )}
             </div>
           </Link>
         ))}

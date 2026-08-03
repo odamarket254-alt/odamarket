@@ -29,11 +29,11 @@ const fetchKPIData = async () => {
     supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', today.toISOString()),
     supabase.from('products').select('*', { count: 'exact', head: true }),
     supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'supplier'),
-    supabase.from('orders').select('total_amount').limit(100).gte('created_at', today.toISOString()),
+    supabase.from('orders').select('grand_total').limit(100).gte('created_at', today.toISOString()),
     supabase.from('products').select('stock, low_stock_threshold').limit(100)
   ]);
 
-  const todayRevenue = revenueData?.reduce((sum, order) => sum + Number(order.total_amount || 0), 0) || 0;
+  const todayRevenue = revenueData?.reduce((sum, order) => sum + Number(order.grand_total || 0), 0) || 0;
   
   let lowStockCount = 0;
   let outOfStockCount = 0;

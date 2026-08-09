@@ -80,7 +80,7 @@ export default function SearchModal() {
           supabase.from('products').select('id, name, slug').ilike('name', searchTerm).limit(5),
           supabase.from('categories').select('id, name, slug').ilike('name', searchTerm).limit(5),
           supabase.from('orders').select('id, order_number').limit(100).ilike('order_number', searchTerm).limit(5),
-          supabase.from('profiles').select('id, full_name, email').limit(100).ilike('full_name', searchTerm).limit(5),
+          supabase.from('profiles').select('id, first_name, last_name, email').limit(100).ilike('first_name', searchTerm).limit(5),
           supabase.from('suppliers').select('id, name').ilike('name', searchTerm).limit(5),
           supabase.from('brands').select('id, name').ilike('name', searchTerm).limit(5),
           supabase.from('coupons').select('id, code').ilike('code', searchTerm).limit(5)
@@ -253,7 +253,7 @@ export default function SearchModal() {
                               <h3 className="text-xs font-semibold text-[#5F5A54] uppercase tracking-wider mb-2 px-2 flex items-center gap-2"><Users className="w-3 h-3"/> Customers</h3>
                               {results.customers.map(c => (
                                 <button key={c.id} onClick={() => { setIsOpen(false); navigate(`/admin/dashboard/customers/${c.id}`); }} className="w-full flex items-center justify-between p-2 hover:bg-[#FAF5EC] rounded-lg transition-colors group">
-                                  <span className="text-sm font-medium text-[#5F5A54]">{c.full_name || c.email}</span>
+                                  <span className="text-sm font-medium text-[#5F5A54]">{c.first_name || c.email}</span>
                                   <ChevronRight className="w-4 h-4 text-[#8B857D] opacity-0 group-hover:opacity-100 transition-all" />
                                 </button>
                               ))}

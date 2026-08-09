@@ -163,7 +163,6 @@ export default function RegisterPage() {
 
       const { error } = await supabase.from("delivery_addresses").insert({
         user_id: createdUserId,
-        full_name: `${accountData.first_name} ${accountData.last_name}`,
         phone_number: accountData.phone,
         street_address: data.street || data.formatted_address || "",
         apartment_suite: data.apartment || data.house_number || "",

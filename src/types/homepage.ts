@@ -39,6 +39,7 @@ export interface HomepageSection {
     background_color?: string;
     icon?: string;
     show_view_all?: boolean;
+    banners?: HomepageBanner[];
     filters?: {
       category_id?: string;
       brand_id?: string;
@@ -66,8 +67,12 @@ export interface HomepageBanner {
   id: string;
   title: string;
   subtitle: string | null;
+  badge: string | null;
   button_text: string | null;
   button_link: string | null;
+  secondary_button_text: string | null;
+  secondary_button_link: string | null;
+  bg_overlay_opacity: number;
   bg_color: string | null;
   position: number;
   start_date: string | null;

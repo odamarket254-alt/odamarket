@@ -12,15 +12,15 @@ export default function RecentActivities() {
     queryKey: ['recent-activities'],
     queryFn: async () => {
       const [ordersRes, profilesRes] = await Promise.all([
-        supabase.from('orders').select('id, created_at, status, profiles:user_id(full_name)').order('created_at', { ascending: false }).limit(5),
-        supabase.from('profiles').select('id, created_at, full_name, role').order('created_at', { ascending: false }).limit(5)
+        supabase.from('orders').select('id, created_at, status, profiles:user_id(first_name, last_name)').order('created_at', { ascending: false }).limit(5),
+        supabase.from('profiles').select('id, created_at, first_name, last_name, role').order('created_at', { ascending: false }).limit(5)
       ]);
       
       const orders = (ordersRes.data || []).map(o => ({
         id: `order-${o.id}`,
         type: 'order',
         title: `New order placed`,
-        desc: `${(o.profiles as any)?.full_name || 'Guest'} placed order #${o.id.substring(0, 8).toUpperCase()}`,
+        desc: `${(o.profiles as any)?.first_name || 'Guest'} placed order #${o.id.substring(0, 8).toUpperCase()}`,
         date: new Date(o.created_at),
         icon: ShoppingBag,
         color: 'text-[#C65A28]',
@@ -31,7 +31,7 @@ export default function RecentActivities() {
         id: `profile-${p.id}`,
         type: 'user',
         title: `New ${p.role || 'user'} registered`,
-        desc: `${p.full_name || 'A user'} created an account`,
+        desc: `${p.first_name || 'A user'} created an account`,
         date: new Date(p.created_at),
         icon: User,
         color: 'text-[#C65A28]',

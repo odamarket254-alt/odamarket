@@ -46,9 +46,9 @@ export default function AdminProductsPage() {
       // Fetch counts for tabs
       const [totalReq, activeReq, draftReq, archReq, outReq, lowReq] = await Promise.all([
         supabase.from('products').select('id', { count: 'exact', head: true }),
-        supabase.from('products').select('id', { count: 'exact', head: true }).eq('status', 'active'),
-        supabase.from('products').select('id', { count: 'exact', head: true }).eq('status', 'draft'),
-        supabase.from('products').select('id', { count: 'exact', head: true }).eq('status', 'archived'),
+        supabase.from('products').select('id', { count: 'exact', head: true }).eq('is_active', true),
+        supabase.from('products').select('id', { count: 'exact', head: true }).eq('is_active', false).eq('is_public', true),
+        supabase.from('products').select('id', { count: 'exact', head: true }).eq('is_public', false),
         supabase.from('products').select('id', { count: 'exact', head: true }).lte('stock', 0),
         supabase.from('products').select('id', { count: 'exact', head: true }).lte('stock', 10).gt('stock', 0)
       ]);
@@ -71,7 +71,7 @@ export default function AdminProductsPage() {
       
       let query = supabase
         .from('products')
-        .select('*, product_type:product_types!left(name)', { count: 'exact' });
+        .select('*, category:categories!left(name), brand:brands!left(name)', { count: 'exact' });
 
       if (search) {
         query = query.or(`name.ilike.%${search}%,sku.ilike.%${search}%,barcode.ilike.%${search}%`);
@@ -79,8 +79,12 @@ export default function AdminProductsPage() {
 
       if (activeTab === 'out_of_stock') {
         query = query.lte('stock', 0);
-      } else if (activeTab !== 'all') {
-        query = query.eq('status', activeTab);
+      } else if (activeTab === 'active') {
+        query = query.eq('is_active', true);
+      } else if (activeTab === 'draft') {
+        query = query.eq('is_active', false).eq('is_public', true);
+      } else if (activeTab === 'archived') {
+        query = query.eq('is_public', false);
       }
 
       const from = (currentPage - 1) * itemsPerPage;
@@ -125,11 +129,11 @@ export default function AdminProductsPage() {
         if (error) throw error;
         toast.success(`Deleted ${selectedIds.length} products`);
       } else if (action === 'archive') {
-        const { error } = await supabase.from('products').update({ status: 'archived' }).in('id', selectedIds);
+        const { error } = await supabase.from('products').update({ is_public: false, is_active: false }).in('id', selectedIds);
         if (error) throw error;
         toast.success(`Archived ${selectedIds.length} products`);
       } else if (action === 'active') {
-        const { error } = await supabase.from('products').update({ status: 'active' }).in('id', selectedIds);
+        const { error } = await supabase.from('products').update({ is_public: true, is_active: true }).in('id', selectedIds);
         if (error) throw error;
         toast.success(`Activated ${selectedIds.length} products`);
       }
@@ -338,7 +342,6 @@ export default function AdminProductsPage() {
                             <span className="text-xs text-[#5F5A54] truncate font-mono bg-[#E8DCC9] px-1.5 py-0.5 rounded">
                               {product.sku || 'NO-SKU'}
                             </span>
-                            {product.is_featured && <span className="text-[10px] uppercase font-bold text-[#D9A62E] bg-[#D9A62E]/10 px-1.5 py-0.5 rounded border border-amber-200">Featured</span>}
                           </div>
                         </div>
                       </div>

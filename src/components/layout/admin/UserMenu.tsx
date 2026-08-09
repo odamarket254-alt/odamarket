@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useAuthStore } from '../../../store/useAuthStore';
 import { Link, useNavigate } from 'react-router-dom';
 import { supabase } from '../../../lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -11,6 +12,7 @@ interface UserMenuProps {
 }
 
 export default function UserMenu({ user }: UserMenuProps) {
+  const { profile } = useAuthStore();
   const [isOpen, setIsOpen] = useState(false);
   const navigate = useNavigate();
 
@@ -26,14 +28,14 @@ export default function UserMenu({ user }: UserMenuProps) {
         className="flex items-center gap-2 p-1 rounded-full hover:bg-[#E8DCC9] transition-colors focus:outline-none focus:ring-2 focus:ring-[#C65A28]/20"
       >
         <div className="w-9 h-9 rounded-full bg-[#C65A28] flex items-center justify-center text-white font-bold shrink-0">
-          {user?.user_metadata?.full_name?.charAt(0) || 'A'}
+          {profile?.first_name?.charAt(0) || user?.email?.charAt(0)?.toUpperCase() || 'A'}
         </div>
         <div className="hidden md:flex flex-col items-start mr-1">
           <span className="text-sm font-semibold text-[#3A2418] leading-none mb-1">
-            {user?.user_metadata?.full_name || 'Admin User'}
+            {profile?.first_name ? `${profile.first_name} ${profile.last_name || ''}` : 'Admin User'}
           </span>
           <span className="text-xs text-[#5F5A54] leading-none capitalize">
-            {user?.user_metadata?.role || 'Administrator'}
+            {profile?.role || 'Administrator'}
           </span>
         </div>
         <ChevronDown className="w-4 h-4 text-[#8B857D] hidden md:block" />
@@ -51,7 +53,7 @@ export default function UserMenu({ user }: UserMenuProps) {
               className="absolute right-0 top-full mt-2 w-56 bg-[#FFFDF8] rounded-xl shadow-lg border border-[#E8DCC9] py-2 z-50"
             >
               <div className="px-4 py-2 border-b border-[#E8DCC9] md:hidden">
-                <p className="text-sm font-semibold text-[#3A2418]">{user?.user_metadata?.full_name}</p>
+                <p className="text-sm font-semibold text-[#3A2418]">{profile?.first_name ? `${profile.first_name} ${profile.last_name || ''}` : user?.email}</p>
                 <p className="text-xs text-[#5F5A54]">{user?.email}</p>
               </div>
 

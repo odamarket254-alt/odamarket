@@ -17,5 +17,12 @@ export default function RoleRedirect() {
     return <Navigate to="/login" replace />;
   }
 
-  return <Navigate to={`/${profile.role}/dashboard`} replace />;
+  // Map roles to their respective dashboards
+  let dashboardPath = `/${profile.role}/dashboard`;
+  if (profile.role === 'customer') {
+    dashboardPath = '/buyer/dashboard';
+  }
+
+  return <Navigate to={dashboardPath} replace />;
+
 }

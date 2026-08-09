@@ -62,7 +62,7 @@ const STEPS = [
   { id: 'pricing', label: 'Pricing', icon: CreditCard, fields: ['regular_price', 'sale_price', 'cost_price', 'tax_class'] },
   { id: 'inventory', label: 'Inventory', icon: Package, fields: ['stock', 'min_stock', 'max_stock', 'warehouse_location', 'unit', 'weight'] },
   { id: 'seo', label: 'SEO', icon: Search, fields: ['seo_title', 'seo_description', 'seo_keywords', 'slug'] },
-  { id: 'status', label: 'Status', icon: Check, fields: ['status', 'is_featured'] }
+  { id: 'status', label: 'Status', icon: Check, fields: ['status'] }
 ];
 
 export default function AdminProductFormPage() {
@@ -101,9 +101,9 @@ export default function AdminProductFormPage() {
   const fetchTaxonomies = async () => {
     try {
       const [catRes, brandsRes, suppliersRes] = await Promise.all([
-        supabase.from('categories').select('*').limit(100).order('name').limit(100),
-        supabase.from('brands').select('*').limit(100).order('name').limit(100),
-        supabase.from('suppliers').select('*').limit(100).order('name').limit(100)
+        supabase.from('categories').select('*').order('name'),
+        supabase.from('brands').select('*').order('name'),
+        supabase.from('suppliers').select('*').order('name')
       ]);
 
       if (catRes.data) setCategories(catRes.data);
@@ -129,7 +129,7 @@ export default function AdminProductFormPage() {
         // Fetch images
         const { data: imgData } = await supabase.from('product_images').select('*').limit(100).eq('product_id', id).order('sort_order').limit(100);
         if (imgData) {
-          setImages(imgData.map(img => img.image_url));
+          setImages(imgData.map(img => img.url || img.image_url));
         }
       }
     } catch (error: any) {
@@ -160,7 +160,7 @@ export default function AdminProductFormPage() {
         .from('products')
         .getPublicUrl(filePath);
 
-      setImages([...images, publicUrl]);
+      setImages([publicUrl, ...images]);
       toast.success('Image uploaded');
     } catch (error: any) {
       toast.error(error.message || 'Failed to upload image');
@@ -177,8 +177,18 @@ export default function AdminProductFormPage() {
     try {
       let productId = id;
 
-      const productData = {
-        ...data,
+            const productData = {
+        name: data.name,
+        slug: data.slug || data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, ''),
+        description: data.description,
+        price: data.regular_price,
+        stock: data.stock,
+        category_id: data.category_id,
+        is_active: data.status === "active",
+        is_public: data.status !== "hidden" && data.status !== "archived",
+        sku: data.sku,
+        barcode: data.barcode,
+        image_url: images.length > 0 ? images[0] : null,
         updated_at: new Date().toISOString()
       };
 
@@ -203,17 +213,19 @@ export default function AdminProductFormPage() {
       // Handle images
       if (productId) {
         // Delete old images
-        await supabase.from('product_images').delete().eq('product_id', productId);
+        const { error: delError } = await supabase.from('product_images').delete().eq('product_id', productId);
+        if (delError) console.warn("Failed to delete old product images:", delError);
         
         // Insert new images
         if (images.length > 0) {
           const imageRecords = images.map((url, index) => ({
             product_id: productId,
-            image_url: url,
-            is_primary: index === 0,
+            url: url,
+            
             sort_order: index
           }));
-          await supabase.from('product_images').insert(imageRecords);
+          const { error: imgError } = await supabase.from('product_images').insert(imageRecords);
+          if (imgError) console.warn("Failed to save product images:", imgError);
         }
       }
 
@@ -221,7 +233,7 @@ export default function AdminProductFormPage() {
       navigate('/admin/products');
     } catch (error: any) {
       console.error('Save error:', error);
-      toast.error(error.message || 'Failed to save product');
+      toast.error(`Failed: ${error.message || JSON.stringify(error)}`);
     }
   };
 
@@ -597,27 +609,6 @@ export default function AdminProductFormPage() {
                   </div>
                 </div>
                 
-                <div className="border-t md:border-t-0 md:border-l border-[#E8DCC9] pt-5 md:pt-0 md:pl-6">
-                  <div className="flex items-start space-x-3 p-4 bg-[#FAF5EC]/80 rounded-xl border border-[#E8DCC9] hover:bg-[#FAF5EC] transition-colors">
-                    <Controller
-                      name="is_featured"
-                      control={control}
-                      render={({ field }) => (
-                        <input
-                          type="checkbox"
-                          id="is_featured"
-                          className="mt-1 h-4 w-4 rounded border-slate-300 text-[#C65A28] focus:ring-[#C65A28]"
-                          checked={field.value}
-                          onChange={(e) => field.onChange(e.target.checked)}
-                        />
-                      )}
-                    />
-                    <div className="flex-1">
-                      <Label htmlFor="is_featured" className="text-[#3A2418] font-bold cursor-pointer">Featured Product</Label>
-                      <p className="text-sm text-[#5F5A54] mt-1 leading-relaxed">Show this product in featured sections on the homepage and category pages to increase visibility.</p>
-                    </div>
-                  </div>
-                </div>
               </div>
             </div>
 

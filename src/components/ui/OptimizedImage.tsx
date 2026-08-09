@@ -49,6 +49,10 @@ export function OptimizedImage({
        return url; // local images
     }
     
+    if (url.includes('supabase.co')) {
+      return url; // Return exact uploaded image
+    }
+    
     return `/api/image?url=${encodeURIComponent(url)}&w=${width}&q=80`;
   };
 
@@ -56,7 +60,9 @@ export function OptimizedImage({
   const isFallback = error || !imgSrc;
   const currentSrc = isFallback ? fallback : imgSrc;
   
-  const srcSet = !isFallback ? `
+  const isSupabaseUrl = currentSrc?.includes('supabase.co') || currentSrc?.startsWith('data:') || currentSrc?.startsWith('blob:') || currentSrc?.startsWith('/');
+  
+  const srcSet = (!isFallback && !isSupabaseUrl) ? `
     ${getOptimizedUrl(currentSrc, 400)} 400w,
     ${getOptimizedUrl(currentSrc, 800)} 800w,
     ${getOptimizedUrl(currentSrc, 1200)} 1200w

@@ -14,7 +14,7 @@ export default function RecentOrders() {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('orders')
-        .select('*, profiles:user_id(full_name, email)')
+        .select('*, profiles:user_id(first_name, last_name, email)')
         .order('created_at', { ascending: false })
         .limit(6);
         
@@ -76,11 +76,11 @@ export default function RecentOrders() {
                     <div className="text-xs text-[#5F5A54]">{format(new Date(order.created_at), 'MMM d, h:mm a')}</div>
                   </td>
                   <td className="py-3 px-6">
-                    <p className="text-sm font-medium text-[#3A2418]">{(order.profiles as any)?.full_name || 'Guest'}</p>
+                    <p className="text-sm font-medium text-[#3A2418]">{(order.profiles as any)?.first_name || 'Guest'}</p>
                     <p className="text-xs text-[#5F5A54]">{(order.profiles as any)?.email}</p>
                   </td>
                   <td className="py-3 px-6 text-right">
-                    <p className="text-sm font-bold text-[#3A2418]">KSh {Number(order.grand_total).toLocaleString()}</p>
+                    <p className="text-sm font-bold text-[#3A2418]">KSh {Number(order.total).toLocaleString()}</p>
                   </td>
                   <td className="py-3 px-6 text-center">
                     <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider", getStatusColor(order.status))}>

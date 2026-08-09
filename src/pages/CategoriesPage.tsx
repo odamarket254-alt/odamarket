@@ -118,10 +118,10 @@ const CategorySection = ({ parent, children }: { parent: any, children: any[] })
             <Link
               key={child.id}
               to={`/category/${child.slug || child.id}`}
-              className="snap-start flex-none flex flex-col bg-white rounded-[18px] p-3 shadow-sm hover:shadow-md border border-transparent hover:border-[#E8DCC9]/50 transition-all duration-250 hover:-translate-y-1"
+              className="snap-start flex-none flex flex-col bg-white rounded-[18px] shadow-sm hover:shadow-md border border-transparent hover:border-[#E8DCC9]/50 transition-all duration-250 hover:-translate-y-1 overflow-hidden"
               style={{ width: '105px', height: '130px' }}
             >
-              <div className="w-full h-[70%] rounded-xl bg-[#FAF5EC] flex items-center justify-center overflow-hidden mb-2 relative">
+              <div className="w-full h-[70%] bg-[#FAF5EC] flex items-center justify-center overflow-hidden relative border-b border-[#E8DCC9]/30">
                 {child.image_url ? (
                   <OptimizedImage 
                     src={child.image_url} 
@@ -134,7 +134,7 @@ const CategorySection = ({ parent, children }: { parent: any, children: any[] })
                   <Package className="w-6 h-6 text-[#D9A62E]" />
                 )}
               </div>
-              <div className="flex flex-col items-center justify-center flex-1">
+              <div className="flex flex-col items-center justify-center flex-1 p-2">
                 <span className="text-[12px] font-bold text-[#3A2418] text-center line-clamp-1 leading-tight">
                   {child.name}
                 </span>
@@ -184,7 +184,7 @@ export default function CategoriesPage() {
         const { data, error } = await supabase
           .from("categories")
           .select('*')
-          .eq('status', 'active')
+          .eq('is_active', true)
           .order('name', { ascending: true });
           
         if (error) throw error;
@@ -196,7 +196,7 @@ export default function CategoriesPage() {
             const { data: pData } = await supabase
               .from("products")
               .select("category_id")
-              .eq("status", "active")
+              .eq("is_active", true)
               .in("category_id", categoryIds);
             productsData = pData;
           }

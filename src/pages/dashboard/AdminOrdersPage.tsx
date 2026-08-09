@@ -28,7 +28,7 @@ export default function AdminOrdersPage() {
         .from('orders')
         .select(`
           *,
-          customer:profiles!user_id(id, full_name, email, phone)
+          customer:profiles!user_id(id, first_name, last_name, email, phone)
         `)
         .order('created_at', { ascending: false });
 
@@ -53,7 +53,7 @@ export default function AdminOrdersPage() {
 
   const filteredOrders = orders.filter(o => {
     const matchesSearch = o.id?.toLowerCase().includes(search.toLowerCase()) || 
-                          o.customer?.full_name?.toLowerCase().includes(search.toLowerCase());
+                          o.customer?.first_name?.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === 'all' || o.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
@@ -160,7 +160,7 @@ export default function AdminOrdersPage() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-col">
-                          <span className="text-sm font-semibold text-[#3A2418] dark:text-white">{order.customer?.full_name || 'Guest User'}</span>
+                          <span className="text-sm font-semibold text-[#3A2418] dark:text-white">{order.customer?.first_name || 'Guest User'}</span>
                           <span className="text-xs text-[#5F5A54]">{order.customer?.email || 'N/A'}</span>
                         </div>
                       </td>
@@ -177,7 +177,7 @@ export default function AdminOrdersPage() {
                       </td>
                       <td className="px-6 py-4">
                         <span className="text-sm font-bold text-[#3A2418] dark:text-white">
-                          KSh {Number(order.grand_total || 0).toFixed(2)}
+                          KSh {Number(order.total || 0).toFixed(2)}
                         </span>
                       </td>
                       <td className="px-6 py-4 text-right">

@@ -287,7 +287,7 @@ export default function DashboardLayout() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-foreground truncate flex items-center gap-1.5">
-                {profile?.full_name || profile?.email || "Customer"}
+                {profile?.first_name || profile?.email || "Customer"}
                 {profile?.role === "seller" && profile?.verified && (
                   <ShieldCheck className="h-4 w-4 text-[#D9A62E] dark:text-[#D9A62E] shrink-0" />
                 )}
@@ -413,7 +413,7 @@ export default function DashboardLayout() {
                 >
                   <div className="flex flex-col">
                     <span className="text-sm font-medium text-foreground truncate flex items-center gap-1.5">
-                      {profile?.full_name || profile?.email || "Customer"}
+                      {profile?.first_name || profile?.email || "Customer"}
                       {profile?.role === "seller" && profile?.verified && (
                         <ShieldCheck className="h-4 w-4 text-[#D9A62E] dark:text-[#D9A62E] shrink-0" />
                       )}

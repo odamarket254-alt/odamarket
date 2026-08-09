@@ -11,7 +11,7 @@ export interface Category {
   mobile_banner_url: string | null;
   tablet_banner_url: string | null;
   featured: boolean;
-  status: 'active' | 'draft' | 'archived' | 'hidden';
+  is_active: boolean;
   homepage_status: boolean;
   navigation_status: boolean;
   seo_title: string | null;

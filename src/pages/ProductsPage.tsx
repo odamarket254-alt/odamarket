@@ -22,12 +22,8 @@ export default function ProductsPage() {
       // Join with categories to get the slug
       let q = supabase
         .from("products")
-        .select(`
-          id, name, regular_price, stock, supplier_id, 
-          product_type:product_types(name),
-          category:categories!inner(slug, name)
-        `)
-        .eq("status", "active");
+        .select(`id, name, slug, price, sale_price, wholesale_price, stock, category_id, brand_id, category:categories!inner(slug, name), brand:brands!left(name)`)
+        .eq("is_active", true);
 
       if (query) {
         q = q.ilike("name", `%${query}%`);

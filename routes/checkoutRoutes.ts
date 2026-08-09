@@ -70,7 +70,7 @@ router.post("/", async (req, res) => {
         status: 'pending',
         subtotal: totalAmount,
         grand_total: totalAmount,
-        notes: JSON.stringify({ shippingDetails, contactDetails, paymentMethod })
+        notes: JSON.stringify({ shippingDetails, paymentMethod })
       })
       .select()
       .single();

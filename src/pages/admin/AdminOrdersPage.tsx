@@ -34,7 +34,7 @@ export default function AdminOrdersPage() {
       
       let query = supabase
         .from('orders')
-        .select('*, profiles:user_id(full_name, email)', { count: 'exact' });
+        .select('*, profiles:user_id(first_name, last_name, email)', { count: 'exact' });
 
       // Search by order ID is possible, but ilike on UUID might fail. Let's just filter by status for now if UUID is complex, or let search handle it.
       if (search) {
@@ -241,7 +241,7 @@ export default function AdminOrdersPage() {
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex flex-col">
-                        <span className="text-sm font-medium text-[#3A2418]">{order.profiles?.full_name || 'Guest'}</span>
+                        <span className="text-sm font-medium text-[#3A2418]">{order.profiles?.first_name || 'Guest'}</span>
                         <span className="text-xs text-[#5F5A54]">{order.profiles?.email}</span>
                       </div>
                     </td>
@@ -254,7 +254,7 @@ export default function AdminOrdersPage() {
                       </span>
                     </td>
                     <td className="py-3 px-4 text-sm font-bold text-[#3A2418] text-right">
-                      KSh {Number(order.grand_total).toLocaleString()}
+                      KSh {Number(order.total).toLocaleString()}
                     </td>
                     <td className="py-3 px-4 text-right">
                       <div className="flex items-center justify-end opacity-0 group-hover:opacity-100 transition-opacity">

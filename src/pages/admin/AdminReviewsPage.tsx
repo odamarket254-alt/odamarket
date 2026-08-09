@@ -22,7 +22,7 @@ export default function AdminReviewsPage() {
       setLoading(true);
       const { data, error } = await supabase
         .from('reviews')
-        .select('*, buyer:profiles!buyer_id(name), product:products(name)')
+        .select('*, buyer:profiles!user_id(first_name, last_name), product:products(name)')
         .order('created_at', { ascending: false });
         
       if (data) {
@@ -37,7 +37,7 @@ export default function AdminReviewsPage() {
 
   const updateStatus = async (id: string, status: string) => {
     try {
-      const { error } = await supabase.from('reviews').update({ status }).eq('id', id);
+      const { error } = await supabase.from('reviews').update({ is_approved: status === 'approved' }).eq('id', id);
       if (error) throw error;
       toast.success(`Review ${status}`);
     } catch (error: any) {
@@ -84,7 +84,7 @@ export default function AdminReviewsPage() {
                 <div className="flex-1 space-y-2">
                   <div className="flex items-center justify-between">
                     <div>
-                      <h4 className="font-semibold text-foreground">{review.buyer?.name || "Anonymous"}</h4>
+                      <h4 className="font-semibold text-foreground">{review.buyer?.first_name || "Anonymous"}</h4>
                       <p className="text-xs text-muted-foreground">Product: {review.product?.name || "Unknown Product"}</p>
                     </div>
                     <div className="flex items-center gap-1 text-[#D9A62E]">

@@ -19,7 +19,7 @@ export default function ProductDetailsPage() {
     const fetchProduct = async () => {
       const { data } = await supabase
         .from("products")
-        .select('*, profiles(business_name, verified), product_type:product_types(name)').limit(100)
+        .select('*, profiles(business_name, verified), category:categories(name), brand:brands(name)').limit(100)
         .eq("id", id)
         .single();
       

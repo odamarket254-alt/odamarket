@@ -62,9 +62,9 @@ export function Header() {
       try {
         const { data, error } = await supabase
           .from("categories")
-          .select('name, slug').limit(100)
-          .eq('status', 'active')
-          .eq('navigation_status', true)
+          .select('name, slug')
+          .eq('is_active', true)
+          
           .is('parent_id', null)
           .order('sort_order', { ascending: true })
           .limit(10);
@@ -94,7 +94,7 @@ export function Header() {
           </Link>
           
           <div className="flex items-center gap-1 sm:gap-2">
-            <Link to={user ? (profile?.role === 'admin' ? '/admin/dashboard' : `/${profile?.role || 'buyer'}/dashboard`) : '/login'} className="w-11 h-11 flex items-center justify-center text-[#5F5A54] hover:bg-gray-100 rounded-full transition-colors shrink-0">
+            <Link to={user ? (profile?.role === 'admin' ? '/admin/dashboard' : `/${profile?.role === 'customer' ? 'buyer' : profile?.role || 'buyer'}/dashboard`) : '/login'} className="w-11 h-11 flex items-center justify-center text-[#5F5A54] hover:bg-gray-100 rounded-full transition-colors shrink-0">
               <User className="w-[22px] h-[22px]" />
             </Link>
             <Link to="/wishlist" className="w-11 h-11 flex items-center justify-center text-[#5F5A54] hover:bg-gray-100 rounded-full transition-colors shrink-0">
@@ -223,14 +223,14 @@ export function Header() {
             {/* Right: Icons */}
             <div className="flex items-center gap-4 lg:gap-6 shrink-0">
               {/* Account */}
-              <Link to={user ? (profile?.role === 'admin' ? '/admin/dashboard' : `/${profile?.role || 'buyer'}/dashboard`) : '/login'} className="flex items-center gap-3 group cursor-pointer">
+              <Link to={user ? (profile?.role === 'admin' ? '/admin/dashboard' : `/${profile?.role === 'customer' ? 'buyer' : profile?.role || 'buyer'}/dashboard`) : '/login'} className="flex items-center gap-3 group cursor-pointer">
                 <div className="w-10 h-10 rounded-full bg-[#FAF5EC] flex items-center justify-center text-[#5F5A54] group-hover:bg-[#C65A28]/10 group-hover:text-[#C65A28] transition-colors">
                   <User className="w-5 h-5" strokeWidth={2} />
                 </div>
                 <div className="hidden xl:flex flex-col">
                   <span className="text-[12px] text-[#5F5A54] group-hover:text-[#C65A28] transition-colors">Welcome</span>
                   <span className="text-[14px] font-semibold text-[#3A2418] leading-tight">
-                    {user ? (profile?.full_name?.split(' ')[0] || 'My Account') : 'ODAMARKET'}
+                    {user ? (profile?.first_name?.split(' ')[0] || 'My Account') : 'ODAMARKET'}
                   </span>
                 </div>
               </Link>

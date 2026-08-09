@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Outlet, Navigate, useLocation } from 'react-router-dom';
+import { useAuthStore } from '../../../store/useAuthStore';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../../../lib/supabase';
 import { Loader2 } from 'lucide-react';
@@ -8,8 +9,7 @@ import AdminSidebar from './AdminSidebar';
 import AdminHeader from './AdminHeader';
 
 export default function AdminDashboardLayout() {
-  const [user, setUser] = useState<any>(null);
-  const [loading, setLoading] = useState(true);
+  const { user, profile, isLoading: loading } = useAuthStore();
   
   // Sidebar state
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -34,37 +34,7 @@ export default function AdminDashboardLayout() {
     localStorage.setItem('oda_admin_sidebar_collapsed', JSON.stringify(sidebarCollapsed));
   }, [sidebarCollapsed]);
 
-  useEffect(() => {
-    const checkAuth = async () => {
-      try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-           console.warn("Admin session error:", error.message);
-        }
-
-        if (session?.user) {
-           setUser(session.user);
-        } else {
-           setUser(null);
-        }
-      } catch (error) {
-        console.error('Error checking auth:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    checkAuth();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user || null);
-    });
-
-    return () => subscription.unsubscribe();
-  }, []);
-
-  if (loading) {
+  if (loading || (!profile && user)) {
     return (
       <div className="min-h-screen bg-[#F3F6F4] flex flex-col items-center justify-center">
         <Loader2 className="w-12 h-12 text-[#C65A28] animate-spin mb-4" />
@@ -74,14 +44,14 @@ export default function AdminDashboardLayout() {
     );
   }
 
-  if (!user) {
+  if (!user || !profile) {
     return <Navigate to="/login" replace />;
   }
 
-  const role = user.user_metadata?.role || 'user';
+  const role = profile.role || 'customer';
 
   // Prevent regular users from accessing admin
-  if (role === 'user' || role === 'customer') {
+  if (role === 'customer' || role === 'buyer') {
     return <Navigate to="/" replace />;
   }
 

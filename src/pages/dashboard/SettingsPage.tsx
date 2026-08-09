@@ -56,7 +56,7 @@ export default function SettingsPage() {
               <div className="space-y-4 max-w-md">
                 <div>
                   <label className="block text-sm font-medium text-muted-foreground mb-1">Full Name</label>
-                  <input type="text" defaultValue={profile?.full_name || ''} className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-primary" />
+                  <input type="text" defaultValue={profile?.first_name || ''} className="w-full px-4 py-2 border rounded-lg focus:outline-none focus:border-primary" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-muted-foreground mb-1">Email Address</label>

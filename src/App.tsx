@@ -135,27 +135,34 @@ export default function App() {
   }, []);
 
   const fetchProfile = async (userId: string, retries = 3) => {
+    console.log("[Auth] fetchProfile called for userId:", userId);
     try {
       const { data, error } = await supabase
         .from("profiles")
         .select('*').limit(100)
         .eq("id", userId)
         .single();
+        
+      console.log("[Auth] Profiles query result:", { data, error });
 
       if (error && retries > 0 && error.code === "PGRST116") {
+        console.log("[Auth] Profile not found yet, retrying...");
         // PostgREST 116 is "Rows count does not match the expected 1" (not found)
         setTimeout(() => fetchProfile(userId, retries - 1), 500);
         return;
       }
 
       if (!error && data) {
+        console.log("[Auth] Profile role from DB:", data.role);
         // Fallback for legacy setups
         const normalizedRole = data.role === "supplier" ? "seller" : data.role;
+        console.log("[Auth] Normalized role:", normalizedRole);
         setProfile({ ...data, role: normalizedRole });
       }
+
       setLoading(false);
     } catch (e) {
-      console.error(e);
+      console.error("[Auth] fetchProfile exception:", e);
       setLoading(false);
     }
   };

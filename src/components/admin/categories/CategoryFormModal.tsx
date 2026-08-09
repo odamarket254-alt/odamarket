@@ -19,7 +19,7 @@ const categorySchema = z.object({
   description: z.string().optional(),
   parent_id: z.string().optional(),
   sort_order: z.coerce.number().default(0),
-  status: z.enum(['active', 'draft', 'archived', 'hidden']),
+  is_active: z.boolean().default(true),
   featured: z.boolean().default(false),
   homepage_status: z.boolean().default(false),
   navigation_status: z.boolean().default(true),
@@ -42,7 +42,7 @@ export function CategoryFormModal({ category, categories, onClose, defaultParent
   const isEditing = !!category;
   
   const [imageUrl, setImageUrl] = useState<string>(category?.image_url || '');
-  const [iconUrl, setIconUrl] = useState<string>(category?.icon || '');
+  
 
   const { register, handleSubmit, formState: { errors, isSubmitting }, watch, setValue, control } = useForm<any>({
     resolver: zodResolver(categorySchema),
@@ -52,7 +52,7 @@ export function CategoryFormModal({ category, categories, onClose, defaultParent
       description: category?.description || '',
       parent_id: category?.parent_id || defaultParentId || '',
       sort_order: category?.sort_order || 0,
-      status: category?.status || 'active',
+      is_active: category?.is_active ?? true,
       featured: category?.featured || false,
       homepage_status: category?.homepage_status || false,
       navigation_status: category?.navigation_status || true,
@@ -77,10 +77,13 @@ export function CategoryFormModal({ category, categories, onClose, defaultParent
   const mutation = useMutation({
     mutationFn: async (data: CategoryFormData) => {
       const payload = {
-        ...data,
+        name: data.name,
+        slug: data.slug,
+        description: data.description,
         parent_id: data.parent_id || null, // Convert empty string to null
+        sort_order: data.sort_order,
+        is_active: data.is_active,
         image_url: imageUrl,
-        icon: iconUrl,
       };
       
       if (isEditing) {
@@ -174,31 +177,21 @@ export function CategoryFormModal({ category, categories, onClose, defaultParent
               <h3 className="font-semibold text-[#3A2418] border-b border-[#E8DCC9] pb-2">Media</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                  <label className="block text-sm font-medium text-[#5F5A54] mb-1">Category Image</label>
-                  <ImageUpload value={imageUrl} onChange={setImageUrl} folder="categories" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#5F5A54] mb-1">Category Icon</label>
-                  <ImageUpload value={iconUrl} onChange={setIconUrl} folder="categories/icons" />
-                </div>
-              </div>
-            </div>
+<label className="block text-sm font-medium text-[#5F5A54] mb-1">Category Image</label>
+<ImageUpload value={imageUrl} onChange={setImageUrl} folder="categories" />
+</div>
+</div>
+</div>
 
             {/* Display & Status */}
             <div className="space-y-4">
               <h3 className="font-semibold text-[#3A2418] border-b border-[#E8DCC9] pb-2">Visibility & Status</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-[#5F5A54] mb-1">Status</label>
-                  <select 
-                    {...register('status')} 
-                    className="w-full px-3 py-2 border border-[#E8DCC9] rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary bg-[#FFFDF8] text-[#3A2418] dark:text-[#3A2418] placeholder:text-[#8B857D] caret-slate-900"
-                  >
-                    <option value="active">Active</option>
-                    <option value="draft">Draft</option>
-                    <option value="hidden">Hidden</option>
-                    <option value="archived">Archived</option>
-                  </select>
+                  <label className="flex items-center gap-2 mt-4 cursor-pointer">
+                    <input type="checkbox" {...register('is_active')} className="rounded border-[#E8DCC9] text-primary focus:ring-primary/20" />
+                    <span className="text-sm font-medium text-[#5F5A54]">Active</span>
+                  </label>
                 </div>
               </div>
               

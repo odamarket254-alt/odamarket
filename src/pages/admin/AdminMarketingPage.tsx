@@ -1,4 +1,4 @@
-import { HomepageBannersManager } from "../../components/admin/storefront/HomepageBannersManager";
+import AdminBannersManager from "./AdminBannersManager";
 import { OptimizedImage } from "../../components/ui/OptimizedImage";
 import { useState, useEffect } from "react";
 import { Megaphone, LayoutTemplate, MessageSquare, Ticket, BellRing, ArrowLeft, Upload, Plus, Trash2 } from "lucide-react";
@@ -102,7 +102,7 @@ export default function AdminMarketingPage() {
             Marketing Center
           </h1>
         </div>
-        <HomepageBannersManager />
+        <AdminBannersManager />
       </div>
     );
   }

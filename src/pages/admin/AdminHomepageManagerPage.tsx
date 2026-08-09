@@ -54,7 +54,7 @@ export default function AdminHomepageManagerPage() {
         // Fire and forget update
         supabase.from('homepage_sections').upsert(updates).then(({error}) => {
             if(error) toast.error("Failed to reorder");
-        }).catch(() => {});
+        });
         
         return newArray;
       });

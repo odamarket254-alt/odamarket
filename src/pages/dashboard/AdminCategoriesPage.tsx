@@ -204,10 +204,8 @@ export default function AdminCategoriesPage() {
     total: categories.length,
     parent: categories.filter(c => !c.parent_id).length,
     sub: categories.filter(c => c.parent_id).length,
-    active: categories.filter(c => c.status === 'active').length,
-    draft: categories.filter(c => c.status === 'draft').length,
-    archived: categories.filter(c => c.status === 'archived').length,
-    hidden: categories.filter(c => c.status === 'hidden').length,
+    active: categories.filter(c => c.is_active).length,
+    hidden: categories.filter(c => !c.is_active).length,
     featured: categories.filter(c => c.featured).length,
     homepage: categories.filter(c => c.homepage_status).length,
     brands: brands.length,
@@ -258,12 +256,10 @@ export default function AdminCategoriesPage() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-[#3A2418] truncate">{item.name}</span>
-                {item.status === 'active' ? (
+                {item.is_active ? (
                   <Badge className="bg-[#E8DCC9] text-emerald-800">Active</Badge>
-                ) : item.status === 'hidden' ? (
-                   <Badge className="bg-[#E8DCC9] text-[#3A2418]">Hidden</Badge>
                 ) : (
-                  <Badge className="bg-[#D9A62E]/10 text-amber-800 capitalize">{item.status}</Badge>
+                  <Badge className="bg-[#E8DCC9] text-[#3A2418]">Hidden</Badge>
                 )}
                 {item.featured && <Badge className="bg-blue-100 text-blue-800">Featured</Badge>}
               </div>
@@ -328,8 +324,6 @@ export default function AdminCategoriesPage() {
           { label: 'Total Categories', value: stats.total, icon: FolderTree, color: 'text-[#C65A28]', bg: 'bg-blue-100' },
           { label: 'Subcategories', value: stats.sub, icon: FolderTree, color: 'text-[#C65A28]', bg: 'bg-indigo-100' },
           { label: 'Active', value: stats.active, icon: Check, color: 'text-[#C65A28]', bg: 'bg-[#E8DCC9]' },
-          { label: 'Draft', value: stats.draft, icon: Edit2, color: 'text-[#5F5A54]', bg: 'bg-[#E8DCC9]' },
-          { label: 'Archived', value: stats.archived, icon: Archive, color: 'text-[#B94A48]', bg: 'bg-[#B94A48]/10' },
           { label: 'Hidden', value: stats.hidden, icon: EyeOff, color: 'text-[#5F5A54]', bg: 'bg-[#E8DCC9]' },
           { label: 'Featured', value: stats.featured, icon: BarChart3, color: 'text-[#6B8E23]', bg: 'bg-purple-100' },
           { label: 'Total Brands', value: stats.brands, icon: Tags, color: 'text-pink-600', bg: 'bg-pink-100' },

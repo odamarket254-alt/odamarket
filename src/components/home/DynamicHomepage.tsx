@@ -54,10 +54,10 @@ export const DynamicHomepage = () => {
   useEffect(() => {
     fetchHomepageData();
 
-    // Subscribe to changes in homepage_sections
+    const channel1 = supabase.channel("sections_changes").on("postgres_changes", { event: "*", schema: "public", table: "homepage_sections" }, () => fetchHomepageData()).subscribe();
     
 
-    // Subscribe to changes in featured_products
+    const channel2 = supabase.channel("featured_changes").on("postgres_changes", { event: "*", schema: "public", table: "featured_products" }, () => fetchHomepageData()).subscribe(); const channel3 = supabase.channel("products_changes").on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => fetchHomepageData()).subscribe(); return () => { supabase.removeChannel(channel1); supabase.removeChannel(channel2); supabase.removeChannel(channel3); };
     
 
     

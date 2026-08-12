@@ -49,6 +49,7 @@ export const ADMIN_NAVIGATION: NavItem[] = [
     roles: ["super_admin", "manager", "admin"],
     children: [
       { label: "Products", path: "/admin/dashboard/products" },
+      { label: "Wholesale Products", path: "/admin/dashboard/wholesale" },
       { label: "Categories", path: "/admin/dashboard/categories" },
       { label: "Subcategories", path: "/admin/dashboard/subcategories" },
       { label: "Brands", path: "/admin/dashboard/brands" },

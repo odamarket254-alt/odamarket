@@ -35,7 +35,7 @@ router.post("/", async (req, res) => {
     for (const item of items) {
       const { data: product, error: productError } = await supabase
         .from('products')
-        .select('id, title, regular_price, sale_price, stock')
+        .select('id, name, price, sale_price, wholesale_price, is_wholesale, wholesale_min_qty, stock')
         .eq('id', item.product_id)
         .single();
 
@@ -47,12 +47,15 @@ router.post("/", async (req, res) => {
         return res.status(400).json({ error: `Insufficient stock for product. Available: ${product.stock}, Requested: ${item.quantity}` });
       }
 
-      const price = product.sale_price || product.regular_price;
+      let price = product.sale_price || product.price;
+      if (product.is_wholesale && item.quantity >= (product.wholesale_min_qty || 1)) {
+        price = product.wholesale_price || price;
+      }
       totalAmount += price * item.quantity;
 
       orderItems.push({
         product_id: product.id,
-        product_name: product.title || 'Unknown Product',
+        product_name: product.name || 'Unknown Product',
         quantity: item.quantity,
         unit_price: price,
         total_price: price * item.quantity
@@ -114,3 +117,59 @@ router.post("/", async (req, res) => {
 });
 
 export default router;
+
+router.post("/verify", async (req, res) => {
+  try {
+    const { orderId } = req.body;
+    if (!orderId) {
+      return res.status(400).json({ error: "Missing orderId" });
+    }
+
+    const supabaseUrl = process.env.VITE_SUPABASE_URL;
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+
+    // Get order
+    const { data: order, error: orderErr } = await supabase
+      .from('orders')
+      .select('*, profiles!orders_customer_id_fkey(full_name, phone, email)')
+      .eq('id', orderId)
+      .single();
+
+    if (orderErr || !order) {
+      // It might be a different foreign key relation name or no relation, let's just fetch profiles safely
+      const { data: o, error: e } = await supabase.from('orders').select('*').eq('id', orderId).single();
+      if (e || !o) return res.status(404).json({ error: "Order not found" });
+
+      const { data: p } = await supabase.from('profiles').select('*').eq('id', o.buyer_id || o.customer_id).single();
+      
+      const { data: items } = await supabase.from('order_items').select('*').eq('order_id', orderId);
+
+      // Update to paid (processing)
+      await supabase.from('orders').update({ status: 'processing' }).eq('id', orderId);
+
+      return res.status(200).json({
+        success: true,
+        order: o,
+        profile: p,
+        items: items || []
+      });
+    }
+
+    const { data: items } = await supabase.from('order_items').select('*').eq('order_id', orderId);
+
+    // Update to paid
+    await supabase.from('orders').update({ status: 'processing' }).eq('id', orderId);
+
+    return res.status(200).json({
+      success: true,
+      order: order,
+      profile: order.profiles,
+      items: items || []
+    });
+
+  } catch (err: any) {
+    console.error("Verification error:", err);
+    res.status(500).json({ error: err.message || "Internal server error" });
+  }
+});

@@ -21,7 +21,8 @@ export const ProductCard = ({ product, index, viewMode = "grid" }: { product: an
       price: product.regular_price || product.price || 0,
       image_url: product.image_url || "https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&q=80",
       seller_id: product.seller_id,
-    });
+    }, product.wholesale_min_qty || 1);
+
     toast.success("Added to cart");
   };
 
@@ -37,7 +38,7 @@ export const ProductCard = ({ product, index, viewMode = "grid" }: { product: an
   const rating = product.rating || (Math.random() * (5 - 3.5) + 3.5).toFixed(1);
   const reviews = product.reviews_count || Math.floor(Math.random() * 200) + 10;
   
-  const categoryName = product.product_type?.name || "Groceries";
+  const categoryName = product.category?.name || product.categories?.name || "Uncategorized";
   const stock = product.stock || product.stock || Math.floor(Math.random() * 50) + 1;
   const isList = viewMode === "list";
 

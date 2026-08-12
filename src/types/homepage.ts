@@ -19,7 +19,18 @@ export type SectionType =
   | 'buy_more_save_more'
   | 'shop_by_brand'
   | 'footer_promotions'
-  | 'custom_grid';
+  | 'custom_grid'
+  | 'promotional_banner'
+  | 'wholesale_products'
+  | 'best_deals'
+  | 'lowest_price'
+  | 'electronics_zone'
+  | 'featured'
+  | 'flash_sales'
+  | 'sale'
+  | 'deal_of_the_day'
+  | 'wholesale'
+  | 'electronics';
 
 export interface HomepageSection {
   id: string;

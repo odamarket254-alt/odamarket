@@ -42,8 +42,17 @@ const productSchema = z.object({
   sku: z.string().optional(),
   barcode: z.string().optional(),
   slug: z.string().optional(),
-  status: z.enum(['active', 'draft', 'archived', 'hidden']),
+  status: z.enum(['active', 'draft', 'inactive', 'out_of_stock']),
   is_featured: z.boolean().default(false),
+  is_new_arrival: z.boolean().default(false),
+  is_flash_sale: z.boolean().default(false),
+  is_best_deal: z.boolean().default(false),
+  is_lowest_price: z.boolean().default(false),
+  is_electronics_zone: z.boolean().default(false),
+  is_wholesale: z.boolean().default(false),
+  wholesale_price: z.coerce.number().optional().nullable(),
+  wholesale_min_qty: z.coerce.number().optional().nullable(),
+  wholesale_unit: z.string().optional(),
   seo_title: z.string().optional(),
   seo_description: z.string().optional(),
   seo_keywords: z.string().optional(),
@@ -62,7 +71,7 @@ const STEPS = [
   { id: 'pricing', label: 'Pricing', icon: CreditCard, fields: ['regular_price', 'sale_price', 'cost_price', 'tax_class'] },
   { id: 'inventory', label: 'Inventory', icon: Package, fields: ['stock', 'min_stock', 'max_stock', 'warehouse_location', 'unit', 'weight'] },
   { id: 'seo', label: 'SEO', icon: Search, fields: ['seo_title', 'seo_description', 'seo_keywords', 'slug'] },
-  { id: 'status', label: 'Status', icon: Check, fields: ['status'] }
+  { id: 'visibility', label: 'Status & Visibility', icon: Check, fields: ['status'] }
 ];
 
 export default function AdminProductFormPage() {
@@ -85,6 +94,15 @@ export default function AdminProductFormPage() {
     defaultValues: {
       status: 'draft',
       is_featured: false,
+      is_new_arrival: false,
+      is_flash_sale: false,
+      is_best_deal: false,
+      is_lowest_price: false,
+      is_electronics_zone: false,
+      is_wholesale: false,
+      wholesale_price: 0,
+      wholesale_min_qty: 1,
+      wholesale_unit: "",
       stock: 0,
       regular_price: 0,
       category_id: '',
@@ -120,11 +138,22 @@ export default function AdminProductFormPage() {
       const { data, error } = await supabase.from('products').select('*').eq('id', id).single();
       
       if (error) throw error;
+
       if (data) {
         Object.keys(data).forEach((key) => {
-          if (key === 'attributes' || key === 'id' || key === 'created_at' || key === 'updated_at') return;
-          setValue(key as any, data[key] === null ? undefined : data[key]);
+          if (key === 'attributes' || key === 'id' || key === 'created_at' || key === 'updated_at' || key === 'is_active' || key === 'is_public' || key === 'status') return;
+          if (key === 'price') setValue('regular_price', data[key]);
+          else setValue(key as any, data[key] === null ? undefined : data[key]);
         });
+        
+        let currentStatus: 'active' | 'draft' | 'inactive' | 'out_of_stock' = 'draft';
+        if (data.is_active && data.is_public) currentStatus = 'active';
+        else if (data.is_active && !data.is_public) currentStatus = 'out_of_stock';
+        else if (!data.is_active && data.is_public) currentStatus = 'draft';
+        else if (!data.is_active && !data.is_public) currentStatus = 'inactive';
+        
+        setValue('status', currentStatus);
+        setValue('is_wholesale', !!data.is_wholesale);
         
         // Fetch images
         const { data: imgData } = await supabase.from('product_images').select('*').limit(100).eq('product_id', id).order('sort_order').limit(100);
@@ -178,14 +207,28 @@ export default function AdminProductFormPage() {
       let productId = id;
 
             const productData = {
-        name: data.name,
-        slug: data.slug || data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, ''),
+name: data.name,
+        slug: data.slug || (data.name.toLowerCase().replace(/[^a-z0-9]+/g, '-') + '-' + Math.random().toString(36).substring(2, 8)),
         description: data.description,
         price: data.regular_price,
-        stock: data.stock,
+        sale_price: data.sale_price,
+        stock: data.status === 'out_of_stock' ? 0 : data.stock,
+        low_stock_threshold: data.min_stock,
         category_id: data.category_id,
-        is_active: data.status === "active",
-        is_public: data.status !== "hidden" && data.status !== "archived",
+        brand_id: data.brand_id || null,
+        supplier_id: data.supplier_id || null,
+        is_active: data.status === "active" || data.status === "out_of_stock",
+        is_public: data.status === "active" || data.status === "draft",
+        // is_featured: data.is_featured, // UNCOMMENT AFTER RUNNING MIGRATION 20260101000009
+        // is_new_arrival: data.is_new_arrival,
+        // is_flash_sale: data.is_flash_sale,
+        // is_best_deal: data.is_best_deal,
+        // is_lowest_price: data.is_lowest_price,
+        // is_electronics_zone: data.is_electronics_zone,
+        is_wholesale: data.is_wholesale,
+        wholesale_price: data.is_wholesale ? data.wholesale_price : null,
+        wholesale_min_qty: data.is_wholesale ? data.wholesale_min_qty : null,
+        wholesale_unit: data.is_wholesale ? data.wholesale_unit : null,
         sku: data.sku,
         barcode: data.barcode,
         image_url: images.length > 0 ? images[0] : null,
@@ -233,7 +276,7 @@ export default function AdminProductFormPage() {
       navigate('/admin/products');
     } catch (error: any) {
       console.error('Save error:', error);
-      toast.error(`Failed: ${error.message || JSON.stringify(error)}`);
+      toast.error(`Failed: ${error.message} - ${error.details || ''} - ${error.hint || ''}`);
     }
   };
 
@@ -399,6 +442,11 @@ export default function AdminProductFormPage() {
                   </div>
                 </div>
               </div>
+
+              <div className="pt-6 mt-6 border-t border-[#E8DCC9]">
+                
+              </div>
+
             </div>
 
             {/* Product Details */}
@@ -572,7 +620,7 @@ export default function AdminProductFormPage() {
             </div>
 
             {/* Status */}
-            <div className={cn("bg-[#FFFDF8] p-5 sm:p-6 rounded-xl border border-[#E8DCC9] shadow-sm space-y-5 sm:space-y-6", activeStep !== 'status' && "hidden")}>
+            <div className={cn("bg-[#FFFDF8] p-5 sm:p-6 rounded-xl border border-[#E8DCC9] shadow-sm space-y-5 sm:space-y-6", activeStep !== 'visibility' && "hidden")}>
               <h2 className="text-lg font-bold text-[#3A2418] flex items-center gap-2">
                 <Settings className="w-5 h-5 text-[#C65A28]" /> Status & Visibility
               </h2>
@@ -591,12 +639,18 @@ export default function AdminProductFormPage() {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="active">
-                              <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-[#C65A28]"></div> Active (Published)</span>
+                              <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-green-500"></div> Active</span>
                             </SelectItem>
                             <SelectItem value="draft">
-                              <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-[#D9A62E]"></div> Draft</span>
+                              <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-yellow-500"></div> Draft</span>
                             </SelectItem>
-                            <SelectItem value="hidden">
+                            <SelectItem value="inactive">
+                              <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-gray-400"></div> Inactive</span>
+                            </SelectItem>
+                            <SelectItem value="out_of_stock">
+                              <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-red-500"></div> Out of Stock</span>
+                            </SelectItem>
+                            <SelectItem value="hidden" className="hidden">
                               <span className="flex items-center gap-2"><div className="w-2 h-2 rounded-full bg-slate-400"></div> Hidden</span>
                             </SelectItem>
                             <SelectItem value="archived">
@@ -608,7 +662,55 @@ export default function AdminProductFormPage() {
                     />
                   </div>
                 </div>
-                
+              </div>
+
+              {/* Homepage Visibility */}
+              <div className="space-y-4 pt-6 border-t border-[#E8DCC9]">
+                <h3 className="text-md font-semibold text-[#3A2418]">Homepage Visibility</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <Controller name="is_featured" control={control} render={({ field }) => (
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input type="checkbox" className="w-5 h-5 rounded border-slate-300 text-[#C65A28] focus:ring-[#C65A28]" checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />
+                      <span className="text-sm font-medium text-[#5F5A54]">Featured Products</span>
+                    </label>
+                  )} />
+                  <Controller name="is_new_arrival" control={control} render={({ field }) => (
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input type="checkbox" className="w-5 h-5 rounded border-slate-300 text-[#C65A28] focus:ring-[#C65A28]" checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />
+                      <span className="text-sm font-medium text-[#5F5A54]">New Arrivals</span>
+                    </label>
+                  )} />
+                  <Controller name="is_flash_sale" control={control} render={({ field }) => (
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input type="checkbox" className="w-5 h-5 rounded border-slate-300 text-[#C65A28] focus:ring-[#C65A28]" checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />
+                      <span className="text-sm font-medium text-[#5F5A54]">Flash Sales</span>
+                    </label>
+                  )} />
+                  <Controller name="is_best_deal" control={control} render={({ field }) => (
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input type="checkbox" className="w-5 h-5 rounded border-slate-300 text-[#C65A28] focus:ring-[#C65A28]" checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />
+                      <span className="text-sm font-medium text-[#5F5A54]">Best Deals of the Week</span>
+                    </label>
+                  )} />
+                  <Controller name="is_wholesale" control={control} render={({ field }) => (
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input type="checkbox" className="w-5 h-5 rounded border-slate-300 text-[#C65A28] focus:ring-[#C65A28]" checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />
+                      <span className="text-sm font-medium text-[#5F5A54]">Wholesale Products</span>
+                    </label>
+                  )} />
+                  <Controller name="is_lowest_price" control={control} render={({ field }) => (
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input type="checkbox" className="w-5 h-5 rounded border-slate-300 text-[#C65A28] focus:ring-[#C65A28]" checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />
+                      <span className="text-sm font-medium text-[#5F5A54]">Lowest Price Everyday</span>
+                    </label>
+                  )} />
+                  <Controller name="is_electronics_zone" control={control} render={({ field }) => (
+                    <label className="flex items-center gap-3 cursor-pointer">
+                      <input type="checkbox" className="w-5 h-5 rounded border-slate-300 text-[#C65A28] focus:ring-[#C65A28]" checked={field.value} onChange={(e) => field.onChange(e.target.checked)} />
+                      <span className="text-sm font-medium text-[#5F5A54]">Electronics Zone</span>
+                    </label>
+                  )} />
+                </div>
               </div>
             </div>
 

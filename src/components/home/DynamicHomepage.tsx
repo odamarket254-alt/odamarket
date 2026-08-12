@@ -1,10 +1,11 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { Loader2 } from 'lucide-react';
 import { HomepageSection, SectionProduct } from '../../types/homepage';
 import { HeroBannerSection } from './sections/HeroBannerSection';
 import { ProductGridSection } from './sections/ProductGridSection';
 import { CategoryGridSection } from './sections/CategoryGridSection';
+import { WholesaleSection } from './WholesaleSection';
 
 export const DynamicHomepage = () => {
   const [sections, setSections] = useState<HomepageSection[]>([]);
@@ -29,14 +30,18 @@ export const DynamicHomepage = () => {
       if (featuredProductsRes.error && featuredProductsRes.error.code !== 'PGRST205') throw featuredProductsRes.error;
 
       if (sectionsRes.error?.code === 'PGRST205' || !sectionsRes.data || sectionsRes.data.length === 0) {
-        // Fallback layout when there are no sections configured in the DB
+                // Fallback layout based on exact requirements
         setSections([
           { id: 'fallback-hero', type: 'hero_banner', name: 'Welcome', is_active: true, sort_order: 1, settings: {} },
-          { id: 'fallback-categories', type: 'category_grid', name: 'Shop by Category', title: 'Shop by Category', is_active: true, sort_order: 2, settings: {} },
+          { id: 'fallback-categories', type: 'category_grid', name: 'Top Categories', title: 'Top Categories', is_active: true, sort_order: 2, settings: {} },
           { id: 'fallback-featured', type: 'featured_products', name: 'Featured Products', title: 'Featured Products', is_active: true, sort_order: 3, settings: {} },
-          { id: 'fallback-flash', type: 'flash_deals', name: 'Flash Deals', title: 'Flash Deals', is_active: true, sort_order: 4, settings: {} },
-          { id: 'fallback-new', type: 'new_arrivals', name: 'New Arrivals', title: 'New Arrivals', is_active: true, sort_order: 5, settings: {} },
-          { id: 'fallback-best', type: 'best_sellers', name: 'Best Sellers', title: 'Best Sellers', is_active: true, sort_order: 6, settings: {} }
+          { id: 'fallback-flash', type: 'flash_deals', name: 'Flash Sales', title: 'Flash Sales', is_active: true, sort_order: 4, settings: {} },
+          { id: 'fallback-best-deals', type: 'best_deals', name: 'Best Deals of the Week', title: 'Best Deals of the Week', is_active: true, sort_order: 5, settings: {} },
+          { id: 'fallback-promo', type: 'promotional_banner', name: 'Promotional Banner', is_active: true, sort_order: 6, settings: {} },
+          { id: 'fallback-new-arrivals', type: 'new_arrivals', name: 'New Arrivals', title: 'New Arrivals', is_active: true, sort_order: 7, settings: {} },
+          { id: 'fallback-wholesale', type: 'wholesale_products', name: 'Wholesale Products', title: 'Wholesale Products', is_active: true, sort_order: 8, settings: {} },
+          { id: 'fallback-lowest', type: 'lowest_price', name: 'Lowest Price Everyday', title: 'Lowest Price Everyday', is_active: true, sort_order: 9, settings: {} },
+          { id: 'fallback-electronics', type: 'electronics_zone', name: 'Electronics Zone', title: 'Electronics Zone', is_active: true, sort_order: 10, settings: {} }
         ] as HomepageSection[]);
         setFeaturedProducts(featuredProductsRes.data ? (featuredProductsRes.data as SectionProduct[]) : []);
       } else {
@@ -54,10 +59,10 @@ export const DynamicHomepage = () => {
   useEffect(() => {
     fetchHomepageData();
 
-    const channel1 = supabase.channel("sections_changes").on("postgres_changes", { event: "*", schema: "public", table: "homepage_sections" }, () => fetchHomepageData()).subscribe();
+    const channel1 = supabase.channel("sections_changes_" + Math.random().toString(36).substring(7)).on("postgres_changes", { event: "*", schema: "public", table: "homepage_sections" }, () => fetchHomepageData()).subscribe();
     
 
-    const channel2 = supabase.channel("featured_changes").on("postgres_changes", { event: "*", schema: "public", table: "featured_products" }, () => fetchHomepageData()).subscribe(); const channel3 = supabase.channel("products_changes").on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => fetchHomepageData()).subscribe(); return () => { supabase.removeChannel(channel1); supabase.removeChannel(channel2); supabase.removeChannel(channel3); };
+    const channel2 = supabase.channel("featured_changes_" + Math.random().toString(36).substring(7)).on("postgres_changes", { event: "*", schema: "public", table: "featured_products" }, () => fetchHomepageData()).subscribe(); const channel3 = supabase.channel("products_changes_" + Math.random().toString(36).substring(7)).on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => fetchHomepageData()).subscribe(); return () => { supabase.removeChannel(channel1); supabase.removeChannel(channel2); supabase.removeChannel(channel3); };
     
 
     
@@ -82,39 +87,57 @@ export const DynamicHomepage = () => {
 
   return (
     <div className="flex flex-col gap-0 pb-20">
+      
       {sections.map((section, index) => {
-        switch (section.type) {
-          case 'hero_banner':
-            return <HeroBannerSection key={section.id} section={section} />;
-          
-          case 'category_grid':
-            return <CategoryGridSection key={section.id} section={section} />;
-          
-          case 'featured_products':
-          case 'flash_deals':
-          case 'odamarket_choice':
-          case 'buy_more_save_more':
-          case 'custom_grid':
-            const sectionProducts = featuredProducts
-              .filter(fp => fp.section_id === section.id)
-              .sort((a, b) => a.sort_order - b.sort_order);
-            return <div className={index % 2 === 1 ? "w-full bg-[#E8DCC9] py-8" : "w-full"} key={section.id}><ProductGridSection section={section} sectionProducts={sectionProducts} /></div>;
-          
-          case 'best_sellers':
-          case 'new_arrivals':
-          case 'top_rated':
-          case 'trending':
-          case 'organic':
-          case 'budget_deals':
-          case 'imported':
-          case 'recently_restocked':
-          case 'limited_stock':
-            return <div className={index % 2 === 1 ? "w-full bg-[#E8DCC9] py-8" : "w-full"} key={section.id}><ProductGridSection section={section} /></div>;
+        const renderContent = () => {
+          switch (section.type) {
+            case 'hero_banner':
+              return <HeroBannerSection key={section.id} section={section} />;
             
-          default:
-            return null;
-        }
+            case 'promotional_banner':
+              return null; // Ignore placeholder for now, or render if there is a component
+            case 'wholesale_products':
+              return <div className={index % 2 === 1 ? "w-full bg-[#E8DCC9] py-8" : "w-full"} key={section.id}><WholesaleSection /></div>;
+            case 'category_grid':
+              return <CategoryGridSection key={section.id} section={section} />;
+            
+            
+            case 'odamarket_choice':
+            case 'buy_more_save_more':
+            case 'custom_grid':
+              const sectionProducts = featuredProducts
+                .filter(fp => fp.section_id === section.id)
+                .sort((a, b) => a.sort_order - b.sort_order);
+              return <div className={index % 2 === 1 ? "w-full bg-[#E8DCC9] py-8" : "w-full"} key={section.id}><ProductGridSection section={section} sectionProducts={sectionProducts} /></div>;
+            
+            case 'featured_products':
+            case 'flash_deals':
+            case 'best_sellers':
+            case 'new_arrivals':
+            case 'best_deals':
+            case 'lowest_price':
+            case 'electronics_zone':
+            case 'top_rated':
+            case 'trending':
+            case 'organic':
+            case 'budget_deals':
+            case 'imported':
+            case 'recently_restocked':
+            case 'limited_stock':
+              return <div className={index % 2 === 1 ? "w-full bg-[#E8DCC9] py-8" : "w-full"} key={section.id}><ProductGridSection section={section} /></div>;
+              
+            default:
+              return null;
+          }
+        };
+
+        return (
+          <React.Fragment key={section.id}>
+            {renderContent()}
+          </React.Fragment>
+        );
       })}
+
     </div>
   );
 };

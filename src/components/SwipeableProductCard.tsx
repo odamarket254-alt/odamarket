@@ -92,7 +92,7 @@ export const SwipeableProductCard = React.memo(({ product }: { product: Marketpl
         <CardContent className="p-5 flex flex-col flex-1 border-t border-border/40 bg-background pointer-events-none">
           <div className="mb-2">
             <span className="text-[11px] font-bold text-muted-foreground uppercase tracking-wide">
-              {product.categories?.name || product.category || "Grocery"}
+              {typeof product.category === "string" ? product.category : product.categories?.name || "Uncategorized"}
             </span>
           </div>
           

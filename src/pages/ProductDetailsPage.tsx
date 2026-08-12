@@ -41,7 +41,7 @@ export default function ProductDetailsPage() {
       addItem({
         id: product.id,
         name: product.name,
-        price: product.regular_price || "Ksh 0",
+        price: product.price || "Ksh 0",
         image_url: product.image_url,
         seller_id: product.seller_id
       });
@@ -106,10 +106,10 @@ export default function ProductDetailsPage() {
               
               <div className="flex items-end gap-3 sm:gap-4 mb-6 sm:mb-8">
                 <span className="text-[clamp(32px,5vw,48px)] font-bold text-[#C65A28] leading-none">
-                  Ksh {product.regular_price ? product.regular_price.toString().replace(/\D/g, '') : "0"}
+                  Ksh {product.price ? product.price.toString().replace(/\D/g, '') : "0"}
                 </span>
                 <span className="text-base sm:text-xl text-[#8B857D] line-through mb-1 sm:mb-2">
-                  Ksh {(parseInt(String(product.regular_price).replace(/\D/g, '')) * 1.2) || 500}
+                  Ksh {(parseInt(String(product.price).replace(/\D/g, '')) * 1.2) || 500}
                 </span>
               </div>
               
@@ -117,6 +117,43 @@ export default function ProductDetailsPage() {
                 {product.description || "Experience the finest quality with our carefully curated selection. Designed for those who appreciate the extraordinary in their everyday life."}
               </p>
             </div>
+
+            
+              {product.wholesale_price != null && (
+                <div className="mb-6 p-4 bg-[#FAF5EC] border border-[#D9A62E]/30 rounded-xl">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="bg-[#B94A48] text-white text-xs font-bold uppercase tracking-wider py-1 px-2 rounded-md">Wholesale</span>
+                    <span className="text-[#3A2418] font-bold text-sm">Available for bulk orders</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4 text-sm mt-3">
+                    <div>
+                      <span className="block text-[#8B857D] mb-1">Wholesale Price</span>
+                      <strong className="text-[#C65A28] text-lg">Ksh {product.wholesale_price}</strong>
+                    </div>
+                    <div>
+                      <span className="block text-[#8B857D] mb-1">Min. Quantity</span>
+                      <strong className="text-[#3A2418] text-lg">{product.wholesale_min_qty} {product.wholesale_unit || 'items'}</strong>
+                    </div>
+                  </div>
+                  <Button 
+                    onClick={() => {
+                      for (let i = 0; i < (product.wholesale_min_qty || 1); i++) {
+                        addItem({
+                          id: product.id + '_wholesale',
+                          name: product.name + ' (Wholesale)',
+                          price: product.wholesale_price,
+                          image_url: product.image_url,
+                          seller_id: product.seller_id
+                        });
+                      }
+                      toast.success(`Added ${product.wholesale_min_qty} wholesale items to cart`);
+                    }}
+                    className="w-full mt-4 bg-[#3A2418] hover:bg-[#3A2418]/90 text-white border-none h-12"
+                  >
+                    Buy Wholesale (Min {product.wholesale_min_qty})
+                  </Button>
+                </div>
+              )}
 
             <div className="space-y-6 sm:space-y-8 mb-8 sm:mb-10">
               <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">

@@ -47,6 +47,8 @@ const SupportMessagesPage = lazy(
 );
 const AdminProductsPage = lazy(() => import("./pages/admin/AdminProductsPage"));
 const AdminProductFormPage = lazy(() => import("./pages/admin/AdminProductFormPage"));
+const AdminWholesaleProductsPage = lazy(() => import("./pages/admin/AdminWholesaleProductsPage"));
+const AdminWholesaleProductFormPage = lazy(() => import("./pages/admin/AdminWholesaleProductFormPage"));
 const SettingsPage = lazy(() => import("./pages/dashboard/SettingsPage"));
 const AdminSettingsPage = lazy(() => import("./pages/admin/AdminSettingsPage"));
 const AdminOrdersPage = lazy(() => import("./pages/dashboard/AdminOrdersPage"));
@@ -214,6 +216,8 @@ export default function App() {
                                 <Route path="storefront" element={<AdminStorefrontPage />} />
                 <Route path="products" element={<AdminProductsPage />} />
                 <Route path="products/:id" element={<AdminProductFormPage />} />
+                <Route path="wholesale" element={<AdminWholesaleProductsPage />} />
+                <Route path="wholesale/:id" element={<AdminWholesaleProductFormPage />} />
                 <Route path="orders" element={<AdminOrdersPage />} />
                 <Route path="discounts" element={<AdminDiscountsPage />} />
                                 <Route path="categories" element={<AdminCategoriesPage />} />

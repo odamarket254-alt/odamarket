@@ -18,8 +18,8 @@ export default function AdminProductsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
-  const [activeTab, setActiveTab] = useState<'all' | 'active' | 'draft' | 'archived' | 'out_of_stock'>('all');
-  const [stats, setStats] = useState({ total: 0, active: 0, draft: 0, archived: 0, outOfStock: 0, lowStock: 0 });
+  const [activeTab, setActiveTab] = useState<'all' | 'active' | 'draft' | 'archived' | 'out_of_stock' | 'wholesale'>('all');
+  const [stats, setStats] = useState({ total: 0, active: 0, draft: 0, archived: 0, outOfStock: 0, lowStock: 0, wholesale: 0 });
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
   const itemsPerPage = 20;
@@ -50,6 +50,7 @@ export default function AdminProductsPage() {
         supabase.from('products').select('id', { count: 'exact', head: true }).eq('is_active', false).eq('is_public', true),
         supabase.from('products').select('id', { count: 'exact', head: true }).eq('is_public', false),
         supabase.from('products').select('id', { count: 'exact', head: true }).lte('stock', 0),
+        supabase.from('products').select('id', { count: 'exact', head: true }).not('wholesale_price', 'is', null),
         supabase.from('products').select('id', { count: 'exact', head: true }).lte('stock', 10).gt('stock', 0)
       ]);
       setStats({
@@ -58,7 +59,8 @@ export default function AdminProductsPage() {
         draft: draftReq.count || 0,
         archived: archReq.count || 0,
         outOfStock: outReq.count || 0,
-        lowStock: lowReq.count || 0
+        lowStock: lowReq.count || 0,
+        wholesale: 0
       });
     } catch (e) {
       console.error(e);
@@ -85,6 +87,8 @@ export default function AdminProductsPage() {
         query = query.eq('is_active', false).eq('is_public', true);
       } else if (activeTab === 'archived') {
         query = query.eq('is_public', false);
+      } else if (activeTab === 'wholesale') {
+        query = query.not('wholesale_price', 'is', null);
       }
 
       const from = (currentPage - 1) * itemsPerPage;

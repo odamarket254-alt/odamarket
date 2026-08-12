@@ -1,0 +1,3 @@
+const { createClient } = require('@supabase/supabase-js');
+// Use the skill cloudsql-execute-sql ? No, the user uses Supabase in this project (based on the presence of VITE_SUPABASE_URL in `.env.example`).
+// Wait, is VITE_SUPABASE_URL in `.env.example`? Let's check `metadata.json` to see if there is Firebase or Cloud SQL...

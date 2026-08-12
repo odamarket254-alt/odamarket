@@ -21,6 +21,7 @@ export const ProductGridSection = ({ section, sectionProducts }: ProductGridSect
       setIsLoading(true);
       let query = supabase.from('products').select(`
         *,
+        category:categories!left(name),
         brands (name)
       `);
 
@@ -47,23 +48,49 @@ export const ProductGridSection = ({ section, sectionProducts }: ProductGridSect
         if (filters.max_price) query = query.lte('price', filters.max_price);
         if (filters.has_discount) query = query.not('sale_price', 'is', null);
 
-        // Sorting based on section type
+        // Make sure we only show active products on the storefront
+        query = query.eq('is_active', true);
+
+        // Homepage Placement Filters based on section type
         switch (section.type) {
           case 'new_arrivals':
           case 'recently_restocked':
-            query = query.order('created_at', { ascending: false });
+            // query = query.eq('is_new_arrival', true).order('created_at', { ascending: false });
+            break;
+          case 'featured_products':
+          case 'featured':
+            // query = query.eq('is_featured', true).order('created_at', { ascending: false });
+            break;
+          case 'flash_sales':
+          case 'flash_deals':
+          case 'sale':
+            // query = query.eq('is_flash_sale', true).order('created_at', { ascending: false });
+            break;
+          case 'best_deals':
+          case 'deal_of_the_day':
+            // query = query.eq('is_best_deal', true).order('created_at', { ascending: false });
+            break;
+          case 'wholesale':
+          case 'wholesale_products':
+            query = query.eq('is_wholesale', true).order('created_at', { ascending: false });
+            break;
+          case 'lowest_price':
+            // query = query.eq('is_lowest_price', true).order('price', { ascending: true });
+            break;
+          case 'electronics_zone':
+          case 'electronics':
+            // query = query.eq('is_electronics_zone', true).order('created_at', { ascending: false });
             break;
           case 'best_sellers':
           case 'trending':
-            // Fallback since we don't have a views/purchases count easily accessible here
-            // Normally would sort by a 'sales_count' or similar
-            query = query.order('rating', { ascending: false });
-            break;
           case 'top_rated':
-            query = query.order('rating', { ascending: false });
+            query = query.order('created_at', { ascending: true }); // Fallback
             break;
           case 'limited_stock':
             query = query.gt('stock', 0).lte('stock', 10).order('stock', { ascending: true });
+            break;
+          default:
+            // For generic grids that might not have a specific type, maybe filter active?
             break;
         }
 

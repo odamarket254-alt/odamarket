@@ -67,13 +67,11 @@ router.post("/", async (req, res) => {
     const { data: orderData, error: orderError } = await supabase
       .from('orders')
       .insert({
-        buyer_id: user.id,
-        customer_id: user.id, // Some schemas might expect customer_id instead or as well
-        order_number: orderNumber,
+        user_id: user.id,
         status: 'pending',
         subtotal: totalAmount,
-        grand_total: totalAmount,
-        notes: JSON.stringify({ shippingDetails, paymentMethod })
+        total: totalAmount,
+        notes: JSON.stringify({ shippingDetails, paymentMethod, orderNumber })
       })
       .select()
       .single();
@@ -141,7 +139,7 @@ router.post("/verify", async (req, res) => {
       const { data: o, error: e } = await supabase.from('orders').select('*').eq('id', orderId).single();
       if (e || !o) return res.status(404).json({ error: "Order not found" });
 
-      const { data: p } = await supabase.from('profiles').select('*').eq('id', o.buyer_id || o.customer_id).single();
+      const { data: p } = await supabase.from('profiles').select('*').eq('id', o.user_id || o.buyer_id || o.customer_id).single();
       
       const { data: items } = await supabase.from('order_items').select('*').eq('order_id', orderId);
 

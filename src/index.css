@@ -101,11 +101,11 @@ html, body {
     --ring: #C65A28;
     --radius: 1rem;
     
-    --chart-1: oklch(0.6 0.1 20);
-    --chart-2: oklch(0.6 0.1 200);
-    --chart-3: oklch(0.6 0.1 100);
-    --chart-4: oklch(0.6 0.1 300);
-    --chart-5: oklch(0.6 0.1 40);
+    --chart-1: #e76e50;
+    --chart-2: #2a9d8f;
+    --chart-3: #e9c46a;
+    --chart-4: #f4a261;
+    --chart-5: #e76f51;
     
     --sidebar: #FFFDF8;
     --sidebar-foreground: #3A2418;

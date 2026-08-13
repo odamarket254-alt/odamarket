@@ -12,6 +12,7 @@ export interface WhatsAppOrderData {
   created_at: string;
   customer_name: string;
   customer_phone: string;
+  customer_email?: string;
   items: OrderItem[];
   subtotal: number;
   delivery_fee: number;
@@ -22,6 +23,7 @@ export interface WhatsAppOrderData {
   delivery_location: string;
   delivery_address: string;
   status: string;
+  transaction_id?: string;
 }
 
 export const generateWhatsAppMessage = (order: WhatsAppOrderData): string => {
@@ -44,17 +46,20 @@ export const generateWhatsAppMessage = (order: WhatsAppOrderData): string => {
 
   const displayStatus = statusMap[order.status.toLowerCase()] || `🟠 ${order.status}`;
 
-  return `🛒 ODAMARKET | NEW PAID ORDER\n
-━━━━━━━━━━━━━━━━━━\n
+  return `🛒 ODAMARKET | NEW PAID ORDER
+━━━━━━━━━━━━━━━━━━
 Order ${order.order_number}
-${formattedDate}\n
-CUSTOMER\n
+${formattedDate}
+
+CUSTOMER
 ${order.customer_name}
-${order.customer_phone}\n
-ORDER ITEMS\n
-${itemsList}\n
-━━━━━━━━━━━━━━━━━━\n
-ORDER SUMMARY\n
+${order.customer_phone}
+
+ORDER ITEMS
+${itemsList}
+
+━━━━━━━━━━━━━━━━━━
+ORDER SUMMARY
 Subtotal: KSh ${order.subtotal.toLocaleString()}
 Delivery: KSh ${order.delivery_fee.toLocaleString()}
 Discount: KSh ${order.discount.toLocaleString()}
@@ -62,17 +67,17 @@ Discount: KSh ${order.discount.toLocaleString()}
 TOTAL: KSh ${order.grand_total.toLocaleString()}
 
 PAYMENT
-
 Method: ${order.payment_method}
 Status: ${order.payment_status} ✅
 
 DELIVERY
-
 Location: ${order.delivery_location}
-Address: ${order.delivery_address}\n
-ORDER STATUS\n
-${displayStatus}\n
-━━━━━━━━━━━━━━━━━━\n
+Address: ${order.delivery_address}
+
+ORDER STATUS
+${displayStatus}
+
+━━━━━━━━━━━━━━━━━━
 OdaMarket
 Quality. Value. Convenience.`;
 };

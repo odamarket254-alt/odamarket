@@ -10,7 +10,7 @@ import { useCartStore } from "../store/useCartStore";
 import { useAuthStore } from "../store/useAuthStore";
 import { OrderReceipt } from "../components/receipt/OrderReceipt";
 import { generateWhatsAppMessage, getWhatsAppUrl, WhatsAppOrderData } from "../lib/whatsapp";
-import html2canvas from "html2canvas";
+import { toPng, toBlob } from "html-to-image";
 import { 
   Download,
   MessageCircle,
@@ -41,6 +41,7 @@ export default function CheckoutPage() {
   const userPhone = profile?.phone || user?.phone || user?.user_metadata?.phone || "+254 700 000000";
 
   const [coupon, setCoupon] = useState("");
+  const [isGeneratingWA, setIsGeneratingWA] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [confirmedOrder, setConfirmedOrder] = useState<any>(null);
@@ -174,6 +175,7 @@ export default function CheckoutPage() {
     // Attempt to parse notes for delivery info
     let location = "Nairobi";
     let address = "Nairobi, Kenya";
+    let orderNumberFromNotes = "";
     try {
       if (order.notes) {
         const parsed = JSON.parse(order.notes);
@@ -181,25 +183,28 @@ export default function CheckoutPage() {
           location = parsed.shippingDetails.location || location;
           address = parsed.shippingDetails.fullAddress || address;
         }
+        if (parsed.orderNumber) {
+           orderNumberFromNotes = parsed.orderNumber;
+        }
       }
     } catch(e){}
 
     return {
-      order_number: order.order_number,
+      order_number: order.order_number || orderNumberFromNotes || order.id.split('-')[0],
       created_at: order.created_at,
       customer_name: profile?.full_name || "Customer",
       customer_phone: profile?.phone || "+254 700 000000",
       customer_email: profile?.email || "",
       items: items.map((i: any) => ({
-        product_name: i.product_name,
-        quantity: i.quantity,
-        unit_price: i.unit_price,
-        total_price: i.total_price
+        product_name: i.product_name || 'Product',
+        quantity: i.quantity || 1,
+        unit_price: i.unit_price || 0,
+        total_price: i.total_price || 0
       })),
-      subtotal: order.subtotal,
+      subtotal: order.subtotal || 0,
       delivery_fee: order.shipping_fee || order.delivery_fee || 0,
       discount: order.discount || order.discount_amount || 0,
-      grand_total: order.grand_total || order.total_amount || order.total || order.subtotal,
+      grand_total: order.grand_total || order.total_amount || order.total || order.subtotal || 0,
       payment_method: "M-Pesa",
       payment_status: "PAID",
       delivery_location: location,
@@ -213,8 +218,7 @@ export default function CheckoutPage() {
     const el = document.getElementById('receipt-element');
     if (!el) return;
     try {
-      const canvas = await html2canvas(el, { scale: 2, useCORS: true });
-      const url = canvas.toDataURL('image/png');
+      const url = await toPng(el, { pixelRatio: 2 });
       const a = document.createElement('a');
       a.href = url;
       a.download = `Receipt-${confirmedOrder?.order?.order_number || 'Order'}.png`;
@@ -229,8 +233,8 @@ export default function CheckoutPage() {
     const el = document.getElementById('receipt-element');
     if (!el) return;
     try {
-      const canvas = await html2canvas(el, { scale: 2, useCORS: true });
-      canvas.toBlob(async (blob) => {
+      const blob = await toBlob(el, { pixelRatio: 2 });
+      if (blob) (async (blob) => {
         if (!blob) return;
         const file = new File([blob], `Receipt-${confirmedOrder?.order?.order_number || 'Order'}.png`, { type: 'image/png' });
         if (navigator.share) {
@@ -242,19 +246,38 @@ export default function CheckoutPage() {
         } else {
           toast.error("Native sharing not supported on this device. Please download instead.");
         }
-      });
+      })(blob);
     } catch(e) {
       console.error(e);
     }
   };
 
-  const handleWhatsApp = () => {
-    const data = getReceiptData();
-    if (!data) return;
-    const msg = generateWhatsAppMessage(data);
-    const url = getWhatsAppUrl(msg);
-    window.open(url, '_blank');
+  
+  const handleWhatsAppImage = async () => {
+    setIsGeneratingWA(true);
+    try {
+      const el = document.getElementById('receipt-element');
+      if (!el) return;
+      const url = await toPng(el, { pixelRatio: 2 });
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `OdaMarket-Receipt-${confirmedOrder?.order?.order_number || 'Order'}.png`;
+      a.click();
+
+      toast.success("Receipt downloaded! Opening WhatsApp...", { duration: 3000 });
+      
+      setTimeout(() => {
+        const text = encodeURIComponent(`Hello OdaMarket, I have just paid for order ${confirmedOrder?.order?.order_number || 'Order'}. I will attach the receipt image I just downloaded.`);
+        window.open(`https://wa.me/254740909652?text=${text}`, '_blank');
+      }, 1500);
+    } catch(e) {
+      console.error(e);
+      toast.error("Failed to generate receipt image");
+    } finally {
+      setIsGeneratingWA(false);
+    }
   };
+
 
   if (isSuccess) {
     const receiptData = getReceiptData();
@@ -288,12 +311,20 @@ export default function CheckoutPage() {
 
             {receiptData && (
               <div className="space-y-4">
+                
                 <button 
-                  onClick={handleWhatsApp}
-                  className="w-full h-[56px] bg-[#25D366] text-white rounded-[16px] font-bold text-[16px] hover:bg-[#1DA851] transition-colors flex items-center justify-center gap-2"
+                  onClick={handleWhatsAppImage}
+                  disabled={isGeneratingWA}
+                  className="w-full h-[56px] bg-[#25D366] text-white rounded-[16px] font-bold text-[16px] hover:bg-[#1DA851] transition-colors flex items-center justify-center gap-2 disabled:opacity-70"
                 >
-                  <MessageCircle className="w-5 h-5" /> Send Order via WhatsApp
+                  {isGeneratingWA ? (
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <MessageCircle className="w-5 h-5" />
+                  )}
+                  {isGeneratingWA ? "Preparing Receipt..." : "Send Receipt to WhatsApp"}
                 </button>
+
                 
                 <div className="flex gap-3">
                   <button 

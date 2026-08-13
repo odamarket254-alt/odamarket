@@ -3,12 +3,14 @@ import { supabase } from '../../lib/supabase';
 import { 
   Search, Filter, MoreVertical, Eye, Download, Printer, 
   CheckCircle, Clock, XCircle, Truck, Inbox, Calendar as CalendarIcon,
-  ChevronDown
+  ChevronDown, MessageCircle
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import { format } from 'date-fns';
 import { motion, AnimatePresence } from 'framer-motion';
+import { toast } from 'sonner';
+import { WhatsAppOrderData, generateWhatsAppMessage, getWhatsAppUrl } from '../../lib/whatsapp';
 
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);

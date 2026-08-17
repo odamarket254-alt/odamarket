@@ -4,6 +4,7 @@ import aiRoutes from "../routes/aiRoutes.js";
 import authRoutes from "../routes/authRoutes.js";
 import checkoutRoutes from "../routes/checkoutRoutes.js";
 import imageRoutes from "../routes/imageRoutes.js";
+import debugRoutes from "./debugRoutes.js";
 import rateLimit from "express-rate-limit";
 
 const app = express();
@@ -23,6 +24,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/checkout", checkoutRoutes);
 app.use("/api/image", imageRoutes);
 app.use("/api/ai", aiRoutes);
+app.use("/api/debug", debugRoutes);
 
 let gcsClient: Storage | null = null;
 function getGCS() {

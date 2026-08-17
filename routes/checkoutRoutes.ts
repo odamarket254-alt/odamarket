@@ -14,8 +14,8 @@ router.post("/", async (req, res) => {
     }
     const token = authHeader.replace("Bearer ", "");
 
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseUrl = (process.env.SUPABASE_URL || "").trim().replace(/^["']|["']$/g, "");
+    const supabaseServiceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim().replace(/^["']|["']$/g, "");
 
     if (!supabaseUrl || !supabaseServiceKey) {
       return res.status(500).json({ error: "Supabase configuration missing on server" });
@@ -123,8 +123,8 @@ router.post("/verify", async (req, res) => {
       return res.status(400).json({ error: "Missing orderId" });
     }
 
-    const supabaseUrl = process.env.SUPABASE_URL;
-    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const supabaseUrl = (process.env.SUPABASE_URL || "").trim().replace(/^["']|["']$/g, "");
+    const supabaseServiceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim().replace(/^["']|["']$/g, "");
 
     if (!supabaseUrl || !supabaseServiceKey) {
       return res.status(500).json({ error: "Supabase configuration missing on server" });

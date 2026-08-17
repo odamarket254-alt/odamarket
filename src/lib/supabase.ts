@@ -4,10 +4,9 @@ import { createClient } from "@supabase/supabase-js";
 // Because this is a preview environment, we fallback to dummy values if not provided,
 // but acknowledge that the app won't fully function without REAL keys.
 const supabaseUrl =
-  import.meta.env.VITE_SUPABASE_URL ||
-  "https://placeholder-project.supabase.co";
+  (import.meta.env.VITE_SUPABASE_URL || "https://placeholder-project.supabase.co").trim().replace(/^["']|["']$/g, '');
 const supabaseAnonKey =
-  import.meta.env.VITE_SUPABASE_ANON_KEY || "placeholder-anon-key";
+  (import.meta.env.VITE_SUPABASE_ANON_KEY || "placeholder-anon-key").trim().replace(/^["']|["']$/g, '');
 
 if (!import.meta.env.VITE_SUPABASE_URL) {
   console.warn(
@@ -44,8 +43,8 @@ const safeStorage = {
 
 const customFetch = async (url, init) => {
   const urlStr = url.toString();
-  if (urlStr.includes("placeholder-project.supabase.co")) {
-    console.warn("Mocking Supabase fetch because VITE_SUPABASE_URL is missing.");
+  if (urlStr.includes("placeholder-project.supabase.co") || supabaseAnonKey === "placeholder-anon-key") {
+    console.warn("Mocking Supabase fetch because VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY is missing.");
     if (urlStr.includes('/auth/v1')) {
       return new Response(JSON.stringify({ user: null, session: null }), {
         status: 200,

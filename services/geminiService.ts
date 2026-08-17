@@ -1,8 +1,8 @@
 import { GoogleGenAI, Type, FunctionDeclaration } from "@google/genai";
 import { createClient } from "@supabase/supabase-js";
 
-const supabaseUrl = process.env.SUPABASE_URL || "https://placeholder-project.supabase.co";
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || "placeholder-service-key";
+const supabaseUrl = (process.env.SUPABASE_URL || "https://placeholder-project.supabase.co").trim().replace(/^["']|["']$/g, '');
+const supabaseKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "placeholder-service-key").trim().replace(/^["']|["']$/g, '');
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 let aiClient: GoogleGenAI | null = null;

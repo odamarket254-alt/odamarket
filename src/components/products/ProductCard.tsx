@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { Heart, Star, ShoppingCart, Eye, ArrowRightLeft } from "lucide-react";
+import { Heart, Star, Plus } from "lucide-react";
 import { useCartStore } from "../../store/useCartStore";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
@@ -39,96 +39,102 @@ export const ProductCard = ({ product, index, viewMode = "grid" }: { product: an
   const reviews = product.reviews_count || Math.floor(Math.random() * 200) + 10;
   
   const categoryName = product.category?.name || product.categories?.name || "Uncategorized";
-  const stock = product.stock || product.stock || Math.floor(Math.random() * 50) + 1;
+  // Attempt to extract a weight/size from the product name (e.g. 500g, 1kg) or default to empty
+  const sizeMatch = product.name?.match(/(\d+(?:\.\d+)?\s*(?:g|kg|ml|l|oz|lb|pcs|pack))/i);
+  const variantText = sizeMatch ? sizeMatch[1] : (product.unit || "1 pc");
+
   const isList = viewMode === "list";
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 20 }}
+      initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: (index || 0) * 0.05 }}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       className={cn(
-        "group relative bg-[#FFFDF8] border border-[#E8DCC9] rounded-[20px] sm:rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:border-transparent flex",
-        isList ? "flex-row h-48" : "flex-col h-full"
+        "group relative bg-white border border-[#F2EDE4] rounded-[14px] overflow-hidden transition-all duration-300 hover:shadow-[0_8px_24px_rgba(149,139,125,0.08)] hover:border-[#E8DCC9] flex",
+        isList ? "flex-row h-[160px]" : "flex-col h-full"
       )}
     >
-      {/* Discount Badge */}
-      <div className="absolute top-3 left-3 z-20">
-        <span className="bg-[#C65A28] text-white text-[11px] font-bold px-2.5 py-1 rounded-md shadow-sm">
-          -20%
-        </span>
-      </div>
-
-      {/* Image Container */}
-      <div className={cn("relative bg-[#FAF5EC] overflow-hidden flex items-center justify-center p-4 sm:p-6", isList ? "w-48 shrink-0" : "w-full aspect-[4/3]")}>
-        <OptimizedImage src={product.image_url || "https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&q=80"} alt={product.name} imgClassName="w-full h-full object-contain mix-blend-multiply transform group-hover:scale-110 transition-transform duration-500" className="w-full h-full" />
-
-        {/* Action Buttons Overlay */}
-        <div 
-          className={cn(
-            "absolute inset-0 bg-black/5 flex flex-col justify-center items-center gap-2 transition-all duration-300 z-10",
-            isList ? "opacity-0" : isHovered ? "opacity-100" : "opacity-0"
-          )}
-        >
-           <div className={`flex gap-2 transform transition-transform duration-300 ${isHovered ? 'translate-y-0' : 'translate-y-4'}`}>
-             <button
-               onClick={handleWishlist}
-               className="w-12 h-12 sm:w-10 sm:h-10 rounded-full bg-[#FFFDF8] flex items-center justify-center text-[#3A2418]/60 hover:text-[#B94A48] hover:bg-[#B94A48]/10 shadow-md transition-colors"
-             >
-               <Heart className={cn("w-5 h-5", isWishlisted && "fill-[#B94A48] text-[#B94A48]")} />
-             </button>
-             <button
-               className="w-12 h-12 sm:w-10 sm:h-10 rounded-full bg-[#FFFDF8] flex items-center justify-center text-[#3A2418]/60 hover:text-[#C65A28] hover:bg-[#C65A28]/10 shadow-md transition-colors"
-             >
-               <Eye className="w-5 h-5" />
-             </button>
-           </div>
+      {/* Image Area */}
+      <div className={cn(
+        "relative bg-white flex items-center justify-center p-5 z-0",
+        isList ? "w-[140px] shrink-0" : "w-full aspect-[5/4]"
+      )}>
+        {/* Discount Badge */}
+        <div className="absolute top-2.5 left-2.5 z-20">
+          <span className="bg-[#B94A48] text-white text-[10px] font-bold px-1.5 py-0.5 rounded shadow-sm tracking-wide leading-none">
+            -20%
+          </span>
         </div>
-      </div>
+        
+        {/* Wishlist Icon */}
+        <button 
+          onClick={handleWishlist} 
+          className="absolute top-2.5 right-2.5 z-20 text-[#958B7D]/60 hover:text-[#B94A48] transition-colors"
+        >
+          <Heart className={cn("w-4 h-4", isWishlisted && "fill-[#B94A48] text-[#B94A48]")} />
+        </button>
 
-      {/* Content */}
-      <div className="p-3 sm:p-4 flex flex-col flex-1 relative bg-[#FFFDF8] z-20">
-        <Link to={`/products/${product.id}`} className="block flex-1">
-          <p className="text-xs font-semibold text-[#3A2418]/40 uppercase tracking-wider mb-1">
-            {categoryName}
-          </p>
-          <h3 className="font-semibold text-[#3A2418] text-sm sm:text-base leading-tight mb-2 group-hover:text-[#C65A28] transition-colors line-clamp-2">
-            {product.name}
-          </h3>
-          
-          <div className="flex items-center gap-1 mb-3">
-            <div className="flex text-[#D9A62E]">
-              <Star className="w-3.5 h-3.5 fill-current" />
-              <Star className="w-3.5 h-3.5 fill-current" />
-              <Star className="w-3.5 h-3.5 fill-current" />
-              <Star className="w-3.5 h-3.5 fill-current" />
-              <Star className="w-3.5 h-3.5 fill-current" />
-            </div>
-            <span className="text-xs text-[#3A2418]/60">({reviews})</span>
-          </div>
-          
-          {/* Stock Indicator */}
-          <div className="mb-3">
-             <div className="flex items-center gap-1.5">
-               <div className={cn("w-2 h-2 rounded-full", stock > 10 ? "bg-green-500" : "bg-[#D9A62E]")}></div>
-               <span className="text-xs text-[#3A2418]/60 font-medium">{stock > 10 ? 'In Stock' : `Only ${stock} left`}</span>
-             </div>
-          </div>
+        <Link to={`/products/${product.id}`} className="block w-full h-full relative">
+          <OptimizedImage 
+            src={product.image_url || "https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&q=80"} 
+            alt={product.name} 
+            imgClassName="w-full h-full object-contain mix-blend-multiply group-hover:scale-105 transition-transform duration-500" 
+            className="w-full h-full" 
+          />
         </Link>
         
-        <div className="flex items-center justify-between mt-auto pt-4 border-t border-[#E8DCC9]">
-          <div className="flex flex-col">
-            <span className="text-xs text-[#3A2418]/40 line-through">KSh {oldPrice.toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
-            <span className="text-base sm:text-lg lg:text-xl font-bold text-[#C65A28] leading-none">KSh {regularPrice.toLocaleString('en-US', {minimumFractionDigits: 2})}</span>
-          </div>
-          <button
-            onClick={handleAdd}
-            className="w-10 h-10 sm:w-12 sm:h-12 rounded-full bg-gradient-to-r from-[#C65A28] to-[#D9A62E] text-white hover:shadow-lg hover:scale-110 flex items-center justify-center transition-all duration-300 shadow-[0_4px_10px_rgba(198,90,40,0.3)]"
+        {/* Circular Add to Cart Button (Overlapping) */}
+        {!isList && (
+          <button 
+            onClick={handleAdd} 
+            className={cn(
+              "absolute -bottom-4 right-4 w-[34px] h-[34px] rounded-full bg-[#C65A28] text-white flex items-center justify-center transition-all duration-300 shadow-[0_4px_12px_rgba(198,90,40,0.25)] hover:scale-110 hover:bg-[#B94A48] z-30",
+              isHovered ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 lg:opacity-100 lg:translate-y-0"
+            )}
           >
-            <ShoppingCart className="w-5 h-5" />
+            <Plus className="w-4 h-4 stroke-[2.5px]" />
           </button>
+        )}
+      </div>
+
+      {/* Info Area */}
+      <div className={cn("flex flex-col flex-1 bg-white relative z-10", isList ? "p-3" : "px-3.5 pb-3.5 pt-4")}>
+        <div className="flex items-center gap-1 mb-1">
+          <Star className="w-[11px] h-[11px] fill-[#D9A62E] text-[#D9A62E]" />
+          <span className="text-[10px] font-semibold text-[#5F5A54] leading-none">{rating} <span className="text-[#958B7D] font-normal">({reviews})</span></span>
+        </div>
+        
+        <Link to={`/products/${product.id}`} className="block mb-0.5 mt-0.5">
+          <h3 className="font-semibold text-[#3A2418] text-[13px] leading-[1.3] line-clamp-2 group-hover:text-[#C65A28] transition-colors">
+            {product.name}
+          </h3>
+        </Link>
+        
+        <p className="text-[10px] font-medium text-[#958B7D] uppercase tracking-wider mb-2">
+          {variantText}
+        </p>
+        
+        <div className="mt-auto flex items-end justify-between">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-[10px] text-[#958B7D] line-through decoration-[#958B7D]/40 leading-none">
+              KSh {oldPrice.toLocaleString('en-US', {minimumFractionDigits: 0})}
+            </span>
+            <span className="text-[15px] font-bold text-[#C65A28] leading-none">
+              KSh {regularPrice.toLocaleString('en-US', {minimumFractionDigits: 0})}
+            </span>
+          </div>
+          
+          {isList && (
+            <button 
+              onClick={handleAdd} 
+              className="w-8 h-8 rounded-full bg-[#C65A28] text-white flex items-center justify-center hover:scale-105 transition-transform"
+            >
+              <Plus className="w-4 h-4 stroke-[2.5px]" />
+            </button>
+          )}
         </div>
       </div>
     </motion.div>

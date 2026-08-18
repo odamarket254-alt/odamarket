@@ -118,9 +118,26 @@ export default router;
 
 router.post("/verify", async (req, res) => {
   try {
-    const { orderId } = req.body;
+    const { orderId, reference } = req.body;
     if (!orderId) {
       return res.status(400).json({ error: "Missing orderId" });
+    }
+
+    if (reference) {
+      const paystackSecret = (process.env.PAYSTACK_SECRET_KEY || "").trim().replace(/^["']|["']$/g, "");
+      if (paystackSecret) {
+        const verifyRes = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
+          headers: {
+            "Authorization": `Bearer ${paystackSecret}`
+          }
+        });
+        const verifyData = await verifyRes.json();
+        if (!verifyData.status || verifyData.data.status !== "success") {
+          return res.status(400).json({ error: "Payment verification failed with Paystack" });
+        }
+      } else {
+        console.warn("Paystack secret key missing, skipping actual verification for preview environment.");
+      }
     }
 
     const supabaseUrl = (process.env.SUPABASE_URL || "").trim().replace(/^["']|["']$/g, "");

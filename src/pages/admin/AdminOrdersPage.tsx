@@ -48,21 +48,33 @@ export default function AdminOrdersPage() {
         
       let location = "Nairobi";
       let address = "Nairobi, Kenya";
+      let parsedContact: any = null;
+      let parsedShipping: any = null;
+
       try {
         if (order.notes) {
           const parsed = JSON.parse(order.notes);
           if (parsed.shippingDetails) {
-            location = parsed.shippingDetails.location || location;
-            address = parsed.shippingDetails.fullAddress || address;
+            parsedShipping = parsed.shippingDetails;
+            location = parsedShipping.location || location;
+            address = parsedShipping.fullAddress || address;
+          }
+          if (parsed.contactDetails) {
+            parsedContact = parsed.contactDetails;
           }
         }
       } catch(e){}
+      
+      const cName = parsedContact?.fullName || parsedShipping?.recipientName || `${order.profiles?.first_name || ''} ${order.profiles?.last_name || ''}`.trim() || order.profiles?.full_name || "Name unavailable";
+      const cPhone = parsedContact?.userPhone || parsedShipping?.recipientPhone || order.profiles?.phone || "Phone unavailable";
+      const cEmail = parsedContact?.userEmail || order.profiles?.email || "Email unavailable";
 
       const whatsappData: WhatsAppOrderData = {
         order_number: order.order_number || order.id.slice(0,8).toUpperCase(),
         created_at: order.created_at,
-        customer_name: `${order.profiles?.first_name || ''} ${order.profiles?.last_name || ''}`.trim() || "Customer",
-        customer_phone: order.profiles?.phone || "+254 700 000000",
+        customer_name: cName,
+        customer_phone: cPhone,
+        customer_email: cEmail,
         items: (items || []).map((i: any) => ({
           product_name: i.product_name || "Product",
           quantity: i.quantity,
@@ -95,7 +107,7 @@ export default function AdminOrdersPage() {
       
       let query = supabase
         .from('orders')
-        .select('*, profiles:user_id(first_name, last_name, email)', { count: 'exact' });
+        .select('*, profiles:user_id(first_name, last_name, email, phone)', { count: 'exact' });
 
       // Search by order ID is possible, but ilike on UUID might fail. Let's just filter by status for now if UUID is complex, or let search handle it.
       if (search) {
@@ -282,7 +294,21 @@ export default function AdminOrdersPage() {
                   </td>
                 </tr>
               ) : (
-                orders.map((order) => (
+                orders.map((order) => {
+                  let parsedContact: any = null;
+                  let parsedShipping: any = null;
+                  try {
+                    if (order.notes) {
+                      const parsed = JSON.parse(order.notes);
+                      if (parsed.shippingDetails) parsedShipping = parsed.shippingDetails;
+                      if (parsed.contactDetails) parsedContact = parsed.contactDetails;
+                    }
+                  } catch(e) {}
+                  
+                  const cName = parsedContact?.fullName || parsedShipping?.recipientName || `${order.profiles?.first_name || ''} ${order.profiles?.last_name || ''}`.trim() || order.profiles?.full_name || "Name unavailable";
+                  const cEmail = parsedContact?.userEmail || order.profiles?.email || "Email unavailable";
+                  
+                  return (
                   <tr key={order.id} className={cn("hover:bg-[#FAF5EC] transition-colors group", selectedIds.includes(order.id) && "bg-[#F3F6F4]/50")}>
                     <td className="py-3 px-4 text-center">
                       <input 
@@ -302,8 +328,8 @@ export default function AdminOrdersPage() {
                     </td>
                     <td className="py-3 px-4">
                       <div className="flex flex-col">
-                        <span className="text-sm font-medium text-[#3A2418]">{order.profiles?.first_name || 'Guest'}</span>
-                        <span className="text-xs text-[#5F5A54]">{order.profiles?.email}</span>
+                        <span className="text-sm font-medium text-[#3A2418]">{cName}</span>
+                        <span className="text-xs text-[#5F5A54]">{cEmail}</span>
                       </div>
                     </td>
                     <td className="py-3 px-4">
@@ -333,7 +359,8 @@ export default function AdminOrdersPage() {
                       </div>
                     </td>
                   </tr>
-                ))
+                  );
+                })
               )}
             </tbody>
           </table>

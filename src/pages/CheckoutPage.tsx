@@ -36,9 +36,9 @@ export default function CheckoutPage() {
   const { user, profile } = useAuthStore();
   const navigate = useNavigate();
 
-  const fullName = user?.user_metadata?.full_name || user?.user_metadata?.first_name || "Customer Name";
-  const userEmail = user?.email || "customer@example.com";
-  const userPhone = profile?.phone || user?.phone || user?.user_metadata?.phone || "+254 700 000000";
+  const fullName = user?.user_metadata?.full_name || user?.user_metadata?.first_name || "";
+  const userEmail = user?.email || "";
+  const userPhone = profile?.phone || user?.phone || user?.user_metadata?.phone || "";
 
   const [coupon, setCoupon] = useState("");
   const [isGeneratingWA, setIsGeneratingWA] = useState(false);
@@ -82,15 +82,15 @@ export default function CheckoutPage() {
   useEffect(() => {
     setShippingDetails(prev => ({
       ...prev,
-      recipientName: prev.recipientName === "Customer Name" ? (user?.user_metadata?.full_name || user?.user_metadata?.first_name || "Customer Name") : prev.recipientName,
-      recipientPhone: prev.recipientPhone === "+254 700 000000" ? (profile?.phone || user?.phone || user?.user_metadata?.phone || "+254 700 000000") : prev.recipientPhone
+      recipientName: !prev.recipientName ? (user?.user_metadata?.full_name || user?.user_metadata?.first_name || "") : prev.recipientName,
+      recipientPhone: !prev.recipientPhone ? (profile?.phone || user?.phone || user?.user_metadata?.phone || "") : prev.recipientPhone
     }));
     
     setContactDetails(prev => ({
       ...prev,
-      fullName: prev.fullName === "Customer Name" ? (user?.user_metadata?.full_name || user?.user_metadata?.first_name || "Customer Name") : prev.fullName,
-      userPhone: prev.userPhone === "+254 700 000000" ? (profile?.phone || user?.phone || user?.user_metadata?.phone || "+254 700 000000") : prev.userPhone,
-      userEmail: prev.userEmail === "customer@example.com" ? (user?.email || "customer@example.com") : prev.userEmail
+      fullName: !prev.fullName ? (user?.user_metadata?.full_name || user?.user_metadata?.first_name || "") : prev.fullName,
+      userPhone: !prev.userPhone ? (profile?.phone || user?.phone || user?.user_metadata?.phone || "") : prev.userPhone,
+      userEmail: !prev.userEmail ? (user?.email || "") : prev.userEmail
     }));
   }, [user, profile]);
 
@@ -214,12 +214,19 @@ export default function CheckoutPage() {
     let location = "Nairobi";
     let address = "Nairobi, Kenya";
     let orderNumberFromNotes = "";
+    let parsedContact: any = null;
+    let parsedShipping: any = null;
+    
     try {
       if (order.notes) {
         const parsed = JSON.parse(order.notes);
         if (parsed.shippingDetails) {
-          location = parsed.shippingDetails.location || location;
-          address = parsed.shippingDetails.fullAddress || address;
+          parsedShipping = parsed.shippingDetails;
+          location = parsedShipping.location || location;
+          address = parsedShipping.fullAddress || address;
+        }
+        if (parsed.contactDetails) {
+          parsedContact = parsed.contactDetails;
         }
         if (parsed.orderNumber) {
            orderNumberFromNotes = parsed.orderNumber;
@@ -227,12 +234,16 @@ export default function CheckoutPage() {
       }
     } catch(e){}
 
+    const cName = parsedContact?.fullName || parsedShipping?.recipientName || (profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : '') || profile?.full_name || "Name unavailable";
+    const cPhone = parsedContact?.userPhone || parsedShipping?.recipientPhone || profile?.phone || "Phone unavailable";
+    const cEmail = parsedContact?.userEmail || profile?.email || "Email unavailable";
+
     return {
       order_number: order.order_number || orderNumberFromNotes || order.id.split('-')[0],
       created_at: order.created_at,
-      customer_name: profile?.full_name || "Customer",
-      customer_phone: profile?.phone || "+254 700 000000",
-      customer_email: profile?.email || "",
+      customer_name: cName,
+      customer_phone: cPhone,
+      customer_email: cEmail,
       items: items.map((i: any) => ({
         product_name: i.product_name || 'Product',
         quantity: i.quantity || 1,

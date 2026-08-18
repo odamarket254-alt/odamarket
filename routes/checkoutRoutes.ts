@@ -6,7 +6,7 @@ const router = Router();
 
 router.post("/", async (req, res) => {
   try {
-    const { items, shippingDetails, paymentMethod } = req.body;
+    const { items, shippingDetails, contactDetails, paymentMethod } = req.body;
     
     // Auth token check
     const authHeader = req.headers.authorization;
@@ -72,7 +72,7 @@ router.post("/", async (req, res) => {
         status: 'pending',
         subtotal: totalAmount,
         total: totalAmount,
-        notes: JSON.stringify({ shippingDetails, paymentMethod, orderNumber })
+        notes: JSON.stringify({ shippingDetails, contactDetails, paymentMethod, orderNumber })
       })
       .select()
       .single();

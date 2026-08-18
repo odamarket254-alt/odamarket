@@ -32,8 +32,8 @@ export default function CartPage() {
   const { user, profile } = useAuthStore();
   const navigate = useNavigate();
 
-  const fullName = user?.user_metadata?.full_name || user?.user_metadata?.first_name || "Customer";
-  const userPhone = profile?.phone || user?.phone || user?.user_metadata?.phone || "+254 700 000000";
+  const fullName = user?.user_metadata?.full_name || user?.user_metadata?.first_name || "";
+  const userPhone = profile?.phone || user?.phone || user?.user_metadata?.phone || "";
 
   const [coupon, setCoupon] = useState("");
   const [showAuthModal, setShowAuthModal] = useState(false);

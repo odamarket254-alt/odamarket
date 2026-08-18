@@ -18,21 +18,25 @@ export function formatPhone(phone: string): string {
 
 export async function sendSMS(phone: string, message: string): Promise<SMSResult> {
   const formattedPhone = formatPhone(phone);
+  
+  const apiKey = (process.env.AFRICASTALKING_API_KEY || '').trim().replace(/^["']|["']$/g, '');
+  const username = (process.env.AFRICASTALKING_USERNAME || '').trim().replace(/^["']|["']$/g, '');
+  const senderId = (process.env.AFRICASTALKING_SENDER_ID || '').trim().replace(/^["']|["']$/g, '');
 
   const credentials = {
-    apiKey: process.env.AFRICASTALKING_API_KEY || 'sandbox_key',
-    username: process.env.AFRICASTALKING_USERNAME || 'sandbox'
+    apiKey: apiKey || 'sandbox_key',
+    username: username || 'sandbox'
   };
 
   const africastalking = AfricasTalking(credentials);
   const sms = africastalking.SMS;
 
   try {
-    if (process.env.AFRICASTALKING_API_KEY && process.env.AFRICASTALKING_USERNAME) {
+    if (apiKey && username) {
       const response = await sms.send({
         to: [formattedPhone],
         message: message,
-        from: process.env.AFRICASTALKING_SENDER_ID || undefined
+        from: senderId || undefined
       });
       
       console.log(`[AFRICAS TALKING] SMS sent to ${formattedPhone}`);
@@ -53,7 +57,7 @@ export async function sendSMS(phone: string, message: string): Promise<SMSResult
       
       if (hasError) {
         console.error(`[AFRICAS TALKING] SMS to ${formattedPhone} resulted in status: ${errorMsg}`);
-        return { success: false, error: errorMsg };
+        return { success: false, error: `Africa's Talking API returned status: ${errorMsg}` };
       }
       
       return { success: true, messageId };
@@ -62,8 +66,9 @@ export async function sendSMS(phone: string, message: string): Promise<SMSResult
       return { success: true, messageId: 'simulated_id' };
     }
   } catch (error: any) {
-    console.error(`[AFRICAS TALKING] ❌ Failed to send SMS to ${formattedPhone}:`, error?.message || error);
-    return { success: false, error: error?.message || 'Unknown error' };
+    const errorDetails = error?.response?.data || error?.message || error;
+    console.error(`[AFRICAS TALKING] ❌ Failed to send SMS to ${formattedPhone}:`, errorDetails);
+    return { success: false, error: `Africa's Talking API Error: ${error?.message || 'Unknown'}` };
   }
 }
 

@@ -142,7 +142,7 @@ export default function RegisterPage() {
       } catch (e) {
         throw new Error("Server returned an invalid response. Please try again.");
       }
-      if (!res.ok) throw new Error(resData?.error || "Failed to create account.");
+      if (!res.ok) throw new Error(resData?.details ? `${resData.error} (${resData.details})` : (resData?.error || "Failed to create account."));
       
       setCreatedUserId(resData.userId);
       toast.success("Verification code sent via SMS!");
@@ -204,7 +204,7 @@ export default function RegisterPage() {
       } catch (e) {
         throw new Error("Server returned an invalid response. Please try again.");
       }
-      if (!otpRes.ok) throw new Error(otpData?.error || "Failed to send OTP");
+      if (!otpRes.ok) throw new Error(otpData?.details ? `${otpData.error} (${otpData.details})` : (otpData?.error || "Failed to send OTP"));
 
       toast.success("A new verification code has been sent!");
       setCountdown(60);

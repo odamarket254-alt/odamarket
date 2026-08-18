@@ -99,7 +99,7 @@ router.post('/register-step1', async (req, res) => {
     const smsResult = await sendOTP(formattedPhone, otp);
     if (!smsResult.success) {
       console.error('Failed to send OTP SMS:', smsResult.error);
-      return res.status(500).json({ error: 'Failed to send OTP via SMS. Please try again.' });
+      return res.status(500).json({ error: 'Failed to send OTP via SMS. Please try again.', details: smsResult.error });
     }
 
     res.status(200).json({ success: true, userId: userId });
@@ -170,7 +170,7 @@ router.post('/send-otp', async (req, res) => {
     const smsResult = await sendOTP(formattedPhone, otp);
     if (!smsResult.success) {
       console.error('Failed to send OTP SMS:', smsResult.error);
-      return res.status(500).json({ error: 'Failed to send OTP via SMS. Please try again.' });
+      return res.status(500).json({ error: 'Failed to send OTP via SMS. Please try again.', details: smsResult.error });
     }
 
     res.status(200).json({ success: true, message: 'OTP sent successfully' });

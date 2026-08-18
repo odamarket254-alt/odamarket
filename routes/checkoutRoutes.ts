@@ -23,8 +23,8 @@ router.post("/", async (req, res) => {
     }
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
 
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     if (userError || !user) {
       return res.status(401).json({ error: "Invalid or expired token" });
     }
@@ -52,8 +52,8 @@ router.post("/", async (req, res) => {
       if (product.is_wholesale && item.quantity >= (product.wholesale_min_qty || 1)) {
         price = product.wholesale_price || price;
       }
-      totalAmount += price * item.quantity;
 
+      totalAmount += price * item.quantity;
       orderItems.push({
         product_id: product.id,
         product_name: product.name || 'Unknown Product',
@@ -89,7 +89,6 @@ router.post("/", async (req, res) => {
 
     if (itemsError) {
       console.error("Order items error:", itemsError);
-      // In a real app we might want to rollback the order here, but for now we'll proceed
     }
 
     // 4. Update product stock
@@ -108,42 +107,12 @@ router.post("/", async (req, res) => {
       }
     }
 
-    // 5. Send Order SMS
-    try {
-      const customerName = contactDetails?.fullName || shippingDetails?.recipientName || user.user_metadata?.first_name || 'Customer';
-      const phone = contactDetails?.userPhone || shippingDetails?.recipientPhone || user.phone || user.user_metadata?.phone;
-      
-      if (phone) {
-        const smsResult = await sendOrderSMS(phone, customerName, orderNumber, totalAmount);
-        
-        // Update order notes with SMS status
-        const currentNotes = JSON.parse(orderData.notes || '{}');
-        const updatedNotes = {
-          ...currentNotes,
-          sms_status: smsResult.success ? 'sent' : 'failed',
-          sms_message_id: smsResult.messageId || null,
-          sms_error: smsResult.error || null,
-          sms_sent_at: new Date().toISOString()
-        };
-        
-        await supabase
-          .from('orders')
-          .update({ notes: JSON.stringify(updatedNotes) })
-          .eq('id', orderData.id);
-      }
-    } catch (smsError) {
-      console.error("Order SMS error:", smsError);
-      // Ensure failure does not rollback the order
-    }
-
     res.status(200).json({ success: true, orderId: orderData.id });
   } catch (error: any) {
     console.error("Checkout route error:", error);
     res.status(500).json({ error: error.message || "Internal server error" });
   }
 });
-
-export default router;
 
 router.post("/verify", async (req, res) => {
   try {
@@ -179,6 +148,9 @@ router.post("/verify", async (req, res) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Get order
+    let finalOrder = null;
+    let finalProfile = null;
+
     const { data: order, error: orderErr } = await supabase
       .from('orders')
       .select('*, profiles!orders_customer_id_fkey(full_name, phone, email)')
@@ -186,39 +158,62 @@ router.post("/verify", async (req, res) => {
       .single();
 
     if (orderErr || !order) {
-      // It might be a different foreign key relation name or no relation, let's just fetch profiles safely
+      // Fallback
       const { data: o, error: e } = await supabase.from('orders').select('*').eq('id', orderId).single();
       if (e || !o) return res.status(404).json({ error: "Order not found" });
-
       const { data: p } = await supabase.from('profiles').select('*').eq('id', o.user_id || o.buyer_id || o.customer_id).single();
-      
-      const { data: items } = await supabase.from('order_items').select('*').eq('order_id', orderId);
-
-      // Update to paid (processing)
-      await supabase.from('orders').update({ status: 'processing' }).eq('id', orderId);
-
-      return res.status(200).json({
-        success: true,
-        order: o,
-        profile: p,
-        items: items || []
-      });
+      finalOrder = o;
+      finalProfile = p;
+    } else {
+      finalOrder = order;
+      finalProfile = order.profiles;
     }
 
     const { data: items } = await supabase.from('order_items').select('*').eq('order_id', orderId);
 
-    // Update to paid
+    // Update to paid (processing)
     await supabase.from('orders').update({ status: 'processing' }).eq('id', orderId);
+
+    // 5. Send Order Confirmation SMS (Idempotent)
+    try {
+      const currentNotes = finalOrder.notes ? (typeof finalOrder.notes === 'string' ? JSON.parse(finalOrder.notes) : finalOrder.notes) : {};
+      
+      if (currentNotes.sms_status !== 'sent') {
+        const customerName = currentNotes.contactDetails?.fullName || currentNotes.shippingDetails?.recipientName || finalProfile?.full_name || 'Customer';
+        const phone = currentNotes.contactDetails?.userPhone || currentNotes.shippingDetails?.recipientPhone || finalProfile?.phone;
+        const orderNumber = currentNotes.orderNumber || finalOrder.id;
+
+        if (phone) {
+          const smsResult = await sendOrderSMS(phone, customerName, orderNumber, finalOrder.total);
+          
+          const updatedNotes = {
+            ...currentNotes,
+            sms_status: smsResult.success ? 'sent' : 'failed',
+            sms_message_id: smsResult.messageId || null,
+            sms_error: smsResult.error || null,
+            sms_sent_at: new Date().toISOString()
+          };
+          
+          await supabase
+            .from('orders')
+            .update({ notes: JSON.stringify(updatedNotes) })
+            .eq('id', orderId);
+        }
+      }
+    } catch (smsError) {
+      console.error("Order SMS error during verification:", smsError);
+    }
 
     return res.status(200).json({
       success: true,
-      order: order,
-      profile: order.profiles,
+      order: finalOrder,
+      profile: finalProfile,
       items: items || []
     });
-
   } catch (err: any) {
     console.error("Verification error:", err);
     res.status(500).json({ error: err.message || "Internal server error" });
   }
 });
+
+export default router;

@@ -78,7 +78,10 @@ export async function sendOTP(phone: string, otp: string): Promise<SMSResult> {
 }
 
 export async function sendOrderSMS(phone: string, customerName: string, orderNumber: string, totalAmount: number): Promise<SMSResult> {
-  const message = `Hi ${customerName}, your OdaMarket order #${orderNumber} has been received successfully. Total: KES ${totalAmount.toLocaleString()}. We will notify you when your order is confirmed. Thank you for shopping with OdaMarket.`;
+  // Use exact format requested: "Hello John, your ODA Market order #ODA-10245 has been received successfully. We are processing your order. Thank you for shopping with ODA Market."
+  const firstName = customerName.split(' ')[0] || 'Customer';
+  const displayOrderNumber = orderNumber.startsWith('ORD-') ? orderNumber : `ODA-${orderNumber}`;
+  const message = `Hello ${firstName}, your ODA Market order #${displayOrderNumber} has been received successfully. We are processing your order. Thank you for shopping with ODA Market.`;
   return sendSMS(phone, message);
 }
 

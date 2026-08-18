@@ -78,7 +78,7 @@ export async function sendOTP(phone: string, otp: string): Promise<SMSResult> {
 }
 
 export async function sendOrderSMS(phone: string, customerName: string, orderNumber: string, totalAmount: number): Promise<SMSResult> {
-  const message = `Hi ${customerName}, your OdaMarket order #${orderNumber} has been received. Total: KES ${totalAmount.toLocaleString()}. We will notify you when your order is confirmed.`;
+  const message = `Hi ${customerName}, your OdaMarket order #${orderNumber} has been received successfully. Total: KES ${totalAmount.toLocaleString()}. We will notify you when your order is confirmed. Thank you for shopping with OdaMarket.`;
   return sendSMS(phone, message);
 }
 

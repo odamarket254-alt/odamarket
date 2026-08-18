@@ -110,8 +110,8 @@ router.post("/", async (req, res) => {
 
     // 5. Send Order SMS
     try {
-      const customerName = shippingDetails?.recipientName || user.user_metadata?.first_name || 'Customer';
-      const phone = shippingDetails?.recipientPhone || user.phone || user.user_metadata?.phone;
+      const customerName = contactDetails?.fullName || shippingDetails?.recipientName || user.user_metadata?.first_name || 'Customer';
+      const phone = contactDetails?.userPhone || shippingDetails?.recipientPhone || user.phone || user.user_metadata?.phone;
       
       if (phone) {
         const smsResult = await sendOrderSMS(phone, customerName, orderNumber, totalAmount);

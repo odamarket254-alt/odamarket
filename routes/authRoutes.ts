@@ -1,6 +1,6 @@
 import express from 'express';
 import crypto from 'crypto';
-import { africastalking } from '../src/lib/africastalking.js';
+import { sendOTP, formatPhone } from '../src/lib/sms.js';
 import { createClient } from '@supabase/supabase-js';
 
 const router = express.Router();
@@ -12,34 +12,6 @@ const supabaseAdmin = createClient(
 
 const requestLimits = new Map<string, number>();
 
-async function sendSmsAsyncWithRetry(phone: string, message: string, retries = 3) {
-  (async () => {
-    const sms = africastalking.SMS;
-    for (let attempt = 1; attempt <= retries; attempt++) {
-      try {
-        if (process.env.AFRICASTALKING_API_KEY) {
-          await sms.send({
-            to: [phone],
-            message: message,
-            from: process.env.AFRICASTALKING_SENDER_ID || undefined
-          });
-          console.log(`[AFRICAS TALKING] 📱 Successfully sent SMS to ${phone} on attempt ${attempt}`);
-        } else {
-          console.log(`\n[AFRICAS TALKING (Simulated)] 📱 To: ${phone} | Message: ${message}\n`);
-        }
-        break; 
-      } catch (error: any) {
-        console.error(`[AFRICAS TALKING] ❌ Failed to send SMS to ${phone} on attempt ${attempt}:`, error?.message || error);
-        if (attempt < retries) {
-          await new Promise(resolve => setTimeout(resolve, 2000 * attempt));
-        } else {
-          console.error(`[AFRICAS TALKING] 🚨 All ${retries} attempts failed for ${phone}`);
-        }
-      }
-    }
-  })();
-}
-
 function hashOtp(otp: string) {
   return crypto.createHash('sha256').update(otp).digest('hex');
 }
@@ -47,12 +19,7 @@ function hashOtp(otp: string) {
 router.post('/register-step1', async (req, res) => {
   try {
     const { accountData } = req.body;
-    let formattedPhone = accountData.phone ? accountData.phone.trim().replace(/[\s\-()]/g, '') : '';
-    if (formattedPhone.startsWith('0')) {
-      formattedPhone = '+254' + formattedPhone.substring(1);
-    } else if (!formattedPhone.startsWith('+')) {
-      formattedPhone = '+' + formattedPhone;
-    }
+    const formattedPhone = formatPhone(accountData.phone);
 
     let userId;
     if (accountData.email) {
@@ -129,7 +96,11 @@ router.post('/register-step1', async (req, res) => {
       return res.status(500).json({ error: 'Failed to create account due to database error.' });
     }
 
-    sendSmsAsyncWithRetry(formattedPhone, `ODA Market Verification Code\n\nYour verification code is: ${otp}\n\nThis code expires in 5 minutes.\n\nDo not share this code with anyone.`);
+    const smsResult = await sendOTP(formattedPhone, otp);
+    if (!smsResult.success) {
+      console.error('Failed to send OTP SMS:', smsResult.error);
+      return res.status(500).json({ error: 'Failed to send OTP via SMS. Please try again.' });
+    }
 
     res.status(200).json({ success: true, userId: userId });
   } catch (error) {
@@ -141,12 +112,7 @@ router.post('/register-step1', async (req, res) => {
 router.post('/check-user', async (req, res) => {
   try {
     const { email, phone } = req.body;
-    let formattedPhone = phone ? phone.trim().replace(/[\s\-()]/g, '') : '';
-    if (formattedPhone.startsWith('0')) {
-      formattedPhone = '+254' + formattedPhone.substring(1);
-    } else if (!formattedPhone.startsWith('+')) {
-      formattedPhone = '+' + formattedPhone;
-    }
+    const formattedPhone = formatPhone(phone);
 
     if (email) {
       const { data: byEmail } = await supabaseAdmin.from('profiles').select('id').eq('email', email).maybeSingle();
@@ -172,12 +138,7 @@ router.post('/send-otp', async (req, res) => {
       return res.status(400).json({ error: 'Phone number is required' });
     }
 
-    let formattedPhone = phone ? phone.trim().replace(/[\s\-()]/g, '') : '';
-    if (formattedPhone.startsWith('0')) {
-      formattedPhone = '+254' + formattedPhone.substring(1);
-    } else if (!formattedPhone.startsWith('+')) {
-      formattedPhone = '+' + formattedPhone;
-    }
+    const formattedPhone = formatPhone(phone);
 
     const now = Date.now();
     const lastRequest = requestLimits.get(formattedPhone);
@@ -206,7 +167,11 @@ router.post('/send-otp', async (req, res) => {
 
     requestLimits.set(formattedPhone, now);
 
-    sendSmsAsyncWithRetry(formattedPhone, `ODA Market Verification Code\n\nYour verification code is: ${otp}\n\nThis code expires in 5 minutes.\n\nDo not share this code with anyone.`);
+    const smsResult = await sendOTP(formattedPhone, otp);
+    if (!smsResult.success) {
+      console.error('Failed to send OTP SMS:', smsResult.error);
+      return res.status(500).json({ error: 'Failed to send OTP via SMS. Please try again.' });
+    }
 
     res.status(200).json({ success: true, message: 'OTP sent successfully' });
   } catch (error) {
@@ -223,12 +188,7 @@ router.post('/verify-otp', async (req, res) => {
       return res.status(400).json({ error: 'Phone and OTP are required' });
     }
 
-    let formattedPhone = phone ? phone.trim().replace(/[\s\-()]/g, '') : '';
-    if (formattedPhone.startsWith('0')) {
-      formattedPhone = '+254' + formattedPhone.substring(1);
-    } else if (!formattedPhone.startsWith('+')) {
-      formattedPhone = '+' + formattedPhone;
-    }
+    const formattedPhone = formatPhone(phone);
 
     const { data: record, error: fetchError } = await supabaseAdmin
       .from('phone_verifications')

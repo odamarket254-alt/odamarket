@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { createClient } from "@supabase/supabase-js";
+import { sendOrderSMS } from "../src/lib/sms.js";
 
 const router = Router();
 
@@ -105,6 +106,34 @@ router.post("/", async (req, res) => {
           .update({ stock: product.stock - item.quantity })
           .eq('id', item.product_id);
       }
+    }
+
+    // 5. Send Order SMS
+    try {
+      const customerName = shippingDetails?.recipientName || user.user_metadata?.first_name || 'Customer';
+      const phone = shippingDetails?.recipientPhone || user.phone || user.user_metadata?.phone;
+      
+      if (phone) {
+        const smsResult = await sendOrderSMS(phone, customerName, orderNumber, totalAmount);
+        
+        // Update order notes with SMS status
+        const currentNotes = JSON.parse(orderData.notes || '{}');
+        const updatedNotes = {
+          ...currentNotes,
+          sms_status: smsResult.success ? 'sent' : 'failed',
+          sms_message_id: smsResult.messageId || null,
+          sms_error: smsResult.error || null,
+          sms_sent_at: new Date().toISOString()
+        };
+        
+        await supabase
+          .from('orders')
+          .update({ notes: JSON.stringify(updatedNotes) })
+          .eq('id', orderData.id);
+      }
+    } catch (smsError) {
+      console.error("Order SMS error:", smsError);
+      // Ensure failure does not rollback the order
     }
 
     res.status(200).json({ success: true, orderId: orderData.id });

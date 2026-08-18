@@ -41,7 +41,6 @@ export default function CheckoutPage() {
   const userPhone = profile?.phone || user?.phone || user?.user_metadata?.phone || "+254 700 000000";
 
   const [coupon, setCoupon] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<'M-Pesa' | 'Paystack'>('M-Pesa');
   const [isGeneratingWA, setIsGeneratingWA] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
@@ -132,7 +131,7 @@ export default function CheckoutPage() {
           })),
           shippingDetails: shippingDetails,
           contactDetails: contactDetails,
-          paymentMethod: paymentMethod
+          paymentMethod: 'M-Pesa'
         })
       });
 
@@ -165,41 +164,34 @@ export default function CheckoutPage() {
         clearCart();
       };
 
-      if (paymentMethod === 'Paystack') {
-        const paystackKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || "pk_test_placeholder";
-        
-        if (paystackKey === "pk_test_placeholder") {
-          console.warn("Using placeholder Paystack key. Payment will fail in production.");
-        }
-
-        if (typeof (window as any).PaystackPop === "undefined") {
-           toast.error("Payment gateway is still loading. Please try again in a moment.");
-           setIsProcessing(false);
-           return;
-        }
-
-        const handler = (window as any).PaystackPop.setup({
-          key: paystackKey,
-          email: contactDetails.userEmail || "customer@example.com",
-          amount: Math.round(cartTotal * 100), // in cents/kobo
-          currency: 'KES', // adjust to your currency
-          ref: `ord_${data.orderId}_${Math.floor((Math.random() * 1000000000) + 1)}`,
-          onClose: function(){
-            toast.error("Payment window closed.");
-            setIsProcessing(false);
-          },
-          callback: function(response: any){
-            verifyAndComplete(response.reference);
-          }
-        });
-        handler.openIframe();
-      } else {
-        // Simulate M-Pesa delay
-        setLoadingText("Finalizing order...");
-        setTimeout(() => {
-          verifyAndComplete();
-        }, 2000);
+      const paystackKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || "pk_test_placeholder";
+      
+      if (paystackKey === "pk_test_placeholder") {
+        console.warn("Using placeholder Paystack key. Payment will fail in production.");
       }
+
+      if (typeof (window as any).PaystackPop === "undefined") {
+          toast.error("Payment gateway is still loading. Please try again in a moment.");
+          setIsProcessing(false);
+          return;
+      }
+
+      const handler = (window as any).PaystackPop.setup({
+        key: paystackKey,
+        email: contactDetails.userEmail || "customer@example.com",
+        amount: Math.round(cartTotal * 100), // in cents/kobo
+        currency: 'KES', // adjust to your currency
+        channels: ['mobile_money'], // Force M-Pesa/Mobile Money only
+        ref: `ord_${data.orderId}_${Math.floor((Math.random() * 1000000000) + 1)}`,
+        onClose: function(){
+          toast.error("Payment window closed.");
+          setIsProcessing(false);
+        },
+        callback: function(response: any){
+          verifyAndComplete(response.reference);
+        }
+      });
+      handler.openIframe();
       
     } catch (err: any) {
       console.error(err);
@@ -251,7 +243,7 @@ export default function CheckoutPage() {
       delivery_fee: order.shipping_fee || order.delivery_fee || 0,
       discount: order.discount || order.discount_amount || 0,
       grand_total: order.grand_total || order.total_amount || order.total || order.subtotal || 0,
-      payment_method: paymentMethod,
+      payment_method: 'M-Pesa',
       payment_status: "PAID",
       delivery_location: location,
       delivery_address: address,
@@ -663,60 +655,30 @@ export default function CheckoutPage() {
             <div className="bg-[#FFFDF8] rounded-[20px] shadow-sm border border-[#E5E7EB] p-6 md:p-8">
               <h2 className="text-[slate-900] font-bold text-[20px] mb-6">4. Payment Method</h2>
               
-              {/* Payment Methods Grid */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-                
-                {/* M-Pesa Card */}
-                <div 
-                  onClick={() => setPaymentMethod('M-Pesa')}
-                  className={`border-2 rounded-[16px] p-6 relative cursor-pointer overflow-hidden transition-all duration-300 ${paymentMethod === 'M-Pesa' ? 'border-[#C65A28] bg-[#ECFDF5]' : 'border-[#E5E7EB] bg-[#FFFDF8] hover:border-[#C65A28]/50'}`}
-                >
-                  {paymentMethod === 'M-Pesa' && (
-                    <div className="absolute top-0 right-0 bg-[#C65A28] text-white px-3 py-1 rounded-bl-[12px] font-bold text-[12px] flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3" /> Selected
-                    </div>
-                  )}
+              {/* Payment Methods */}
+              <div className="mb-6">
+                {/* Premium M-Pesa Card */}
+                <div className="border-2 border-[#C65A28] bg-[#ECFDF5] rounded-[16px] p-6 relative cursor-pointer overflow-hidden">
+                  <div className="absolute top-0 right-0 bg-[#C65A28] text-white px-3 py-1 rounded-bl-[12px] font-bold text-[12px] flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" /> Selected
+                  </div>
                   <div className="flex items-center gap-4">
                     <div className="w-14 h-14 bg-white rounded-[12px] shadow-sm flex items-center justify-center shrink-0">
-                      <Smartphone className={`w-8 h-8 ${paymentMethod === 'M-Pesa' ? 'text-[#C65A28]' : 'text-gray-400'}`} />
+                      <Smartphone className="w-8 h-8 text-[#C65A28]" />
                     </div>
                     <div>
                       <h3 className="text-[slate-900] font-bold text-[18px]">M-Pesa</h3>
-                      <p className="text-[slate-900]/70 text-[13px] leading-tight mt-1">Pay with Safaricom M-Pesa</p>
+                      <p className="text-[slate-900]/70 text-[13px] leading-tight mt-1">Pay securely with Safaricom M-Pesa</p>
                     </div>
                   </div>
                 </div>
-
-                {/* Paystack Card */}
-                <div 
-                  onClick={() => setPaymentMethod('Paystack')}
-                  className={`border-2 rounded-[16px] p-6 relative cursor-pointer overflow-hidden transition-all duration-300 ${paymentMethod === 'Paystack' ? 'border-[#C65A28] bg-[#ECFDF5]' : 'border-[#E5E7EB] bg-[#FFFDF8] hover:border-[#C65A28]/50'}`}
-                >
-                  {paymentMethod === 'Paystack' && (
-                    <div className="absolute top-0 right-0 bg-[#C65A28] text-white px-3 py-1 rounded-bl-[12px] font-bold text-[12px] flex items-center gap-1">
-                      <CheckCircle2 className="w-3 h-3" /> Selected
-                    </div>
-                  )}
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 bg-white rounded-[12px] shadow-sm flex items-center justify-center shrink-0">
-                      <CreditCard className={`w-8 h-8 ${paymentMethod === 'Paystack' ? 'text-[#C65A28]' : 'text-gray-400'}`} />
-                    </div>
-                    <div>
-                      <h3 className="text-[slate-900] font-bold text-[18px]">Paystack</h3>
-                      <p className="text-[slate-900]/70 text-[13px] leading-tight mt-1">Pay with Card or Bank Transfer</p>
-                    </div>
-                  </div>
-                </div>
-
               </div>
 
               {/* Blue Info Box */}
               <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-[12px] p-4 flex items-start gap-3">
                 <Info className="w-5 h-5 text-[#3B82F6] shrink-0 mt-0.5" />
                 <p className="text-[#1E3A8A] text-[14px] leading-relaxed">
-                  {paymentMethod === 'M-Pesa' 
-                    ? "You will receive an M-Pesa STK Push notification on your phone after placing the order. Please enter your M-Pesa PIN to complete the transaction."
-                    : "You will be securely redirected to Paystack to complete your payment using Card, Bank Transfer, or USSD."}
+                  You will receive an M-Pesa STK Push notification on your phone after placing the order. Please enter your M-Pesa PIN to complete the transaction.
                 </p>
               </div>
             </div>
@@ -736,7 +698,7 @@ export default function CheckoutPage() {
               disabled={items.length === 0}
               className="w-full h-[64px] bg-[#C65A28] hover:bg-[#C65A28] text-white rounded-[16px] font-bold text-[20px] flex items-center justify-center gap-3 transition-colors shadow-lg shadow-[#C65A28]/20 hover:scale-[1.01] transform duration-300 disabled:opacity-70 disabled:hover:scale-100"
             >
-              <Lock className="w-6 h-6" /> Place Order with {paymentMethod}
+              <Lock className="w-6 h-6" /> Place Order with M-Pesa
             </button>
 
           </div>

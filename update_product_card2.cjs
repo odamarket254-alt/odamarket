@@ -1,4 +1,7 @@
-import { Link } from "react-router-dom";
+const fs = require('fs');
+const file = 'src/components/products/ProductCard.tsx';
+
+let content = `import { Link } from "react-router-dom";
 import { Plus } from "lucide-react";
 import { useCartStore } from "../../store/useCartStore";
 import { toast } from "sonner";
@@ -25,7 +28,7 @@ export const ProductCard = ({ product, index, viewMode = "grid" }: { product: an
   const [whole, fraction] = regularPrice.toFixed(2).split('.');
   
   // Attempt to extract a weight/size from the product name (e.g. 500g, 1kg) or default to empty
-  const sizeMatch = product.name?.match(/(\d+(?:\.\d+)?\s*(?:g|kg|ml|l|oz|lb|pcs|pack))/i);
+  const sizeMatch = product.name?.match(/(\\d+(?:\\.\\d+)?\\s*(?:g|kg|ml|l|oz|lb|pcs|pack))/i);
   const variantText = sizeMatch ? sizeMatch[1] : (product.unit || "1 pc");
 
   const isList = viewMode === "list";
@@ -43,7 +46,7 @@ export const ProductCard = ({ product, index, viewMode = "grid" }: { product: an
           "relative bg-white border border-[#E5E7EB] rounded-[11px] flex items-center justify-center overflow-visible",
           isList ? "w-full h-full p-2" : "w-full aspect-[158/151] p-[8px]"
         )}>
-          <Link to={`/products/${product.id}`} className="block w-full h-full relative z-0">
+          <Link to={\`/products/\${product.id}\`} className="block w-full h-full relative z-0">
             <OptimizedImage 
               src={product.image_url || "https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&q=80"} 
               alt={product.name} 
@@ -56,7 +59,7 @@ export const ProductCard = ({ product, index, viewMode = "grid" }: { product: an
           {!isList && (
             <button 
               onClick={handleAdd} 
-              className="absolute bottom-[6px] right-[6px] w-[30px] h-[30px] rounded-full bg-[#C65A28] text-white flex items-center justify-center border-[1.5px] border-white shadow-sm hover:scale-105 active:scale-95 transition-transform z-10"
+              className="absolute bottom-[6px] right-[6px] w-[30px] h-[30px] rounded-full bg-blue-600 text-white flex items-center justify-center border-[1.5px] border-white shadow-sm hover:scale-105 active:scale-95 transition-transform z-10"
               aria-label="Add to cart"
             >
               <Plus className="w-[18px] h-[18px] stroke-[2.5px]" />
@@ -67,7 +70,7 @@ export const ProductCard = ({ product, index, viewMode = "grid" }: { product: an
 
       {/* Info Area */}
       <div className={cn("flex flex-col text-left flex-1", isList ? "p-3" : "py-1")}>
-        <Link to={`/products/${product.id}`} className="block">
+        <Link to={\`/products/\${product.id}\`} className="block">
           <h3 className="text-[#111827] text-[15px] font-medium leading-[18px] line-clamp-2 hover:text-[#C65A28] transition-colors min-h-[36px]">
             {product.name}
           </h3>
@@ -94,7 +97,7 @@ export const ProductCard = ({ product, index, viewMode = "grid" }: { product: an
         {isList && (
           <button 
             onClick={handleAdd} 
-            className="mt-auto self-end w-[32px] h-[32px] rounded-full bg-[#C65A28] text-white flex items-center justify-center border-[1.5px] border-white shadow-sm hover:scale-105 active:scale-95 transition-transform"
+            className="mt-auto self-end w-[32px] h-[32px] rounded-full bg-blue-600 text-white flex items-center justify-center border-[1.5px] border-white shadow-sm hover:scale-105 active:scale-95 transition-transform"
             aria-label="Add to cart"
           >
             <Plus className="w-[18px] h-[18px] stroke-[2.5px]" />
@@ -104,3 +107,5 @@ export const ProductCard = ({ product, index, viewMode = "grid" }: { product: an
     </div>
   );
 };
+`;
+fs.writeFileSync(file, content);

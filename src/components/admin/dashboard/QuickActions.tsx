@@ -5,7 +5,7 @@ import { Plus, Package, Image, Tag, Users, LayoutDashboard, Truck, Settings } fr
 export default function QuickActions() {
   const actions = [
     { title: 'Add Product', icon: Package, link: '/admin/dashboard/products/new', color: 'bg-[#C65A28]/10 text-[#C65A28] hover:bg-[#C65A28] hover:text-white' },
-    { title: 'Create Category', icon: Tag, link: '/admin/dashboard/categories', color: 'bg-blue-100 text-[#C65A28] hover:bg-blue-600 hover:text-white' },
+    { title: 'Create Category', icon: Tag, link: '/admin/dashboard/categories', color: 'bg-[#C65A28]/10 text-[#C65A28] hover:bg-[#C65A28] hover:text-white' },
     { title: 'Manage Banners', icon: Image, link: '/admin/dashboard/storefront', color: 'bg-purple-100 text-[#6B8E23] hover:bg-purple-600 hover:text-white' },
     { title: 'Add Supplier', icon: Truck, link: '/admin/dashboard/customers', color: 'bg-orange-100 text-[#C65A28] hover:bg-orange-600 hover:text-white' },
     { title: 'View Orders', icon: Plus, link: '/admin/dashboard/orders', color: 'bg-[#E8DCC9] text-[#C65A28] hover:bg-[#C65A28] hover:text-white' },

@@ -59,20 +59,12 @@ export const WholesaleSection = () => {
             View All <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
-
-        {/* Mobile Grid (2 cols) */}
-        <div className="grid grid-cols-2 gap-3 sm:gap-4 md:hidden">
-          {products.map(product => (
-             <WholesaleProductCard key={product.id} product={product} />
-          ))}
-        </div>
-        
-        {/* Desktop Carousel */}
-        <div className="hidden md:flex overflow-x-auto pb-6 -mx-4 px-4 snap-x snap-mandatory gap-4 lg:gap-6 hide-scrollbar">
+        {/* Horizontal Carousel (All Devices) */}
+        <div className="flex overflow-x-auto pb-6 -mx-4 px-4 snap-x snap-mandatory gap-3 sm:gap-4 lg:gap-6 scrollbar-hide">
           {products.map(product => (
             <div 
               key={product.id} 
-              className="snap-start shrink-0 w-[260px] lg:w-[280px]"
+              className="snap-start shrink-0 w-[calc(50vw-22px)] sm:w-[260px] lg:w-[280px]"
             >
               <WholesaleProductCard product={product} />
             </div>

@@ -59,8 +59,8 @@ export const ProductCard = ({ product, index, viewMode = "grid" }: { product: an
     >
       {/* Image Area */}
       <div className={cn(
-        "relative bg-white flex items-center justify-center p-5 z-0",
-        isList ? "w-[140px] shrink-0" : "w-full aspect-[5/4]"
+        "relative bg-white flex items-center justify-center p-4 z-0 shrink-0",
+        isList ? "w-[140px]" : "w-full h-[150px] sm:h-[180px]"
       )}>
         {/* Discount Badge */}
         <div className="absolute top-2.5 left-2.5 z-20">
@@ -85,23 +85,10 @@ export const ProductCard = ({ product, index, viewMode = "grid" }: { product: an
             className="w-full h-full" 
           />
         </Link>
-        
-        {/* Circular Add to Cart Button (Overlapping) */}
-        {!isList && (
-          <button 
-            onClick={handleAdd} 
-            className={cn(
-              "absolute -bottom-4 right-4 w-[34px] h-[34px] rounded-full bg-[#C65A28] text-white flex items-center justify-center transition-all duration-300 shadow-[0_4px_12px_rgba(198,90,40,0.25)] hover:scale-110 hover:bg-[#B94A48] z-30",
-              isHovered ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2 lg:opacity-100 lg:translate-y-0"
-            )}
-          >
-            <Plus className="w-4 h-4 stroke-[2.5px]" />
-          </button>
-        )}
       </div>
 
       {/* Info Area */}
-      <div className={cn("flex flex-col flex-1 bg-white relative z-10", isList ? "p-3" : "px-3.5 pb-3.5 pt-4")}>
+      <div className={cn("flex flex-col flex-1 bg-white relative z-10", isList ? "p-3" : "px-3.5 pb-3.5 pt-3")}>
         <div className="flex items-center gap-1 mb-1">
           <Star className="w-[11px] h-[11px] fill-[#D9A62E] text-[#D9A62E]" />
           <span className="text-[10px] font-semibold text-[#5F5A54] leading-none">{rating} <span className="text-[#958B7D] font-normal">({reviews})</span></span>
@@ -127,14 +114,13 @@ export const ProductCard = ({ product, index, viewMode = "grid" }: { product: an
             </span>
           </div>
           
-          {isList && (
-            <button 
-              onClick={handleAdd} 
-              className="w-8 h-8 rounded-full bg-[#C65A28] text-white flex items-center justify-center hover:scale-105 transition-transform"
-            >
-              <Plus className="w-4 h-4 stroke-[2.5px]" />
-            </button>
-          )}
+          <button 
+            onClick={handleAdd} 
+            className="w-8 h-8 shrink-0 rounded-full bg-[#C65A28] text-white flex items-center justify-center hover:scale-105 hover:bg-[#B94A48] transition-all shadow-[0_4px_12px_rgba(198,90,40,0.15)]"
+            aria-label="Add to cart"
+          >
+            <Plus className="w-4 h-4 stroke-[2.5px]" />
+          </button>
         </div>
       </div>
     </motion.div>

@@ -181,23 +181,10 @@ router.post("/verify", async (req, res) => {
       if (currentNotes.sms_status !== 'sent') {
         const customerName = currentNotes.contactDetails?.fullName || currentNotes.shippingDetails?.recipientName || finalProfile?.full_name || 'Customer';
         const phone = currentNotes.contactDetails?.userPhone || currentNotes.shippingDetails?.recipientPhone || finalProfile?.phone;
-        const orderNumber = currentNotes.orderNumber || finalOrder.id;
 
         if (phone) {
-          const smsResult = await sendOrderSMS(phone, customerName, orderNumber, finalOrder.total);
-          
-          const updatedNotes = {
-            ...currentNotes,
-            sms_status: smsResult.success ? 'sent' : 'failed',
-            sms_message_id: smsResult.messageId || null,
-            sms_error: smsResult.error || null,
-            sms_sent_at: new Date().toISOString()
-          };
-          
-          await supabase
-            .from('orders')
-            .update({ notes: JSON.stringify(updatedNotes) })
-            .eq('id', orderId);
+          // Send SMS using the newly refactored sendOrderSMS which handles its own DB logging!
+          await sendOrderSMS(orderId, phone, customerName, finalOrder.total);
         }
       }
     } catch (smsError) {

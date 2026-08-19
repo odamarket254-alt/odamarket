@@ -1,4 +1,5 @@
 import AfricasTalking from 'africastalking';
+import { createClient } from '@supabase/supabase-js';
 
 export interface SMSResult {
   success: boolean;
@@ -41,7 +42,6 @@ export async function sendSMS(phone: string, message: string): Promise<SMSResult
       
       console.log(`[AFRICAS TALKING] SMS sent to ${formattedPhone}`);
       
-      // Extract messageId from response if possible
       let messageId = undefined;
       let hasError = false;
       let errorMsg = '';
@@ -77,12 +77,59 @@ export async function sendOTP(phone: string, otp: string): Promise<SMSResult> {
   return sendSMS(phone, message);
 }
 
-export async function sendOrderSMS(phone: string, customerName: string, orderNumber: string, totalAmount: number): Promise<SMSResult> {
-  // Use exact format requested: "Hello John, your ODA Market order #ODA-10245 has been received successfully. We are processing your order. Thank you for shopping with ODA Market."
+export async function sendOrderSMS(orderId: string, phone: string, customerName: string, totalAmount: number): Promise<SMSResult> {
+  // Initialize Supabase to get order details and update status
+  const supabaseUrl = (process.env.SUPABASE_URL || "").trim().replace(/^["']|["']$/g, "");
+  const supabaseKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim().replace(/^["']|["']$/g, "");
+  
+  let orderNumber = orderId;
+  let currentNotes: any = {};
+  let supabase = null;
+
+  if (supabaseUrl && supabaseKey) {
+    supabase = createClient(supabaseUrl, supabaseKey);
+    try {
+      const { data: order } = await supabase.from('orders').select('notes').eq('id', orderId).single();
+      if (order && order.notes) {
+        currentNotes = typeof order.notes === 'string' ? JSON.parse(order.notes) : order.notes;
+        if (currentNotes.orderNumber) {
+          orderNumber = currentNotes.orderNumber;
+        }
+      }
+    } catch (e) {
+      console.error("Error fetching order notes for SMS:", e);
+    }
+  }
+
+  // Format message
   const firstName = customerName.split(' ')[0] || 'Customer';
-  const displayOrderNumber = orderNumber.startsWith('ORD-') ? orderNumber : `ODA-${orderNumber}`;
+  const displayOrderNumber = orderNumber.startsWith('ORD-') ? orderNumber : `ODA-${orderNumber.substring(0, 8).toUpperCase()}`;
   const message = `Hello ${firstName}, your ODA Market order #${displayOrderNumber} has been received successfully. We are processing your order. Thank you for shopping with ODA Market.`;
-  return sendSMS(phone, message);
+  
+  // Send SMS
+  const result = await sendSMS(phone, message);
+  
+  // Log status to database without exposing sensitive data
+  if (supabase) {
+    try {
+      const updatedNotes = {
+        ...currentNotes,
+        sms_status: result.success ? 'sent' : 'failed',
+        sms_message_id: result.messageId || null,
+        sms_error: result.error || null,
+        sms_sent_at: new Date().toISOString()
+      };
+      
+      await supabase
+        .from('orders')
+        .update({ notes: JSON.stringify(updatedNotes) })
+        .eq('id', orderId);
+    } catch (e) {
+      console.error("Error logging SMS status to database:", e);
+    }
+  }
+
+  return result;
 }
 
 export async function sendStatusNotification(phone: string, customerName: string, orderNumber: string, status: string): Promise<SMSResult> {

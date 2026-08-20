@@ -1,8 +1,16 @@
 const { createClient } = require('@supabase/supabase-js');
-require('dotenv').config();
-const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_SERVICE_ROLE_KEY || process.env.VITE_SUPABASE_ANON_KEY);
-async function run() {
-  const { data, error } = await supabase.rpc('execute_sql', { sql: 'SELECT 1;' });
-  console.log(error || data);
+const fs = require('fs');
+
+const env = fs.readFileSync('.env.example', 'utf-8');
+const supabaseUrl = env.match(/VITE_SUPABASE_URL=(.*)/)?.[1]?.replace(/^["']|["']$/g, '');
+const supabaseKey = env.match(/VITE_SUPABASE_ANON_KEY=(.*)/)?.[1]?.replace(/^["']|["']$/g, '');
+
+const supabase = createClient(supabaseUrl, supabaseKey);
+
+async function test() {
+  const { data, error } = await supabase.from('order_items').select('*').limit(1);
+  console.log("Error:", error);
+  console.log("Data:", data);
 }
-run();
+
+test();

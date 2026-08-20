@@ -6,6 +6,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { format } from 'date-fns';
+import { OrderDetailsModal } from '../../components/admin/orders/OrderDetailsModal';
 import { toast } from 'sonner';
 
 export default function AdminOrdersPage() {
@@ -13,14 +14,48 @@ export default function AdminOrdersPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [orderItems, setOrderItems] = useState<any[]>([]);
+  const [loadingItems, setLoadingItems] = useState(false);
 
   useEffect(() => {
     fetchOrders();
-
     
-
-    
+    // Realtime subscription for new orders
+    const subscription = supabase
+      .channel('public:orders')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, (payload) => {
+        toast.info('New order received: #' + payload.new.id.split('-')[0].toUpperCase());
+        fetchOrders();
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, (payload) => {
+        fetchOrders();
+      })
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(subscription);
+    };
   }, []);
+  
+  const handleViewOrder = async (order: any) => {
+    setSelectedOrder(order);
+    setLoadingItems(true);
+    try {
+      const { data, error } = await supabase
+        .from('order_items')
+        .select('*')
+        .eq('order_id', order.id);
+      
+      if (error && error.code !== '42P01') throw error;
+      setOrderItems(data || []);
+    } catch (err) {
+      console.error("Error fetching order items:", err);
+      toast.error("Failed to load ordered products");
+    } finally {
+      setLoadingItems(false);
+    }
+  };
 
   const fetchOrders = async () => {
     try {
@@ -182,7 +217,7 @@ export default function AdminOrdersPage() {
                       </td>
                       <td className="px-6 py-4 text-right">
                         <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button className="p-1.5 rounded-md hover:bg-[#E8DCC9] dark:hover:bg-slate-700 text-[#5F5A54] transition-colors" title="View Details">
+                          <button onClick={() => handleViewOrder(order)} className="p-1.5 rounded-md hover:bg-[#E8DCC9] dark:hover:bg-slate-700 text-[#5F5A54] transition-colors" title="View Details">
                             <Eye className="h-4 w-4" />
                           </button>
                           <button className="p-1.5 rounded-md hover:bg-[#E8DCC9] dark:hover:bg-slate-700 text-[#5F5A54] transition-colors" title="Print Invoice">
@@ -215,7 +250,15 @@ export default function AdminOrdersPage() {
             </tbody>
           </table>
         </div>
+          </div>
+        <OrderDetailsModal 
+          isOpen={!!selectedOrder} 
+          onClose={() => setSelectedOrder(null)} 
+          order={selectedOrder} 
+          orderItems={orderItems} 
+          loadingItems={loadingItems} 
+        />
       </div>
-    </div>
-  );
-}
+    );
+  }
+  

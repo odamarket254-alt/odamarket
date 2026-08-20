@@ -1,97 +1,85 @@
 const fs = require('fs');
+let code = fs.readFileSync('src/pages/dashboard/AdminOrdersPage.tsx', 'utf8');
 
-let content = fs.readFileSync('src/pages/admin/AdminOrdersPage.tsx', 'utf8');
-
-if (!content.includes('MessageCircle')) {
-  content = content.replace(
-    'import { Search, Filter, Calendar as CalendarIcon, Inbox, CheckCircle2, XCircle, Clock, Truck, MoreHorizontal, Eye, Printer } from "lucide-react";',
-    'import { Search, Filter, Calendar as CalendarIcon, Inbox, CheckCircle2, XCircle, Clock, Truck, MoreHorizontal, Eye, Printer, MessageCircle } from "lucide-react";\nimport { generateWhatsAppMessage, getWhatsAppUrl, WhatsAppOrderData } from "../../lib/whatsapp";\nimport { toast } from "sonner";'
-  );
-}
-
-const handleWhatsAppFunc = `
-  const handleWhatsApp = async (orderId: string) => {
-    try {
-      const { data: order, error } = await supabase
-        .from('orders')
-        .select('*, profiles:user_id(first_name, last_name, email, phone)')
-        .eq('id', orderId)
-        .single();
-        
-      if (error || !order) throw error;
-      
-      const { data: items, error: itemsErr } = await supabase
-        .from('order_items')
-        .select('*')
-        .eq('order_id', orderId);
-        
-      let location = "Nairobi";
-      let address = "Nairobi, Kenya";
-      try {
-        if (order.notes) {
-          const parsed = JSON.parse(order.notes);
-          if (parsed.shippingDetails) {
-            location = parsed.shippingDetails.location || location;
-            address = parsed.shippingDetails.fullAddress || address;
-          }
-        }
-      } catch(e){}
-
-      const whatsappData: WhatsAppOrderData = {
-        order_number: order.order_number || order.id.slice(0,8).toUpperCase(),
-        created_at: order.created_at,
-        customer_name: \`\${order.profiles?.first_name || ''} \${order.profiles?.last_name || ''}\`.trim() || "Customer",
-        customer_phone: order.profiles?.phone || "+254 700 000000",
-        items: (items || []).map((i: any) => ({
-          product_name: i.product_name || "Product",
-          quantity: i.quantity,
-          unit_price: i.unit_price,
-          total_price: i.total_price
-        })),
-        subtotal: order.subtotal || order.total,
-        delivery_fee: order.delivery_fee || 0,
-        discount: order.discount_amount || 0,
-        grand_total: order.total,
-        payment_method: "M-Pesa",
-        payment_status: "PAID",
-        delivery_location: location,
-        delivery_address: address,
-        status: order.status,
-      };
-
-      const msg = generateWhatsAppMessage(whatsappData);
-      const url = getWhatsAppUrl(msg);
-      window.open(url, '_blank');
-    } catch (error) {
-      console.error(error);
-      toast.error("Failed to generate WhatsApp message");
-    }
-  };
-`;
-
-if (!content.includes('const handleWhatsApp = async')) {
-  content = content.replace(
-    'const fetchOrders = async () => {',
-    handleWhatsAppFunc + '\n  const fetchOrders = async () => {'
-  );
-}
-
-const actionsBtnReplacement = `                         <Link to={\`/admin/dashboard/orders/\${order.id}\`} className="p-2 text-[#8B857D] hover:text-[#C65A28] hover:bg-[#E8DCC9] rounded-lg transition-colors" title="View details">
-                           <Eye className="w-4 h-4" />
-                         </Link>
-                         {(order.status === 'processing' || order.status === 'paid' || order.status === 'shipped' || order.status === 'delivered') && (
-                           <button onClick={() => handleWhatsApp(order.id)} className="p-2 text-[#8B857D] hover:text-[#25D366] hover:bg-[#25D366]/10 rounded-lg transition-colors" title="Send via WhatsApp">
-                             <MessageCircle className="w-4 h-4" />
-                           </button>
-                         )}
-                         <button className="p-2 text-[#8B857D] hover:text-[#5F5A54] hover:bg-[#E8DCC9] rounded-lg transition-colors" title="Print invoice">`;
-
-content = content.replace(
-  `                         <Link to={\`/admin/dashboard/orders/\${order.id}\`} className="p-2 text-[#8B857D] hover:text-[#C65A28] hover:bg-[#E8DCC9] rounded-lg transition-colors" title="View details">
-                           <Eye className="w-4 h-4" />
-                         </Link>
-                         <button className="p-2 text-[#8B857D] hover:text-[#5F5A54] hover:bg-[#E8DCC9] rounded-lg transition-colors" title="Print invoice">`,
-  actionsBtnReplacement
+// Imports
+code = code.replace(
+  /import \{ format \} from 'date-fns';/,
+  "import { format } from 'date-fns';\nimport { OrderDetailsModal } from '../../components/admin/orders/OrderDetailsModal';"
 );
 
-fs.writeFileSync('src/pages/admin/AdminOrdersPage.tsx', content);
+// State
+code = code.replace(
+  /const \[statusFilter, setStatusFilter\] = useState\('all'\);/,
+  `const [statusFilter, setStatusFilter] = useState('all');
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [orderItems, setOrderItems] = useState<any[]>([]);
+  const [loadingItems, setLoadingItems] = useState(false);`
+);
+
+// Realtime
+code = code.replace(
+  /useEffect\(\(\) => \{\s*fetchOrders\(\);\s*\}, \[\]\);/,
+  `useEffect(() => {
+    fetchOrders();
+    
+    // Realtime subscription for new orders
+    const subscription = supabase
+      .channel('public:orders')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, (payload) => {
+        toast.info('New order received: #' + payload.new.id.split('-')[0].toUpperCase());
+        fetchOrders();
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, (payload) => {
+        fetchOrders();
+      })
+      .subscribe();
+      
+    return () => {
+      supabase.removeChannel(subscription);
+    };
+  }, []);
+  
+  const handleViewOrder = async (order: any) => {
+    setSelectedOrder(order);
+    setLoadingItems(true);
+    try {
+      const { data, error } = await supabase
+        .from('order_items')
+        .select('*')
+        .eq('order_id', order.id);
+      
+      if (error && error.code !== '42P01') throw error;
+      setOrderItems(data || []);
+    } catch (err) {
+      console.error("Error fetching order items:", err);
+      toast.error("Failed to load ordered products");
+    } finally {
+      setLoadingItems(false);
+    }
+  };`
+);
+
+// Eye button onClick
+code = code.replace(
+  /<button className="p-1\.5 rounded-md hover:bg-\[#E8DCC9\] dark:hover:bg-slate-700 text-\[#5F5A54\] transition-colors" title="View Details">/g,
+  '<button onClick={() => handleViewOrder(order)} className="p-1.5 rounded-md hover:bg-[#E8DCC9] dark:hover:bg-slate-700 text-[#5F5A54] transition-colors" title="View Details">'
+);
+
+// Include Modal
+code = code.replace(
+  /<\/div>\s*<\/div>\s*\);\s*\}\s*$/g,
+  `    </div>
+        <OrderDetailsModal 
+          isOpen={!!selectedOrder} 
+          onClose={() => setSelectedOrder(null)} 
+          order={selectedOrder} 
+          orderItems={orderItems} 
+          loadingItems={loadingItems} 
+        />
+      </div>
+    );
+  }
+  `
+);
+
+fs.writeFileSync('src/pages/dashboard/AdminOrdersPage.tsx', code);

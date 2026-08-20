@@ -36,7 +36,7 @@ router.post("/", async (req, res) => {
     for (const item of items) {
       const { data: product, error: productError } = await supabase
         .from('products')
-        .select('id, name, price, sale_price, wholesale_price, is_wholesale, wholesale_min_qty, stock')
+        .select('id, name, price, sale_price, wholesale_price, is_wholesale, wholesale_min_qty, stock, image_url')
         .eq('id', item.product_id)
         .single();
 
@@ -57,9 +57,11 @@ router.post("/", async (req, res) => {
       orderItems.push({
         product_id: product.id,
         product_name: product.name || 'Unknown Product',
+        product_image: product.image_url || '',
         quantity: item.quantity,
         unit_price: price,
-        total_price: price * item.quantity
+        subtotal: price * item.quantity,
+        total_price: price * item.quantity // Keep for backwards compatibility during migration
       });
     }
 
@@ -83,9 +85,24 @@ router.post("/", async (req, res) => {
     }
 
     // 3. Create order items
-    const { error: itemsError } = await supabase
+    let { error: itemsError } = await supabase
       .from('order_items')
       .insert(orderItems.map(item => ({ ...item, order_id: orderData.id })));
+      
+    if (itemsError && itemsError.code === 'PGRST204') {
+      // Fallback for before migration is run
+      console.warn('Migration not run. Falling back to old order_items schema.');
+      const fallbackItems = orderItems.map(item => ({
+        product_id: item.product_id,
+        product_name: item.product_name,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+        total_price: item.total_price,
+        order_id: orderData.id
+      }));
+      const fallbackRes = await supabase.from('order_items').insert(fallbackItems);
+      itemsError = fallbackRes.error;
+    }
 
     if (itemsError) {
       console.error("Order items error:", itemsError);

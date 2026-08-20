@@ -53,7 +53,7 @@ export function OrderDetailsModal({ isOpen, onClose, order, orderItems, loadingI
               <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Customer Information</h3>
               <div className="bg-gray-50 dark:bg-slate-900/50 p-4 rounded-lg space-y-2 text-sm">
                 <p><span className="font-medium text-gray-900 dark:text-white">Name:</span> {contactDetails?.fullName || order.customer?.first_name || 'Guest'}</p>
-                <p><span className="font-medium text-gray-900 dark:text-white">Phone:</span> {contactDetails?.userPhone || order.customer?.phone || 'N/A'}</p>
+                <p><span className="font-medium text-gray-900 dark:text-white">Phone:</span> {contactDetails?.userPhone || order.customer?.phone_number || 'N/A'}</p>
                 <p><span className="font-medium text-gray-900 dark:text-white">Address:</span> {shippingDetails?.deliveryAddress || 'N/A'}</p>
               </div>
             </div>

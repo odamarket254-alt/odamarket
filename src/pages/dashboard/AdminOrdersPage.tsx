@@ -63,7 +63,7 @@ export default function AdminOrdersPage() {
         .from('orders')
         .select(`
           *,
-          customer:profiles!user_id(id, first_name, last_name, email, phone)
+          customer:profiles(id, first_name, last_name, email, phone_number)
         `)
         .order('created_at', { ascending: false });
 

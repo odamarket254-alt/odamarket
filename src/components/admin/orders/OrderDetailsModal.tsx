@@ -27,8 +27,14 @@ export function OrderDetailsModal({ isOpen, onClose, order, orderItems, loadingI
     return item.subtotal ?? item.total_price ?? (item.quantity * item.unit_price);
   };
 
-  const contactDetails = order.notes ? (typeof order.notes === 'string' ? JSON.parse(order.notes).contactDetails : order.notes.contactDetails) : null;
-  const shippingDetails = order.notes ? (typeof order.notes === 'string' ? JSON.parse(order.notes).shippingDetails : order.notes.shippingDetails) : null;
+  let parsedNotes: any = null;
+  try {
+    parsedNotes = order.notes ? (typeof order.notes === 'string' ? JSON.parse(order.notes) : order.notes) : null;
+  } catch (e) {
+    console.error('Error parsing order notes:', e);
+  }
+  const contactDetails = parsedNotes?.contactDetails || null;
+  const shippingDetails = parsedNotes?.shippingDetails || null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
@@ -56,8 +62,8 @@ export function OrderDetailsModal({ isOpen, onClose, order, orderItems, loadingI
             <div className="space-y-4">
               <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider">Order Information</h3>
               <div className="bg-gray-50 dark:bg-slate-900/50 p-4 rounded-lg space-y-2 text-sm">
-                <p><span className="font-medium text-gray-900 dark:text-white">Order Number:</span> #{order.id.split('-')[0].toUpperCase()}</p>
-                <p><span className="font-medium text-gray-900 dark:text-white">Date:</span> {format(new Date(order.created_at), 'PPP p')}</p>
+                <p><span className="font-medium text-gray-900 dark:text-white">Order Number:</span> #{order?.id?.split('-')?.[0]?.toUpperCase() || 'UNKNOWN'}</p>
+                <p><span className="font-medium text-gray-900 dark:text-white">Date:</span> {order?.created_at ? format(new Date(order.created_at), 'PPP p') : 'Unknown Date'}</p>
                 <p><span className="font-medium text-gray-900 dark:text-white">Status:</span> <span className="capitalize">{order.status}</span></p>
               </div>
             </div>

@@ -17,12 +17,13 @@ export default function ProductDetailsPage() {
 
   useEffect(() => {
     const fetchProduct = async () => {
-      const { data } = await supabase
+      const { data, error } = await supabase
         .from("products")
-        .select('*, profiles(business_name, verified), category:categories(name), brand:brands(name)').limit(100)
+        .select('*, category:categories!left(name), brands(name)')
         .eq("id", id)
         .single();
       
+      if (error) console.error("Supabase error fetching product:", error);
       setProduct(data);
       setLoading(false);
     };

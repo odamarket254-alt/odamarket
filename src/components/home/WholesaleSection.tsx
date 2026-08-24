@@ -60,7 +60,7 @@ export const WholesaleSection = () => {
           </Link>
         </div>
         {/* Horizontal Carousel (All Devices) */}
-        <div className="flex overflow-x-auto pb-6 -mx-4 px-4 snap-x snap-mandatory gap-3 sm:gap-4 lg:gap-6 scrollbar-hide">
+        <div className="flex overflow-x-auto pb-6 -mx-4 px-4 md:mx-0 md:px-0 snap-x snap-mandatory gap-3 sm:gap-4 lg:gap-6 scrollbar-hide [&::-webkit-scrollbar]:hidden" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
           {products.map(product => (
             <div 
               key={product.id} 

@@ -227,13 +227,13 @@ export function BuyerDashboardHome() {
                 View Past Orders <ChevronRight className="w-4 h-4" />
               </Link>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="flex overflow-x-auto pb-4 -mx-4 px-4 md:mx-0 md:px-0 sm:mx-0 sm:px-0 gap-4 scrollbar-hide [&::-webkit-scrollbar]:hidden snap-x snap-mandatory" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               {recentProducts.length > 0 ? (
                 recentProducts.map(product => (
-                  <ProductCard key={product.id} product={product} />
+                  <div key={product.id} className="snap-start shrink-0 w-[calc(45vw-12px)] sm:w-[calc(33.333vw-16px)] md:w-[calc(25vw-16px)] lg:w-[calc(20vw-16px)] xl:w-[220px]"><ProductCard product={product} /></div>
                 ))
               ) : (
-                <div className="col-span-full p-8 text-center bg-muted/30 rounded-xl border border-dashed border-border">
+                <div className="w-full p-8 text-center bg-muted/30 rounded-xl border border-dashed border-border">
                   <ShoppingBag className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
                   <p className="text-muted-foreground">You haven't made any orders yet.</p>
                 </div>
@@ -249,13 +249,13 @@ export function BuyerDashboardHome() {
                 View All <ChevronRight className="w-4 h-4" />
               </Link>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="flex overflow-x-auto pb-4 -mx-4 px-4 md:mx-0 md:px-0 sm:mx-0 sm:px-0 gap-4 scrollbar-hide [&::-webkit-scrollbar]:hidden snap-x snap-mandatory" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               {recommended.length > 0 ? (
                 recommended.map(product => (
-                  <ProductCard key={product.id} product={product} />
+                  <div key={product.id} className="snap-start shrink-0 w-[calc(45vw-12px)] sm:w-[calc(33.333vw-16px)] md:w-[calc(25vw-16px)] lg:w-[calc(20vw-16px)] xl:w-[220px]"><ProductCard product={product} /></div>
                 ))
               ) : (
-                <div className="col-span-full p-8 text-center bg-muted/30 rounded-xl border border-dashed border-border">
+                <div className="w-full p-8 text-center bg-muted/30 rounded-xl border border-dashed border-border">
                   <p className="text-muted-foreground">Check back later for personalized recommendations.</p>
                 </div>
               )}

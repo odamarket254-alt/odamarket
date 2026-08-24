@@ -233,9 +233,17 @@ export const ProductGridSection = ({ section, sectionProducts }: ProductGridSect
         
         
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-5">
+        <div 
+          className="flex overflow-x-auto pb-4 -mx-4 px-4 md:mx-0 md:px-0 gap-3 md:gap-4 lg:gap-5 scrollbar-hide [&::-webkit-scrollbar]:hidden snap-x snap-mandatory"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        >
           {products.map((product) => (
-            <ProductCard key={product.id} product={product} />
+            <div 
+              key={product.id} 
+              className="snap-start shrink-0 w-[calc(45vw-12px)] sm:w-[calc(33.333vw-16px)] md:w-[calc(25vw-16px)] lg:w-[calc(20vw-16px)] xl:w-[220px]"
+            >
+              <ProductCard product={product} />
+            </div>
           ))}
         </div>
       </div>

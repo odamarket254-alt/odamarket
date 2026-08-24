@@ -13,7 +13,7 @@ export const WholesaleSection = () => {
 
   const fetchWholesaleProducts = async () => {
     try {
-      setIsLoading(true);
+      if (products.length === 0) setIsLoading(true);
       const { data, error } = await supabase
         .from('products')
         .select('*, brands (name), category:categories!left(name)')

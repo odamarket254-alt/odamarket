@@ -286,7 +286,7 @@ export function Header() {
             </Link>
             
             {/* Scrollable Categories */}
-            <div className="flex-1 flex overflow-x-auto gap-6 md:gap-8 h-full items-center custom-scrollbar scroll-smooth whitespace-nowrap px-4 md:px-0">
+            <div className="flex-1 flex overflow-x-auto gap-6 md:gap-8 h-full items-center scrollbar-hide [&::-webkit-scrollbar]:hidden scroll-smooth whitespace-nowrap px-4 md:px-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
               {categories.map((cat, idx) => (
                 <Link 
                   key={idx} 

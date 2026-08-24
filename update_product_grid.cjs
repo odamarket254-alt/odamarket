@@ -1,25 +1,24 @@
 const fs = require('fs');
-const file = 'src/components/home/sections/ProductGridSection.tsx';
-let content = fs.readFileSync(file, 'utf8');
+let code = fs.readFileSync('src/components/home/sections/ProductGridSection.tsx', 'utf8');
 
-content = content.replace(
-  /"grid gap-4 md:gap-6",\s*"grid-cols-2",[^)]+\)/s,
-  `"grid gap-4 md:gap-5 lg:gap-6",
-          "grid-cols-2", // Mobile default
-          "sm:grid-cols-3", // Tablet
-          "md:grid-cols-4", // Small Desktop
-          "xl:grid-cols-5", // Large Desktop
-          section.settings?.products_per_row_desktop === 6 && "2xl:grid-cols-6"
-        )`
-);
+const regex = /<div\s+ref=\{scrollRef\}\s+className="flex overflow-x-auto pb-4 -mx-4 px-4 snap-x snap-mandatory gap-\[12px\] md:gap-\[16px\] lg:gap-\[20px\] scrollbar-hide"\s*>([\s\S]*?)<\/div>\s*<\/div>\s*<\/section>/;
 
-// Reduce top padding on section (e.g. from py-8 to py-4 or pt-2 pb-8)
-content = content.replace(/px-4 lg:px-8 py-8 rounded-3xl/g, 'px-4 lg:px-8 pt-2 pb-8 rounded-3xl');
+// Let's replace the whole scrollable div with a grid
+const newGrid = `<div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-5">
+          {products.map((product) => (
+            <ProductCard key={product.id} product={product} />
+          ))}
+        </div>
+      </div>
+    </section>`;
 
-content = content.replace(
-  /w-\[calc\(50vw-22px\)\] sm:w-\[calc\(33\.33vw-22px\)\] md:w-\[calc\(25%-12px\)\] lg:w-\[calc\(20%-16px\)\] xl:w-\[calc\(16\.666%-17px\)\]/g,
-  'w-[calc(50vw-22px)] sm:w-[calc(33.333vw-22px)] md:w-[calc(25%-18px)] xl:w-[calc(20%-19px)]'
-);
-
-fs.writeFileSync(file, content);
-console.log('Successfully updated ProductGridSection.tsx');
+if(code.match(regex)) {
+  code = code.replace(regex, newGrid);
+  // Also we need to remove the buttons for scrolling
+  code = code.replace(/<button\s+onClick=\{scrollLeft\}[\s\S]*?<\/button>/, '');
+  code = code.replace(/<button\s+onClick=\{scrollRight\}[\s\S]*?<\/button>/, '');
+  fs.writeFileSync('src/components/home/sections/ProductGridSection.tsx', code);
+  console.log('Success');
+} else {
+  console.log('Regex did not match');
+}

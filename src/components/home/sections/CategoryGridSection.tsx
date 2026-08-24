@@ -12,7 +12,7 @@ export const CategoryGridSection = ({ section }: { section: HomepageSection }) =
   useEffect(() => {
     const fetchCategories = async () => {
       try {
-        setIsLoading(true);
+        if (categories.length === 0) setIsLoading(true);
         // Fetch up to 18 featured categories
         const { data, error } = await supabase
           .from('categories')

@@ -32,8 +32,8 @@ export const ProductGridSection = ({ section, sectionProducts }: ProductGridSect
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-      setIsLoading(true);
-      let query = supabase.from('products').select(`
+        if (products.length === 0) setIsLoading(true);
+        let query = supabase.from('products').select(`
         *,
         category:categories!left(name),
         brands (name)
@@ -141,12 +141,12 @@ export const ProductGridSection = ({ section, sectionProducts }: ProductGridSect
     return (
       <section 
         className={cn(
-          "max-w-[1400px] mx-auto w-full px-4 lg:px-8 pt-2 pb-8 rounded-3xl",
+          "max-w-[1280px] mx-auto w-full px-4 sm:px-6 md:px-12 pt-4 pb-6 md:pb-10",
           section.settings?.background_color && `bg-${section.settings.background_color}` // Normally would use exact hex or tailwind class mapping
         )}
         style={section.settings?.background_color ? { backgroundColor: section.settings.background_color } : {}}
       >
-        <div className="flex items-end justify-between mb-5">
+        <div className="flex items-end justify-between mb-4 md:mb-6">
           <div className="flex items-center gap-3">
             {section.type === 'flash_deals' && (
               <div className="p-2 bg-[#B94A48]/10 text-[#B94A48] rounded-lg">
@@ -185,12 +185,12 @@ export const ProductGridSection = ({ section, sectionProducts }: ProductGridSect
   return (
     <section 
       className={cn(
-        "max-w-[1400px] mx-auto w-full px-4 lg:px-8 pt-2 pb-8 rounded-3xl",
+        "max-w-[1280px] mx-auto w-full px-4 sm:px-6 md:px-12 pt-4 pb-6 md:pb-10",
         section.settings?.background_color && `bg-${section.settings.background_color}` // Normally would use exact hex or tailwind class mapping
       )}
       style={section.settings?.background_color ? { backgroundColor: section.settings.background_color } : {}}
     >
-      <div className="flex items-end justify-between mb-5">
+      <div className="flex items-end justify-between mb-4 md:mb-6">
         <div className="flex items-center gap-3">
           {section.type === 'flash_deals' && (
             <div className="p-2 bg-[#B94A48]/10 text-[#B94A48] rounded-lg">
@@ -229,33 +229,13 @@ export const ProductGridSection = ({ section, sectionProducts }: ProductGridSect
       </div>
 
       <div className="relative group">
-        <button 
-          onClick={scrollLeft}
-          className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 md:-translate-x-4 z-20 w-10 h-10 rounded-full bg-white border border-gray-200 shadow-md flex items-center justify-center text-gray-700 hover:text-[#C65A28] hover:bg-gray-50 hover:scale-105 transition-all opacity-0 group-hover:opacity-100 hidden md:flex"
-          aria-label="Scroll left"
-        >
-          <ChevronLeft className="w-6 h-6" />
-        </button>
         
-        <button 
-          onClick={scrollRight}
-          className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-3 md:translate-x-4 z-20 w-10 h-10 rounded-full bg-white border border-gray-200 shadow-md flex items-center justify-center text-gray-700 hover:text-[#C65A28] hover:bg-gray-50 hover:scale-105 transition-all opacity-0 group-hover:opacity-100 hidden md:flex"
-          aria-label="Scroll right"
-        >
-          <ChevronRight className="w-6 h-6" />
-        </button>
+        
+        
 
-        <div 
-          ref={scrollRef}
-          className="flex overflow-x-auto pb-4 -mx-4 px-4 snap-x snap-mandatory gap-[12px] md:gap-[16px] lg:gap-[20px] scrollbar-hide"
-        >
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3 md:gap-5">
           {products.map((product) => (
-            <div 
-              key={product.id} 
-              className="snap-start shrink-0 w-[calc(50vw-22px)] sm:w-[calc(33.333%-16px)] md:w-[calc(25%-16px)] lg:w-[calc(20%-16px)] xl:w-[calc(16.666%-17px)]"
-            >
-              <ProductCard product={product} />
-            </div>
+            <ProductCard key={product.id} product={product} />
           ))}
         </div>
       </div>

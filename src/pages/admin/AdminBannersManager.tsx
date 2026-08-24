@@ -199,16 +199,21 @@ export default function AdminBannersManager() {
       .single();
 
     if (data) {
-      setSection(data);
-      setBanners(data.settings?.banners?.sort((a: any, b: any) => (a.position || 0) - (b.position || 0)) || []);
+      const mapped = {
+        ...data,
+        name: data.name || data.title || '',
+        settings: data.settings || data.content || {}
+      };
+      setSection(mapped);
+      setBanners(mapped.settings?.banners?.sort((a: any, b: any) => (a.position || 0) - (b.position || 0)) || []);
     } else {
       // Create it if it doesn't exist
       const newSection = {
-        name: 'Hero Banners',
+        title: 'Hero Banners',
         type: 'hero_banner',
         is_active: true,
         sort_order: 0,
-        settings: { banners: [] }
+        content: { banners: [] }
       };
       const { data: created, error: createError } = await supabase
         .from('homepage_sections')
@@ -217,7 +222,12 @@ export default function AdminBannersManager() {
         .single();
         
       if (created) {
-        setSection(created);
+        const mappedCreated = {
+          ...created,
+          name: created.name || created.title || '',
+          settings: created.settings || created.content || {}
+        };
+        setSection(mappedCreated);
         setBanners([]);
       }
     }
@@ -233,7 +243,7 @@ export default function AdminBannersManager() {
     const { error } = await supabase
       .from('homepage_sections')
       .update({
-        settings: { ...section.settings, banners: positionedBanners }
+        content: { ...section.settings, banners: positionedBanners }
       })
       .eq('id', section.id);
 

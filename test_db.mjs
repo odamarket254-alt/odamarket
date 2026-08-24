@@ -1,25 +1,24 @@
 import { createClient } from '@supabase/supabase-js';
 const supabase = createClient(process.env.VITE_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 async function test() {
-  const { data: o, error } = await supabase.from('orders').select('*');
-  console.log("Raw orders:", o?.length, error);
-
-  const { data: o2, error: e2 } = await supabase.from('orders').select(`
-    *,
-    customer:profiles!user_id(id, first_name, last_name, email, phone)
-  `);
-  console.log("With profiles inner join:", o2?.length, e2);
+  const { data: section } = await supabase.from('homepage_sections').select('*').eq('type', 'hero_banner').single();
+  const currentBanners = section.content?.banners || [];
   
-  const { data: o3, error: e3 } = await supabase.from('orders').select(`
-    *,
-    customer:profiles!left(id, first_name, last_name, email, phone)
-  `);
-  console.log("With profiles left join (guess 1):", o3?.length, e3);
+  const newBanner = {
+    id: "random-1234",
+    title: "Realtime Test Banner",
+    subtitle: "Testing realtime insertion",
+    desktop_image_url: "https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80",
+    is_active: true,
+    position: currentBanners.length
+  };
   
-  const { data: o4, error: e4 } = await supabase.from('orders').select(`
-    *,
-    profiles(id, first_name, last_name, email, phone)
-  `);
-  console.log("With profiles standard join (guess 2):", o4?.length, e4);
+  const { data, error } = await supabase
+    .from('homepage_sections')
+    .update({ content: { ...section.content, banners: [...currentBanners, newBanner] } })
+    .eq('id', section.id)
+    .select();
+    
+  console.log(error || "Success");
 }
 test();

@@ -32,7 +32,12 @@ export default function AdminHomepageManagerPage() {
     if (error) {
       toast.error('Failed to load sections');
     } else if (data) {
-      setSections(data);
+      const mappedSections = data.map((s: any) => ({
+        ...s,
+        name: s.name || s.title || '',
+        settings: s.settings || s.content || {}
+      }));
+      setSections(mappedSections);
     }
     setIsLoading(false);
   };
@@ -63,12 +68,11 @@ export default function AdminHomepageManagerPage() {
 
   const addSection = async (type: SectionType) => {
     const newSection = {
-      name: `New ${type.replace('_', ' ')}`,
       title: `New ${type.replace('_', ' ')}`,
       type,
       is_active: true,
       sort_order: sections.length,
-      settings: {
+      content: {
         layout: 'carousel',
         max_products: 10,
         products_per_row_desktop: 5,
@@ -77,7 +81,6 @@ export default function AdminHomepageManagerPage() {
         show_view_all: true
       }
     };
-
     const { data, error } = await supabase
       .from('homepage_sections')
       .insert([newSection])
@@ -88,7 +91,12 @@ export default function AdminHomepageManagerPage() {
       toast.error('Failed to add section');
     } else {
       toast.success('Section added');
-      setSections([...sections, data]);
+      const mapped = {
+        ...data,
+        name: data.name || data.title || '',
+        settings: data.settings || data.content || {}
+      };
+      setSections([...sections, mapped as any]);
     }
   };
 
@@ -121,9 +129,17 @@ export default function AdminHomepageManagerPage() {
   };
 
   const updateSection = async (updated: HomepageSection) => {
+    const dbPayload = {
+      ...updated,
+      title: updated.title || updated.name,
+      content: updated.settings
+    };
+    // Remove fields that don't exist in DB
+    const { name, settings, id, created_at, updated_at, ...updateData } = dbPayload as any;
+
     const { error } = await supabase
       .from('homepage_sections')
-      .update(updated)
+      .update(updateData)
       .eq('id', updated.id);
 
     if (error) {

@@ -164,7 +164,7 @@ export default function CheckoutPage() {
         clearCart();
       };
 
-      const paystackKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || "pk_test_placeholder";
+      const paystackKey = import.meta.env.PAYSTACK_PUBLIC_KEY || "pk_test_placeholder";
       
       if (paystackKey === "pk_test_placeholder") {
         console.warn("Using placeholder Paystack key. Payment will fail in production.");

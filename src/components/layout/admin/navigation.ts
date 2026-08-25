@@ -9,7 +9,8 @@ import {
   CreditCard,
   UserCheck,
   Settings,
-  ClipboardList
+  ClipboardList,
+  Headset
 } from "lucide-react";
 
 export interface NavItem {
@@ -17,6 +18,7 @@ export interface NavItem {
   path?: string;
   icon?: any;
   roles: string[];
+  id?: string;
   children?: { label: string; path: string }[];
 }
 
@@ -26,6 +28,13 @@ export const ADMIN_NAVIGATION: NavItem[] = [
     path: "/admin/dashboard",
     icon: LayoutDashboard,
     roles: ["super_admin", "manager", "admin", "cashier", "warehouse_staff"]
+  },
+  {
+    label: "Customer Support",
+    id: "customer_support",
+    path: "/admin/dashboard/support",
+    icon: Headset,
+    roles: ["super_admin", "manager", "admin", "support_agent"]
   },
   {
     label: "Homepage CMS",

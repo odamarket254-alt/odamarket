@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Logo } from "../ui/Logo";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useCartStore } from "../../store/useCartStore";
+import { getWhatsAppLink } from "../../utils/whatsapp";
 import { supabase } from "../../lib/supabase";
 import {
   Smartphone,
@@ -64,7 +65,6 @@ export function Header() {
           .from("categories")
           .select('name, slug')
           .eq('is_active', true)
-          
           .is('parent_id', null)
           .order('sort_order', { ascending: true })
           .limit(10);
@@ -78,6 +78,16 @@ export function Header() {
       }
     }
     fetchHeaderCategories();
+    
+    const channel = supabase.channel('header_categories_changes')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, () => {
+        fetchHeaderCategories();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   return (
@@ -149,7 +159,7 @@ export function Header() {
           <div className="w-full max-w-[1400px] mx-auto px-6 flex justify-between items-center h-full">
             {/* Left Side */}
             <div className="flex items-center h-full gap-4">
-              <a href="https://wa.me/123456789" className="flex items-center gap-1.5 hover:text-[#D9A62E] transition-colors">
+              <a href={getWhatsAppLink("Hello ODA Market, I would like to place an order.")} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 hover:text-[#D9A62E] transition-colors">
                 <MessageCircle className="w-4 h-4" /> WhatsApp Ordering
               </a>
               <span className="w-px h-4 bg-white/20"></span>
@@ -169,7 +179,7 @@ export function Header() {
 
             {/* Right Side */}
             <div className="flex items-center h-full gap-4">
-              <Link to="/help" className="flex items-center gap-1.5 hover:text-[#D9A62E] transition-colors">
+              <Link to="/help-center" className="flex items-center gap-1.5 hover:text-[#D9A62E] transition-colors">
                 <HelpCircle className="w-4 h-4" /> Help Center
               </Link>
               <span className="w-px h-4 bg-white/20"></span>

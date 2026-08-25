@@ -12,6 +12,9 @@ import { cn } from '../../lib/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { toast } from 'sonner';
 import { format } from 'date-fns';
+import { BulkProductUploadModal } from '../../components/admin/products/BulkProductUploadModal';
+import { BulkProductEditModal } from '../../components/admin/products/BulkProductEditModal';
+import * as XLSX from 'xlsx';
 
 export default function AdminProductsPage() {
   const [products, setProducts] = useState<any[]>([]);
@@ -22,6 +25,8 @@ export default function AdminProductsPage() {
   const [stats, setStats] = useState({ total: 0, active: 0, draft: 0, archived: 0, outOfStock: 0, lowStock: 0, wholesale: 0 });
   const [currentPage, setCurrentPage] = useState(1);
   const [totalCount, setTotalCount] = useState(0);
+  const [isBulkUploadOpen, setIsBulkUploadOpen] = useState(false);
+  const [isBulkEditOpen, setIsBulkEditOpen] = useState(false);
   const itemsPerPage = 20;
 
   useEffect(() => {
@@ -148,6 +153,35 @@ export default function AdminProductsPage() {
     }
   };
 
+  const handleExport = async () => {
+    try {
+      const { data, error } = await supabase.from('products').select('*, category:categories(name)');
+      if (error) throw error;
+      
+      const exportData = data.map((p: any) => ({
+        'Product Name': p.name,
+        'SKU': p.sku || '',
+        'Category': p.category?.name || '',
+        'Description': p.description || '',
+        'Selling Price': p.price || 0,
+        'Wholesale Price': p.wholesale_price || '',
+        'Stock Quantity': p.stock || 0,
+        'Minimum Order Quantity': p.wholesale_min_qty || '',
+        'Unit': p.wholesale_unit || '',
+        'Product Image URL': p.image_url || '',
+        'Status': p.is_active ? 'active' : 'draft'
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Products");
+      XLSX.writeFile(wb, "ODAMarket_Products_Export.xlsx");
+      toast.success("Products exported successfully");
+    } catch (err: any) {
+      toast.error("Failed to export products: " + err.message);
+    }
+  };
+
   const filteredProducts = products;
 
   const StatCard = ({ title, value, icon: Icon, trend, colorClass }: any) => (
@@ -183,10 +217,16 @@ export default function AdminProductsPage() {
           <p className="text-sm text-[#5F5A54] mt-1">Manage inventory, pricing, variants, and merchandising.</p>
         </div>
         <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 bg-[#FFFDF8] border border-[#E8DCC9] text-[#5F5A54] rounded-lg hover:bg-[#FAF5EC] transition-colors font-medium text-sm shadow-sm">
-            <Upload className="w-4 h-4" /> Import
+          <button 
+            onClick={() => setIsBulkUploadOpen(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-[#FFFDF8] border border-[#E8DCC9] text-[#5F5A54] rounded-lg hover:bg-[#FAF5EC] transition-colors font-medium text-sm shadow-sm"
+          >
+            <Upload className="w-4 h-4" /> Bulk Upload
           </button>
-          <button className="flex items-center gap-2 px-4 py-2 bg-[#FFFDF8] border border-[#E8DCC9] text-[#5F5A54] rounded-lg hover:bg-[#FAF5EC] transition-colors font-medium text-sm shadow-sm">
+          <button 
+            onClick={handleExport}
+            className="flex items-center gap-2 px-4 py-2 bg-[#FFFDF8] border border-[#E8DCC9] text-[#5F5A54] rounded-lg hover:bg-[#FAF5EC] transition-colors font-medium text-sm shadow-sm"
+          >
             <Download className="w-4 h-4" /> Export
           </button>
           <Link
@@ -264,7 +304,10 @@ export default function AdminProductsPage() {
               <div className="flex items-center gap-3">
                 <span className="text-sm font-semibold text-emerald-800">{selectedIds.length} products selected</span>
                 <div className="h-4 w-px bg-emerald-200"></div>
+                
+                <button onClick={() => setIsBulkEditOpen(true)} className="text-sm font-medium text-[#5F5A54] hover:text-[#3A2418] transition-colors flex items-center gap-1"><Edit2 className="w-3.5 h-3.5"/> Bulk Edit</button>
                 <button onClick={() => handleBulkAction('active')} className="text-sm font-medium text-[#5F5A54] hover:text-[#3A2418] transition-colors">Set Active</button>
+
                 <button onClick={() => handleBulkAction('archive')} className="text-sm font-medium text-[#5F5A54] hover:text-[#3A2418] transition-colors">Archive</button>
                 <button onClick={() => handleBulkAction('delete')} className="text-sm font-medium text-[#B94A48] hover:text-[#B94A48] transition-colors">Delete</button>
                 <button className="text-sm font-medium text-[#5F5A54] hover:text-[#3A2418] transition-colors flex items-center gap-1"><Tag className="w-3.5 h-3.5"/> Edit Categories</button>
@@ -402,6 +445,27 @@ export default function AdminProductsPage() {
           </div>
         </div>
       </div>
+
+      <BulkProductUploadModal 
+        isOpen={isBulkUploadOpen}
+        onClose={() => setIsBulkUploadOpen(false)}
+        onComplete={() => {
+          setIsBulkUploadOpen(false);
+          fetchProducts();
+          fetchStats();
+        }}
+      />
+    
+      <BulkProductEditModal
+        isOpen={isBulkEditOpen}
+        onClose={() => setIsBulkEditOpen(false)}
+        selectedIds={selectedIds}
+        onComplete={() => {
+          setIsBulkEditOpen(false);
+          setSelectedIds([]);
+          fetchProducts();
+        }}
+      />
     </div>
   );
 }

@@ -317,7 +317,7 @@ export default function CheckoutPage() {
       
       setTimeout(() => {
         const text = encodeURIComponent(`Hello OdaMarket, I have just paid for order ${confirmedOrder?.order?.order_number || 'Order'}. I will attach the receipt image I just downloaded.`);
-        window.open(`https://wa.me/254740909652?text=${text}`, '_blank');
+        window.open(getWhatsAppUrl(`Hello OdaMarket, I have just paid for order ${confirmedOrder?.order?.order_number || 'Order'}. I will attach the receipt image I just downloaded.`), '_blank');
       }, 1500);
     } catch(e) {
       console.error(e);

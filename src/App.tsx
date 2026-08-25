@@ -36,15 +36,18 @@ const ContactPage = lazy(() => import("./pages/ContactPage"));
 const CookiePolicyPage = lazy(() => import("./pages/CookiePolicyPage"));
 const CartPage = lazy(() => import("./pages/CartPage"));
 const WishlistPage = lazy(() => import("./pages/WishlistPage"));
+const TrackOrderPage = lazy(() => import("./pages/TrackOrderPage"));
+const HelpCenterPage = lazy(() => import("./pages/HelpCenterPage"));
+const StoreLocatorPage = lazy(() => import("./pages/StoreLocatorPage"));
 const CheckoutPage = lazy(() => import("./pages/CheckoutPage"));
 const CategoriesPage = lazy(() => import("./pages/CategoriesPage"));
 
 // Lazy Loaded Dashboard Pages
 const BuyerDashboardHome = lazy(() => import("./pages/dashboard/BuyerDashboardHome").then(m => ({ default: m.BuyerDashboardHome })));
 const OrdersPage = lazy(() => import("./pages/dashboard/OrdersPage"));
-const SupportMessagesPage = lazy(
-  () => import("./pages/dashboard/SupportMessagesPage"),
-);
+const AdminSupportPage = lazy(() => import("./pages/dashboard/AdminSupportPage"));
+const CustomerTicketTrackingPage = lazy(() => import("./pages/CustomerTicketTrackingPage"));
+const CustomerTicketDetailsPage = lazy(() => import("./pages/CustomerTicketDetailsPage"));
 const AdminProductsPage = lazy(() => import("./pages/admin/AdminProductsPage"));
 const AdminProductFormPage = lazy(() => import("./pages/admin/AdminProductFormPage"));
 const AdminWholesaleProductsPage = lazy(() => import("./pages/admin/AdminWholesaleProductsPage"));
@@ -189,6 +192,11 @@ export default function App() {
               <Route path="/wishlist" element={<WishlistPage />} />
               <Route path="/checkout" element={<CheckoutPage />} />
                                                         <Route path="/contact" element={<ContactPage />} />
+              <Route path="/track-order" element={<TrackOrderPage />} />
+              <Route path="/help-center" element={<HelpCenterPage />} />
+              <Route path="/help-center/track" element={<CustomerTicketTrackingPage />} />
+              <Route path="/help-center/ticket/:id" element={<CustomerTicketDetailsPage />} />
+              <Route path="/store-locator" element={<StoreLocatorPage />} />
                                                         <Route path="/cookie-policy" element={<CookiePolicyPage />} />
             </Route>
 
@@ -221,7 +229,7 @@ export default function App() {
                 <Route path="orders" element={<AdminOrdersPage />} />
                 <Route path="discounts" element={<AdminDiscountsPage />} />
                                 <Route path="categories" element={<AdminCategoriesPage />} />
-                <Route path="support" element={<SupportMessagesPage />} />
+                <Route path="support" element={<AdminSupportPage />} />
                 <Route path="content" element={<AdminContentPage />} />
                 <Route path="marketing" element={<AdminMarketingPage />} />
                 <Route path="brands" element={<AdminBrandsPage />} />

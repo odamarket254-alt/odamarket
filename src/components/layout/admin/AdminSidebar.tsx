@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronDown, Menu, X, Store } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import { ADMIN_NAVIGATION } from './navigation';
+import { supabase } from '../../../lib/supabase';
 
 interface AdminSidebarProps {
   isOpen: boolean;
@@ -19,10 +20,43 @@ export default function AdminSidebar({
   isCollapsed, 
   setIsOpen, 
   setIsCollapsed,
-  userRole 
+  userRole
 }: AdminSidebarProps) {
   const location = useLocation();
   const [expandedMenus, setExpandedMenus] = useState<string[]>([]);
+  const [openTicketsCount, setOpenTicketsCount] = useState(0);
+
+  useEffect(() => {
+    // Fetch initial ticket count
+    const fetchTicketCount = async () => {
+      try {
+        const { count, error } = await supabase
+          .from('support_tickets')
+          .select('*', { count: 'exact', head: true })
+          .in('status', ['Open', 'In Progress', 'Waiting for Customer']);
+          
+        if (!error && count !== null) {
+          setOpenTicketsCount(count);
+        }
+      } catch (err) {
+        console.error("Failed to fetch ticket count", err);
+      }
+    };
+    
+    fetchTicketCount();
+
+    // Subscribe to changes
+    const subscription = supabase
+      .channel('admin_sidebar_tickets')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'support_tickets' }, () => {
+        fetchTicketCount();
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(subscription);
+    };
+  }, []);
 
   useEffect(() => {
     // Open the parent menu if a child is active
@@ -149,18 +183,42 @@ export default function AdminSidebar({
                     to={item.path!}
                     onClick={() => setIsOpen(false)}
                     className={({ isActive }) => cn(
-                      "flex items-center gap-3 p-3 rounded-xl transition-colors group",
+                      "flex items-center gap-3 p-3 rounded-xl transition-colors group relative",
                       isActive 
                         ? "bg-[#C65A28] text-white shadow-md shadow-[#C65A28]/20" 
                         : "text-[#5F5A54] hover:bg-[#FAF5EC] hover:text-[#3A2418]"
                     )}
                     title={isCollapsed ? item.label : undefined}
                   >
-                    {item.icon && <item.icon className={cn(
-                      "w-5 h-5 shrink-0 transition-colors",
-                      location.pathname === item.path ? "text-white" : "text-[#8B857D] group-hover:text-[#C65A28]"
-                    )} />}
-                    {!isCollapsed && <span className="font-medium text-sm whitespace-nowrap">{item.label}</span>}
+                    {item.icon && (
+                      <div className="relative shrink-0">
+                        <item.icon className={cn(
+                          "w-5 h-5 transition-colors",
+                          location.pathname === item.path ? "text-white" : "text-[#8B857D] group-hover:text-[#C65A28]"
+                        )} />
+                        {item.id === 'customer_support' && openTicketsCount > 0 && isCollapsed && (
+                           <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-3 w-3 bg-red-500"></span>
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {!isCollapsed && (
+                      <div className="flex-1 flex items-center justify-between">
+                        <span className="font-medium text-sm whitespace-nowrap">{item.label}</span>
+                        {item.id === 'customer_support' && openTicketsCount > 0 && (
+                          <span className={cn(
+                            "px-2 py-0.5 text-[10px] font-bold rounded-full",
+                            location.pathname === item.path 
+                              ? "bg-white text-[#C65A28]" 
+                              : "bg-red-500 text-white"
+                          )}>
+                            {openTicketsCount}
+                          </span>
+                        )}
+                      </div>
+                    )}
                   </NavLink>
                 )}
               </div>

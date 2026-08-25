@@ -83,6 +83,6 @@ Quality. Value. Convenience.`;
 };
 
 export const getWhatsAppUrl = (message: string): string => {
-  const ownerNumber = "254740909652";
+  const ownerNumber = import.meta.env.VITE_WHATSAPP_NUMBER || "";
   return `https://wa.me/${ownerNumber}?text=${encodeURIComponent(message)}`;
 };

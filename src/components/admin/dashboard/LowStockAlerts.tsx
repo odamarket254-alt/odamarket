@@ -13,7 +13,7 @@ export default function LowStockAlerts() {
       // Find products where stock is <= threshold
       const { data, error } = await supabase
         .from('products')
-        .select('id, name, stock, low_stock_threshold, regular_price').limit(100)
+        .select('id, name, stock, low_stock_threshold, price').limit(100)
         .order('stock', { ascending: true })
         .limit(5);
         

@@ -440,7 +440,7 @@ function ManualProductSelector({ sectionId }: { sectionId: string }) {
   const fetchSelectedProducts = async () => {
     const { data, error } = await supabase
       .from('featured_products')
-      .select('*, products(id, name, regular_price)').limit(100)
+      .select('*, products(id, name, price)').limit(100)
       .eq('section_id', sectionId)
       .order('sort_order', { ascending: true });
     
@@ -459,7 +459,7 @@ function ManualProductSelector({ sectionId }: { sectionId: string }) {
 
     const { data } = await supabase
       .from('products')
-      .select('id, name, regular_price').limit(100)
+      .select('id, name, price').limit(100)
       .ilike('name', `%${query}%`)
       .limit(5);
     

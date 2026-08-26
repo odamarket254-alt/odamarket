@@ -12,7 +12,7 @@ export default function TopProducts() {
       // A real implementation would query order_items and aggregate.
       const { data, error } = await supabase
         .from('products')
-        .select('id, name, regular_price, stock')
+        .select('id, name, price, stock')
         .limit(5);
         
       if (error) throw error;
@@ -20,7 +20,7 @@ export default function TopProducts() {
       return data.map((p, i) => ({
         ...p,
         sales: 150 - (i * 25),
-        revenue: (150 - (i * 25)) * Number(p.regular_price)
+        revenue: (150 - (i * 25)) * Number(p.price)
       })).sort((a, b) => b.revenue - a.revenue);
     }
   });

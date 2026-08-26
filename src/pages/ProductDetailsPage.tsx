@@ -12,6 +12,7 @@ export default function ProductDetailsPage() {
   const { id } = useParams<{ id: string }>();
   const [product, setProduct] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [queryError, setQueryError] = useState<any>(null);
   const [quantity, setQuantity] = useState(1);
   const addItem = useCartStore(state => state.addItem);
 
@@ -19,23 +20,23 @@ export default function ProductDetailsPage() {
     const fetchProduct = async () => {
       const { data, error } = await supabase
         .from("products")
-        .select('*, category:categories!left(name), brands(name)')
+        .select("*, category:categories!left(name), brands(name)")
         .eq("id", id)
         .single();
       
-      if (error) console.error("Supabase error fetching product:", error);
-      setProduct(data);
+      if (error) {
+        console.error("Supabase error fetching product:", error);
+        setQueryError(error);
+      } else {
+        setProduct(data);
+      }
       setLoading(false);
     };
     
     if (id) {
       fetchProduct();
-      
-
-      
     }
   }, [id]);
-
   const handleAddToCart = () => {
     if (!product) return;
     for (let i = 0; i < quantity; i++) {
@@ -51,7 +52,20 @@ export default function ProductDetailsPage() {
   };
 
   if (loading) return <div className="min-h-screen bg-background pt-32 flex items-center justify-center"><div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>;
-  if (!product) return <div className="min-h-screen bg-background pt-32 flex items-center justify-center"><h1 className="text-2xl font-bold">Product not found</h1></div>;
+  if (queryError) return (
+    <div className="min-h-screen bg-background pt-32 flex flex-col items-center justify-center">
+      <h1 className="text-2xl font-bold text-[#3A2418]">Error Loading Product</h1>
+      <pre className="mt-4 p-4 bg-red-50 text-red-600 rounded overflow-auto max-w-2xl text-sm">
+        {JSON.stringify(queryError, null, 2)}
+      </pre>
+    </div>
+  );
+  if (!product) return (
+    <div className="min-h-screen bg-background pt-32 flex flex-col items-center justify-center">
+      <h1 className="text-2xl font-bold text-[#3A2418]">Product {id} not found</h1>
+      <p className="mt-4 text-[#5F5A54]">The product you are looking for does not exist or has been removed.</p>
+    </div>
+  );
 
   
   return (

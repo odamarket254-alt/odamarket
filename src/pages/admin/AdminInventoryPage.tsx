@@ -27,7 +27,7 @@ export default function AdminInventoryPage() {
       setLoading(true);
       const { data, error } = await supabase
         .from('products')
-        .select('id, name, sku, stock, low_stock_threshold, regular_price').limit(100)
+        .select('id, name, sku, stock, low_stock_threshold, price').limit(100)
         .order('stock', { ascending: true });
 
       if (error) throw error;

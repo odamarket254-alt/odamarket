@@ -31,20 +31,33 @@ export default function TrackOrderPage() {
       // (whether it's user_id, contact_email, phone), we will try to fetch the order and verify if it matches user input if provided.
       // But let's first query by ID. If it's a UUID, we query id. If it's a short string, we might need to query id.ilike.
       
-      let query = supabase.from("orders").select("*");
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId);
       
-      // Attempt exact match first
-      if (orderId.includes("-")) {
+      let query = supabase.from("orders").select("*");
+      if (isUuid) {
         query = query.eq("id", orderId);
       } else {
-        // If it's a short ID, try ilike
-        query = query.ilike("id", `%${orderId}%`);
+        query = query.ilike("notes", `%${orderId.trim()}%`);
       }
 
       const { data, error: fetchError } = await query.limit(1).single();
 
       if (fetchError || !data) {
-        setError("Order not found. Please check your Order ID and try again.");
+        // If order_number failed, they might have entered the short part of the UUID. 
+        // We cannot ilike a UUID safely from JS without rpc, so we will show an error.
+        setError("Order not found. Please enter a valid full Order ID or Order Number.");
+        setIsLoading(false);
+        return;
+      }
+      
+      if (data.payment_status === 'failed') {
+        setError("This order's payment failed. Please place a new order.");
+        setIsLoading(false);
+        return;
+      }
+      
+      if (data.payment_status === 'abandoned') {
+        setError("This order's payment was not completed. Please place a new order.");
         setIsLoading(false);
         return;
       }

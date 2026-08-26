@@ -45,7 +45,8 @@ export default function OrdersPage() {
 
   const filteredOrders = orders.filter(o => o.id.toLowerCase().includes(search.toLowerCase()));
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string, paymentStatus?: string) => {
+    if (paymentStatus === 'failed' || paymentStatus === 'abandoned') return 'bg-red-100 text-red-700';
     switch (status?.toLowerCase()) {
       case 'delivered': return 'bg-green-100 text-green-700';
       case 'shipped': return 'bg-blue-100 text-blue-700';
@@ -53,6 +54,13 @@ export default function OrdersPage() {
       case 'cancelled': return 'bg-red-100 text-red-700';
       default: return 'bg-gray-100 text-gray-700';
     }
+  };
+
+  const getDisplayStatus = (order: any) => {
+    if (order.payment_status === 'failed') return 'Payment Failed';
+    if (order.payment_status === 'abandoned') return 'Payment Abandoned';
+    if (order.status === 'pending') return 'Payment Pending';
+    return order.status ? order.status.replace(/_/g, ' ') : 'Unknown';
   };
 
   if (isLoading) {
@@ -107,11 +115,11 @@ export default function OrdersPage() {
             
             <div className="p-4 md:p-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
               <div className="flex-1">
-                <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium mb-3 ${getStatusColor(order.status)}`}>
+                <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium mb-3 ${getStatusColor(order.status, order.payment_status)}`}>
                   {order.status === 'delivered' ? <Check className="w-3 h-3" /> : 
                    order.status === 'shipped' ? <Truck className="w-3 h-3" /> : 
                    <Clock className="w-3 h-3" />}
-                  {order.status?.toUpperCase() || 'PENDING'}
+                  {getDisplayStatus(order).toUpperCase()}
                 </div>
                 <h3 className="font-semibold">{order.items_count || 1} items in this order</h3>
                 <p className="text-sm text-muted-foreground mt-1">Paid via {order.payment_method || 'M-Pesa'}</p>

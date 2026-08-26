@@ -78,6 +78,57 @@ async function startServer() {
   app.set("trust proxy", 1);
   const PORT = 3000;
 
+  // Webhook must be parsed as raw text/buffer for signature verification
+  app.post("/api/webhook/paystack", express.raw({ type: 'application/json' }), async (req, res) => {
+    try {
+      const crypto = await import('crypto');
+      const secret = process.env.PAYSTACK_SECRET_KEY || "";
+      const hash = crypto.createHmac('sha512', secret).update(req.body).digest('hex');
+      
+      if (hash !== req.headers['x-paystack-signature']) {
+        return res.status(401).send("Invalid signature");
+      }
+
+      const event = JSON.parse(req.body.toString());
+      
+      if (event.event === 'charge.success') {
+        const reference = event.data.reference;
+        const parts = reference.split('_');
+        if (parts.length >= 2 && parts[0] === 'ord') {
+          const orderId = parts[1];
+          const { createClient } = await import('@supabase/supabase-js');
+          const supabaseUrl = (process.env.SUPABASE_URL || "").trim().replace(/^["']|["']$/g, "");
+          const supabaseServiceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim().replace(/^["']|["']$/g, "");
+          const supabase = createClient(supabaseUrl, supabaseServiceKey);
+          
+          const { data: order } = await supabase.from('orders').select('*').eq('id', orderId).single();
+          if (order && order.status === 'pending') {
+             const expectedAmount = Math.round(order.total * 100);
+             if (event.data.amount === expectedAmount && event.data.currency === 'KES') {
+               await supabase.from('orders').update({ 
+                 status: 'processing', 
+                 payment_status: 'success',
+                 payment_reference: reference
+               }).eq('id', orderId);
+               
+               const { data: items } = await supabase.from('order_items').select('*').eq('order_id', orderId);
+               if (items) {
+                 for (const item of items) {
+                   const { data: product } = await supabase.from('products').select('stock').eq('id', item.product_id).single();
+                   if (product) await supabase.from('products').update({ stock: Math.max(0, product.stock - item.quantity) }).eq('id', item.product_id);
+                 }
+               }
+             }
+          }
+        }
+      }
+      res.status(200).send("Webhook received");
+    } catch (err) {
+      console.error("Webhook error:", err);
+      res.status(500).send("Webhook Error");
+    }
+  });
+
   app.use(express.json({ limit: "50mb" })); // Increase limit for file uploads
 
   // Apply rate limiter to all API routes

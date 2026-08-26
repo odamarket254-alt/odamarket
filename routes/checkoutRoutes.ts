@@ -108,21 +108,7 @@ router.post("/", async (req, res) => {
       console.error("Order items error:", itemsError);
     }
 
-    // 4. Update product stock
-    for (const item of items) {
-      const { data: product } = await supabase
-        .from('products')
-        .select('stock')
-        .eq('id', item.product_id)
-        .single();
-
-      if (product) {
-        await supabase
-          .from('products')
-          .update({ stock: product.stock - item.quantity })
-          .eq('id', item.product_id);
-      }
-    }
+    // 4. Removed stock deduction here. It now happens securely in /verify upon successful payment.
 
     res.status(200).json({ success: true, orderId: orderData.id });
   } catch (error: any) {
@@ -164,7 +150,7 @@ router.post("/verify", async (req, res) => {
 
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get order
+    // 1. First, fetch the pending order BEFORE verifying
     let finalOrder = null;
     let finalProfile = null;
 
@@ -175,7 +161,6 @@ router.post("/verify", async (req, res) => {
       .single();
 
     if (orderErr || !order) {
-      // Fallback
       const { data: o, error: e } = await supabase.from('orders').select('*').eq('id', orderId).single();
       if (e || !o) return res.status(404).json({ error: "Order not found" });
       const { data: p } = await supabase.from('profiles').select('*').eq('id', o.user_id || o.buyer_id || o.customer_id).single();
@@ -186,12 +171,69 @@ router.post("/verify", async (req, res) => {
       finalProfile = order.profiles;
     }
 
+    // Protect against double verification
+    if (finalOrder.status !== 'pending' && finalOrder.status !== 'failed') {
+       // Already processed
+       const { data: items } = await supabase.from('order_items').select('*').eq('order_id', orderId);
+       return res.status(200).json({ success: true, order: finalOrder, profile: finalProfile, items: items || [], message: "Already processed" });
+    }
+
+    // 2. Server-Side Verification
+    if (!reference) {
+      // Missing reference means payment didn't happen or was abandoned
+      // We can update the status to failed/abandoned, but we don't return success.
+      await supabase.from('orders').update({ payment_status: 'abandoned' }).eq('id', orderId);
+      return res.status(400).json({ error: "Missing Paystack reference. Payment abandoned or failed." });
+    }
+
+    const paystackSecret = (process.env.PAYSTACK_SECRET_KEY || "").trim().replace(/^["']|["']$/g, "");
+    if (!paystackSecret) {
+      console.warn("Paystack secret key missing. Failing payment securely.");
+      return res.status(500).json({ error: "Server payment configuration missing." });
+    }
+
+    const verifyRes = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
+      headers: { "Authorization": `Bearer ${paystackSecret}` }
+    });
+    const verifyData = await verifyRes.json();
+
+    if (!verifyData.status || verifyData.data.status !== "success") {
+      // Payment explicitly failed
+      await supabase.from('orders').update({ payment_status: 'failed', payment_reference: reference }).eq('id', orderId);
+      return res.status(400).json({ error: "Payment verification failed with Paystack. Transaction not successful." });
+    }
+
+    // 3. Verify Amount & Currency
+    const expectedAmountKobo = Math.round(finalOrder.total * 100);
+    const actualAmountKobo = verifyData.data.amount;
+    const actualCurrency = verifyData.data.currency;
+
+    if (actualCurrency !== "KES" || actualAmountKobo !== expectedAmountKobo) {
+      console.error(`Payment mismatch: Expected ${expectedAmountKobo} KES, got ${actualAmountKobo} ${actualCurrency}`);
+      await supabase.from('orders').update({ payment_status: 'failed', payment_reference: reference }).eq('id', orderId);
+      return res.status(400).json({ error: "Payment amount or currency mismatch. Order not confirmed." });
+    }
+
+    // 4. Update order to paid/processing
     const { data: items } = await supabase.from('order_items').select('*').eq('order_id', orderId);
+    
+    await supabase.from('orders').update({ 
+      status: 'processing', 
+      payment_status: 'success',
+      payment_reference: reference
+    }).eq('id', orderId);
 
-    // Update to paid (processing)
-    await supabase.from('orders').update({ status: 'processing' }).eq('id', orderId);
+    // 5. Deduct Product Stock safely ONLY on successful payment
+    if (items) {
+      for (const item of items) {
+        const { data: product } = await supabase.from('products').select('stock').eq('id', item.product_id).single();
+        if (product) {
+          await supabase.from('products').update({ stock: Math.max(0, product.stock - item.quantity) }).eq('id', item.product_id);
+        }
+      }
+    }
 
-    // 5. Send Order Confirmation SMS (Idempotent)
+    // 6. Send Order Confirmation SMS
     try {
       const currentNotes = finalOrder.notes ? (typeof finalOrder.notes === 'string' ? JSON.parse(finalOrder.notes) : finalOrder.notes) : {};
       
@@ -200,7 +242,6 @@ router.post("/verify", async (req, res) => {
         const phone = currentNotes.contactDetails?.userPhone || currentNotes.shippingDetails?.recipientPhone || finalProfile?.phone;
 
         if (phone) {
-          // Send SMS using the newly refactored sendOrderSMS which handles its own DB logging!
           await sendOrderSMS(orderId, phone, customerName, finalOrder.total);
         }
       }
@@ -210,7 +251,7 @@ router.post("/verify", async (req, res) => {
 
     return res.status(200).json({
       success: true,
-      order: finalOrder,
+      order: { ...finalOrder, status: 'processing', payment_status: 'success', payment_reference: reference },
       profile: finalProfile,
       items: items || []
     });

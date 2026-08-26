@@ -29,7 +29,8 @@ export default function RecentOrders() {
     
   }, [queryClient]);
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string, paymentStatus?: string) => {
+    if (paymentStatus === 'failed' || paymentStatus === 'abandoned') return 'bg-red-100 text-red-700';
     switch(status) {
       case 'delivered': return 'bg-[#E8DCC9] text-[#C65A28]';
       case 'processing': return 'bg-blue-100 text-blue-700';
@@ -38,6 +39,13 @@ export default function RecentOrders() {
       case 'pending':
       default: return 'bg-[#D9A62E]/10 text-[#D9A62E]';
     }
+  };
+
+  const getDisplayStatus = (order: any) => {
+    if (order.payment_status === 'failed') return 'Payment Failed';
+    if (order.payment_status === 'abandoned') return 'Payment Abandoned';
+    if (order.status === 'pending') return 'Payment Pending';
+    return order.status ? order.status.replace(/_/g, ' ') : 'Unknown';
   };
 
   return (
@@ -83,8 +91,8 @@ export default function RecentOrders() {
                     <p className="text-sm font-bold text-[#3A2418]">KSh {Number(order.total).toLocaleString()}</p>
                   </td>
                   <td className="py-3 px-6 text-center">
-                    <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider", getStatusColor(order.status))}>
-                      {order.status}
+                    <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider", getStatusColor(order.status, order.payment_status))}>
+                      {getDisplayStatus(order)}
                     </span>
                   </td>
                   <td className="py-3 px-6 text-right">

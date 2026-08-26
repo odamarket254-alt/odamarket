@@ -22,14 +22,14 @@ const fetchKPIData = async () => {
     { data: revenueData },
     { data: lowStockData }
   ] = await Promise.all([
-    supabase.from('orders').select('*', { count: 'exact', head: true }).gte('created_at', today.toISOString()),
+    supabase.from('orders').select('*', { count: 'exact', head: true }).neq('status', 'pending').neq('status', 'cancelled').gte('created_at', today.toISOString()),
     supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
     supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'delivered'),
     supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'cancelled'),
     supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', today.toISOString()),
     supabase.from('products').select('*', { count: 'exact', head: true }),
     supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'supplier'),
-    supabase.from('orders').select('total').limit(100).gte('created_at', today.toISOString()),
+    supabase.from('orders').select('total').neq('status', 'pending').neq('status', 'cancelled').gte('created_at', today.toISOString()),
     supabase.from('products').select('stock, low_stock_threshold').limit(100)
   ]);
 

@@ -52,7 +52,12 @@ export function BuyerDashboardHome() {
 
       if (ordersData && ordersData.length > 0) {
         setActiveOrders(ordersData);
-        const active = ordersData.filter((o: any) => o.status !== 'delivered' && o.status !== 'cancelled');
+        const active = ordersData.filter((o: any) => 
+          o.status !== 'delivered' && 
+          o.status !== 'cancelled' && 
+          o.payment_status !== 'failed' && 
+          o.payment_status !== 'abandoned'
+        );
         setStats(s => ({ ...s, activeOrders: active.length, pendingDeliveries: active.filter((a: any) => a.status === 'out_for_delivery').length }));
       } else {
         // Fallback for demo

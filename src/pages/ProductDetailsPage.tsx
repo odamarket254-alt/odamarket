@@ -42,7 +42,7 @@ export default function ProductDetailsPage() {
       addItem({
         id: product.id,
         name: product.name,
-        price: product.price || "Ksh 0",
+        price: product.price || product.regular_price || 0,
         image_url: product.image_url,
         seller_id: product.seller_id
       });
@@ -107,10 +107,10 @@ export default function ProductDetailsPage() {
               
               <div className="flex items-end gap-3 sm:gap-4 mb-6 sm:mb-8">
                 <span className="text-[clamp(32px,5vw,48px)] font-bold text-[#C65A28] leading-none">
-                  Ksh {product.price ? product.price.toString().replace(/\D/g, '') : "0"}
+                  Ksh {Number(product.sale_price || product.price || product.regular_price || 0).toLocaleString()}
                 </span>
                 <span className="text-base sm:text-xl text-[#8B857D] line-through mb-1 sm:mb-2">
-                  Ksh {(parseInt(String(product.price).replace(/\D/g, '')) * 1.2) || 500}
+                  Ksh {Number(product.price || product.regular_price || 0).toLocaleString()}
                 </span>
               </div>
               

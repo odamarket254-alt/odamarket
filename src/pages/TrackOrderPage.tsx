@@ -241,7 +241,7 @@ export default function TrackOrderPage() {
                           <p className="text-sm text-[#5F5A54]">Qty: {item.quantity}</p>
                         </div>
                         <div className="font-bold text-[#3A2418]">
-                          KSh {(item.price * item.quantity).toLocaleString()}
+                          KSh {( (item.unit_price || 0) * (item.quantity || 1) ).toLocaleString()}
                         </div>
                       </div>
                     ))}
@@ -257,15 +257,15 @@ export default function TrackOrderPage() {
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
                       <span className="text-[#5F5A54]">Items Total</span>
-                      <span className="font-medium text-[#3A2418]">KSh {(order.total_amount || 0).toLocaleString()}</span>
+                      <span className="font-medium text-[#3A2418]">KSh {(order.subtotal || order.total || 0).toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className="text-[#5F5A54]">Delivery Fee</span>
-                      <span className="font-medium text-[#3A2418]">{order.total_amount >= 5000 ? 'Free' : 'Calculated at checkout'}</span>
+                      <span className="font-medium text-[#3A2418]">{(order.subtotal || order.total || 0) >= 5000 ? 'Free' : 'Calculated at checkout'}</span>
                     </div>
                     <div className="pt-3 mt-3 border-t border-[#E8DCC9] flex justify-between">
                       <span className="font-bold text-[#3A2418]">Total</span>
-                      <span className="font-bold text-[#C65A28] text-lg">KSh {(order.total_amount || 0).toLocaleString()}</span>
+                      <span className="font-bold text-[#C65A28] text-lg">KSh {(order.total || order.subtotal || 0).toLocaleString()}</span>
                     </div>
                   </div>
                 </div>

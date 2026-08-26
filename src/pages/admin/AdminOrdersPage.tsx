@@ -109,9 +109,13 @@ export default function AdminOrdersPage() {
         .from('orders')
         .select('*, profiles:user_id(first_name, last_name, email, phone)', { count: 'exact' });
 
-      // Search by order ID is possible, but ilike on UUID might fail. Let's just filter by status for now if UUID is complex, or let search handle it.
       if (search) {
-        query = query.ilike('id', `%${search}%`);
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(search.trim());
+        if (isUuid) {
+          query = query.eq('id', search.trim());
+        } else {
+          query = query.ilike('notes', `%${search.trim()}%`);
+        }
       }
 
       if (activeTab !== 'all') {

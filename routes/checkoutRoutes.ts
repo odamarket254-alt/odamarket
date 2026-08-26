@@ -36,7 +36,7 @@ router.post("/", async (req, res) => {
     for (const item of items) {
       const { data: product, error: productError } = await supabase
         .from('products')
-        .select('id, name, price, sale_price, wholesale_price, is_wholesale, wholesale_min_qty, stock, image_url')
+        .select('id, name, price, regular_price, sale_price, wholesale_price, is_wholesale, wholesale_min_qty, stock, image_url')
         .eq('id', item.product_id)
         .single();
 
@@ -48,9 +48,9 @@ router.post("/", async (req, res) => {
         return res.status(400).json({ error: `Insufficient stock for product. Available: ${product.stock}, Requested: ${item.quantity}` });
       }
 
-      let price = product.sale_price || product.price;
+      let price = Number(product.sale_price || product.price || product.regular_price || 0);
       if (product.is_wholesale && item.quantity >= (product.wholesale_min_qty || 1)) {
-        price = product.wholesale_price || price;
+        price = Number(product.wholesale_price || price);
       }
 
       totalAmount += price * item.quantity;

@@ -79,7 +79,7 @@ export default function SearchModal() {
         ] = await Promise.all([
           supabase.from('products').select('id, name, slug').ilike('name', searchTerm).limit(5),
           supabase.from('categories').select('id, name, slug').ilike('name', searchTerm).limit(5),
-          supabase.from('orders').select('id, order_number').limit(100).ilike('order_number', searchTerm).limit(5),
+          supabase.from('orders').select('id, notes').limit(100).ilike('notes', searchTerm).limit(5),
           supabase.from('profiles').select('id, first_name, last_name, email').limit(100).ilike('first_name', searchTerm).limit(5),
           supabase.from('suppliers').select('id, name').ilike('name', searchTerm).limit(5),
           supabase.from('brands').select('id, name').ilike('name', searchTerm).limit(5),
@@ -239,12 +239,16 @@ export default function SearchModal() {
                           {results.orders.length > 0 && (
                             <div>
                               <h3 className="text-xs font-semibold text-[#5F5A54] uppercase tracking-wider mb-2 px-2 flex items-center gap-2"><ShoppingCart className="w-3 h-3"/> Orders</h3>
-                              {results.orders.map(o => (
-                                <button key={o.id} onClick={() => { setIsOpen(false); navigate(`/admin/dashboard/orders/${o.id}`); }} className="w-full flex items-center justify-between p-2 hover:bg-[#FAF5EC] rounded-lg transition-colors group">
-                                  <span className="text-sm font-medium text-[#5F5A54]">{o.order_number}</span>
-                                  <ChevronRight className="w-4 h-4 text-[#8B857D] opacity-0 group-hover:opacity-100 transition-all" />
-                                </button>
-                              ))}
+                              {results.orders.map(o => {
+                                const notes = typeof o.notes === 'string' && o.notes.startsWith('{') ? JSON.parse(o.notes) : o.notes || {};
+                                const orderNumber = notes.orderNumber || o.id.substring(0, 8).toUpperCase();
+                                return (
+                                  <button key={o.id} onClick={() => { setIsOpen(false); navigate(`/admin/dashboard/orders/${o.id}`); }} className="w-full flex items-center justify-between p-2 hover:bg-[#FAF5EC] rounded-lg transition-colors group">
+                                    <span className="text-sm font-medium text-[#5F5A54]">{orderNumber}</span>
+                                    <ChevronRight className="w-4 h-4 text-[#8B857D] opacity-0 group-hover:opacity-100 transition-all" />
+                                  </button>
+                                );
+                              })}
                             </div>
                           )}
                           

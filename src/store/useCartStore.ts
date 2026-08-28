@@ -10,12 +10,28 @@ export interface CartItem {
   seller_id?: string;
 }
 
+export type DeliveryMethod = 'standard' | 'express' | 'pickup';
+
+export const DELIVERY_FEES: Record<DeliveryMethod, number> = {
+  standard: 0,
+  express: 250,
+  pickup: 0,
+};
+
+export const getDeliveryFeeForMethod = (method: DeliveryMethod): number => {
+  return DELIVERY_FEES[method] ?? 0;
+};
+
 interface CartState {
   items: CartItem[];
+  deliveryMethod: DeliveryMethod;
+  setDeliveryMethod: (method: DeliveryMethod) => void;
   addItem: (item: Omit<CartItem, 'quantity'>, quantity?: number) => void;
   removeItem: (id: string) => void;
   updateQuantity: (id: string, quantity: number) => void;
   clearCart: () => void;
+  getCartSubtotal: () => number;
+  getDeliveryFee: () => number;
   getCartTotal: () => number;
   getCartCount: () => number;
 }
@@ -24,6 +40,10 @@ export const useCartStore = create<CartState>()(
   persist(
     (set, get) => ({
       items: [],
+      deliveryMethod: 'standard',
+      setDeliveryMethod: (method: DeliveryMethod) => {
+        set({ deliveryMethod: method });
+      },
       addItem: (newItem, quantity = 1) => {
         set((state) => {
           const existingItem = state.items.find((item) => item.id === newItem.id);
@@ -52,14 +72,21 @@ export const useCartStore = create<CartState>()(
           ),
         }));
       },
-      clearCart: () => set({ items: [] }),
-      getCartTotal: () => {
+      clearCart: () => set({ items: [], deliveryMethod: 'standard' }),
+      getCartSubtotal: () => {
         const { items } = get();
         return items.reduce((total, item) => {
           // Attempt to parse price from string like "Ksh 1,000" or "1000"
           const numPrice = parseFloat(String(item.price).replace(/[^0-9.]/g, '')) || 0;
           return total + numPrice * item.quantity;
         }, 0);
+      },
+      getDeliveryFee: () => {
+        const method = get().deliveryMethod || 'standard';
+        return DELIVERY_FEES[method] ?? 0;
+      },
+      getCartTotal: () => {
+        return get().getCartSubtotal() + get().getDeliveryFee();
       },
       getCartCount: () => {
         const { items } = get();

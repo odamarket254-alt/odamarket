@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useCartStore } from "../store/useCartStore";
 import { useAuthStore } from "../store/useAuthStore";
 import { CheckoutAuthModal } from "../components/CheckoutAuthModal";
+import { FreeDeliveryRecommendations } from "../components/cart/FreeDeliveryRecommendations";
 import { 
   Minus, 
   Plus, 
@@ -20,15 +21,18 @@ import {
   RotateCcw
 } from "lucide-react";
 
-const RECOMMENDED_PRODUCTS = [
-  { id: 'r1', name: 'Fresh Milk', weight: '1L', price: 120, image: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=500&q=80' },
-  { id: 'r2', name: 'Sliced Bread', weight: '400g', price: 65, image: 'https://images.unsplash.com/photo-1585478259715-876a6a81fa08?w=500&q=80' },
-  { id: 'r3', name: 'Coca Cola', weight: '2L', price: 200, image: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=500&q=80' },
-  { id: 'r4', name: 'Minute Maid', weight: '1L', price: 180, image: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=500&q=80' },
-];
-
 export default function CartPage() {
-  const { items, removeItem, updateQuantity, getCartTotal, addItem } = useCartStore();
+  const { 
+    items, 
+    removeItem, 
+    updateQuantity, 
+    getCartSubtotal, 
+    getDeliveryFee, 
+    getCartTotal, 
+    deliveryMethod, 
+    setDeliveryMethod, 
+    addItem 
+  } = useCartStore();
   const { user, profile } = useAuthStore();
   const navigate = useNavigate();
 
@@ -51,10 +55,12 @@ export default function CartPage() {
     return (numPrice * qty).toLocaleString();
   };
 
-  const cartTotal = getCartTotal();
+  const subtotal = getCartSubtotal();
+  const deliveryFee = getDeliveryFee();
+  const total = getCartTotal();
   const freeDeliveryThreshold = 4000;
-  const awayFromFreeDelivery = Math.max(0, freeDeliveryThreshold - cartTotal);
-  const progressPercent = Math.min(100, (cartTotal / freeDeliveryThreshold) * 100);
+  const awayFromFreeDelivery = Math.max(0, freeDeliveryThreshold - subtotal);
+  const progressPercent = Math.min(100, (subtotal / freeDeliveryThreshold) * 100);
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] pt-8 pb-24">
@@ -125,7 +131,14 @@ export default function CartPage() {
                       Delivery Method
                     </div>
                     <label className="flex items-start gap-3 cursor-pointer group">
-                      <input type="radio" name="deliveryMethod" className="mt-1 text-[#3A2418] dark:text-[#3A2418] placeholder:text-[#8B857D] caret-slate-900" defaultChecked />
+                      <input 
+                        type="radio" 
+                        name="deliveryMethod" 
+                        value="standard"
+                        checked={deliveryMethod === 'standard'}
+                        onChange={() => setDeliveryMethod('standard')}
+                        className="mt-1 text-[#3A2418] dark:text-[#3A2418] placeholder:text-[#8B857D] caret-slate-900" 
+                      />
                       <div className="flex-1">
                         <div className="flex justify-between items-center">
                           <span className="text-[slate-900] font-bold text-[14px]">Standard Delivery</span>
@@ -135,7 +148,14 @@ export default function CartPage() {
                       </div>
                     </label>
                     <label className="flex items-start gap-3 cursor-pointer group">
-                      <input type="radio" name="deliveryMethod" className="mt-1 text-[#3A2418] dark:text-[#3A2418] placeholder:text-[#8B857D] caret-slate-900" />
+                      <input 
+                        type="radio" 
+                        name="deliveryMethod" 
+                        value="express"
+                        checked={deliveryMethod === 'express'}
+                        onChange={() => setDeliveryMethod('express')}
+                        className="mt-1 text-[#3A2418] dark:text-[#3A2418] placeholder:text-[#8B857D] caret-slate-900" 
+                      />
                       <div className="flex-1">
                         <div className="flex justify-between items-center">
                           <span className="text-[slate-900] font-bold text-[14px]">Express</span>
@@ -144,7 +164,14 @@ export default function CartPage() {
                       </div>
                     </label>
                     <label className="flex items-start gap-3 cursor-pointer group">
-                      <input type="radio" name="deliveryMethod" className="mt-1 text-[#3A2418] dark:text-[#3A2418] placeholder:text-[#8B857D] caret-slate-900" />
+                      <input 
+                        type="radio" 
+                        name="deliveryMethod" 
+                        value="pickup"
+                        checked={deliveryMethod === 'pickup'}
+                        onChange={() => setDeliveryMethod('pickup')}
+                        className="mt-1 text-[#3A2418] dark:text-[#3A2418] placeholder:text-[#8B857D] caret-slate-900" 
+                      />
                       <div className="flex-1">
                         <div className="flex justify-between items-center">
                           <span className="text-[slate-900] font-bold text-[14px]">Pickup</span>
@@ -182,29 +209,10 @@ export default function CartPage() {
               </div>
 
               {/* Product Recommendations */}
-              <div className="bg-[#FFFDF8] rounded-[20px] shadow-sm border border-[#E5E7EB] p-6">
-                <h3 className="text-[slate-900] font-bold text-[16px] mb-5">Add any of these items to unlock FREE Delivery</h3>
-                <div className="flex gap-4 overflow-x-auto pb-4 snap-x">
-                  {RECOMMENDED_PRODUCTS.map(product => (
-                    <div key={product.id} className="min-w-[180px] border border-[#E5E7EB] rounded-[16px] p-4 flex flex-col snap-start group hover:shadow-md hover:-translate-y-1 transition-all duration-300">
-                      <div className="aspect-square bg-[#F8FAFC] rounded-[12px] mb-4 overflow-hidden">
-                        <OptimizedImage src={product.image} alt={product.name} imgClassName="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" className="w-full h-full" />
-                      </div>
-                      <h4 className="text-[slate-900] font-semibold text-[14px] line-clamp-1">{product.name}</h4>
-                      <p className="text-[#6B7280] text-[12px] mb-3">{product.weight}</p>
-                      <div className="mt-auto flex items-center justify-between">
-                        <span className="text-[slate-900] font-bold text-[15px]">Ksh {product.price}</span>
-                        <button 
-                          onClick={() => addItem({ id: product.id, name: product.name, price: `Ksh ${product.price}`, image_url: product.image }, 1)}
-                          className="w-8 h-8 rounded-full bg-[#F8FAFC] border border-[#E5E7EB] text-[slate-900] flex items-center justify-center hover:bg-[slate-900] hover:text-white transition-colors"
-                        >
-                          <Plus className="w-4 h-4" />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <FreeDeliveryRecommendations 
+                cartItemIds={items.map(item => item.id)} 
+                awayFromFreeDelivery={awayFromFreeDelivery} 
+              />
 
               {/* Cart Items */}
               <div className="bg-[#FFFDF8] rounded-[20px] shadow-sm border border-[#E5E7EB] overflow-hidden">
@@ -283,12 +291,12 @@ export default function CartPage() {
                   <div className="space-y-4 mb-6">
                     <div className="flex justify-between items-center text-[15px]">
                       <span className="text-[#6B7280]">Subtotal</span>
-                      <span className="text-[slate-900] font-bold">Ksh {cartTotal.toLocaleString()}</span>
+                      <span className="text-[slate-900] font-bold">Ksh {subtotal.toLocaleString()}</span>
                     </div>
                     <div className="flex justify-between items-center text-[15px]">
                       <span className="text-[#6B7280]">Delivery</span>
-                      <span className={awayFromFreeDelivery > 0 ? "text-[slate-900] font-bold" : "text-[#C65A28] font-bold"}>
-                        {awayFromFreeDelivery > 0 ? "Calculated at checkout" : "FREE"}
+                      <span className={deliveryFee > 0 ? "text-[slate-900] font-bold" : "text-[#C65A28] font-bold"}>
+                        {deliveryFee > 0 ? `Ksh ${deliveryFee.toLocaleString()}` : "FREE"}
                       </span>
                     </div>
                     <div className="flex justify-between items-center text-[15px]">
@@ -313,7 +321,7 @@ export default function CartPage() {
                   <div className="border-t border-[#E5E7EB] pt-5 mb-6">
                     <div className="flex justify-between items-end">
                       <span className="text-[slate-900] font-bold text-[18px]">Total</span>
-                      <span className="text-[#C65A28] font-black text-[28px] leading-none">Ksh {cartTotal.toLocaleString()}</span>
+                      <span className="text-[#C65A28] font-black text-[28px] leading-none">Ksh {total.toLocaleString()}</span>
                     </div>
                   </div>
 

@@ -32,7 +32,15 @@ import {
 } from "lucide-react";
 
 export default function CheckoutPage() {
-  const { items, getCartTotal, clearCart } = useCartStore();
+  const { 
+    items, 
+    deliveryMethod, 
+    setDeliveryMethod, 
+    getCartSubtotal, 
+    getDeliveryFee, 
+    getCartTotal, 
+    clearCart 
+  } = useCartStore();
   const { user, profile } = useAuthStore();
   const navigate = useNavigate();
 
@@ -47,6 +55,7 @@ export default function CheckoutPage() {
   const [confirmedOrder, setConfirmedOrder] = useState<any>(null);
   const [receiptError, setReceiptError] = useState<string | null>(null);
   const [loadingText, setLoadingText] = useState("");
+  const [isEditingDeliveryMethod, setIsEditingDeliveryMethod] = useState(false);
 
   // Load Paystack Script
   useEffect(() => {
@@ -94,6 +103,8 @@ export default function CheckoutPage() {
     }));
   }, [user, profile]);
 
+  const subtotal = getCartSubtotal();
+  const deliveryFee = getDeliveryFee();
   const cartTotal = getCartTotal();
 
   // Redirect to cart if empty
@@ -131,7 +142,9 @@ export default function CheckoutPage() {
           })),
           shippingDetails: shippingDetails,
           contactDetails: contactDetails,
-          paymentMethod: 'M-Pesa'
+          paymentMethod: 'M-Pesa',
+          deliveryMethod: deliveryMethod,
+          deliveryFee: deliveryFee
         })
       });
 
@@ -647,17 +660,104 @@ export default function CheckoutPage() {
                   <button className="text-[slate-900] font-bold text-[14px] hover:underline">Change</button>
                 </div>
                 <div className="flex justify-between items-start">
-                  <div>
-                    <div className="flex items-center gap-2 text-[#6B7280] text-[14px] font-medium mb-2">
-                      <Truck className="w-5 h-5" /> Delivery Method
+                  {!isEditingDeliveryMethod ? (
+                    <>
+                      <div>
+                        <div className="flex items-center gap-2 text-[#6B7280] text-[14px] font-medium mb-2">
+                          <Truck className="w-5 h-5" /> Delivery Method
+                        </div>
+                        <p className="text-[slate-900] font-bold text-[16px]">
+                          {deliveryMethod === 'express' ? 'Express' : deliveryMethod === 'pickup' ? 'Pickup' : 'Standard Delivery'}
+                        </p>
+                        <p className="text-[#6B7280] text-[14px] mt-1">
+                          {deliveryMethod === 'express' ? 'Estimated Today' : deliveryMethod === 'pickup' ? 'Pickup at store' : 'Estimated Tomorrow'}
+                        </p>
+                      </div>
+                      <div className="text-right flex flex-col items-end">
+                        <span className={deliveryFee > 0 ? "text-[slate-900] font-bold text-[16px] mb-1" : "text-[#C65A28] font-bold text-[16px] mb-1"}>
+                          {deliveryFee > 0 ? `Ksh ${deliveryFee.toLocaleString()}` : "FREE"}
+                        </span>
+                        <button 
+                          onClick={() => setIsEditingDeliveryMethod(true)}
+                          className="text-[slate-900] font-bold text-[14px] hover:underline"
+                        >
+                          Change
+                        </button>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="w-full space-y-3">
+                      <div className="flex justify-between items-center mb-1">
+                        <div className="flex items-center gap-2 text-[#6B7280] text-[14px] font-medium">
+                          <Truck className="w-5 h-5" /> Select Delivery Method
+                        </div>
+                        <button 
+                          onClick={() => setIsEditingDeliveryMethod(false)}
+                          className="text-[#C65A28] font-bold text-[13px] hover:underline"
+                        >
+                          Done
+                        </button>
+                      </div>
+                      <label className="flex items-start gap-3 cursor-pointer group p-1.5 rounded-lg hover:bg-[#F8FAFC]">
+                        <input 
+                          type="radio" 
+                          name="checkoutDeliveryMethod" 
+                          value="standard"
+                          checked={deliveryMethod === 'standard'}
+                          onChange={() => {
+                            setDeliveryMethod('standard');
+                            setIsEditingDeliveryMethod(false);
+                          }}
+                          className="mt-1 text-[#3A2418] dark:text-[#3A2418] placeholder:text-[#8B857D] caret-slate-900" 
+                        />
+                        <div className="flex-1">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[slate-900] font-bold text-[14px]">Standard Delivery</span>
+                            <span className="text-[#C65A28] font-bold text-[14px]">FREE</span>
+                          </div>
+                          <span className="text-[#6B7280] text-[12px]">Estimated Tomorrow</span>
+                        </div>
+                      </label>
+                      <label className="flex items-start gap-3 cursor-pointer group p-1.5 rounded-lg hover:bg-[#F8FAFC]">
+                        <input 
+                          type="radio" 
+                          name="checkoutDeliveryMethod" 
+                          value="express"
+                          checked={deliveryMethod === 'express'}
+                          onChange={() => {
+                            setDeliveryMethod('express');
+                            setIsEditingDeliveryMethod(false);
+                          }}
+                          className="mt-1 text-[#3A2418] dark:text-[#3A2418] placeholder:text-[#8B857D] caret-slate-900" 
+                        />
+                        <div className="flex-1">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[slate-900] font-bold text-[14px]">Express</span>
+                            <span className="text-[slate-900] font-bold text-[14px]">Ksh 250</span>
+                          </div>
+                        </div>
+                      </label>
+                      <label className="flex items-start gap-3 cursor-pointer group p-1.5 rounded-lg hover:bg-[#F8FAFC]">
+                        <input 
+                          type="radio" 
+                          name="checkoutDeliveryMethod" 
+                          value="pickup"
+                          checked={deliveryMethod === 'pickup'}
+                          onChange={() => {
+                            setDeliveryMethod('pickup');
+                            setIsEditingDeliveryMethod(false);
+                          }}
+                          className="mt-1 text-[#3A2418] dark:text-[#3A2418] placeholder:text-[#8B857D] caret-slate-900" 
+                        />
+                        <div className="flex-1">
+                          <div className="flex justify-between items-center">
+                            <span className="text-[slate-900] font-bold text-[14px]">Pickup</span>
+                            <span className="text-[#C65A28] font-bold text-[14px]">FREE</span>
+                          </div>
+                        </div>
+                      </label>
                     </div>
-                    <p className="text-[slate-900] font-bold text-[16px]">Standard Delivery</p>
-                    <p className="text-[#6B7280] text-[14px] mt-1">Estimated Tomorrow</p>
-                  </div>
-                  <div className="text-right flex flex-col items-end">
-                    <span className="text-[#C65A28] font-bold text-[16px] mb-1">FREE</span>
-                    <button className="text-[slate-900] font-bold text-[14px] hover:underline">Change</button>
-                  </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -758,11 +858,13 @@ export default function CheckoutPage() {
                 <div className="space-y-3 mb-6 border-t border-[#E5E7EB] pt-6">
                   <div className="flex justify-between items-center text-[14px]">
                     <span className="text-[#6B7280]">Subtotal</span>
-                    <span className="text-[slate-900] font-bold">Ksh {cartTotal.toLocaleString()}</span>
+                    <span className="text-[slate-900] font-bold">Ksh {subtotal.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between items-center text-[14px]">
                     <span className="text-[#6B7280]">Delivery</span>
-                    <span className="text-[#C65A28] font-bold">FREE</span>
+                    <span className={deliveryFee > 0 ? "text-[slate-900] font-bold" : "text-[#C65A28] font-bold"}>
+                      {deliveryFee > 0 ? `Ksh ${deliveryFee.toLocaleString()}` : "FREE"}
+                    </span>
                   </div>
                   <div className="flex justify-between items-center text-[14px]">
                     <span className="text-[#6B7280]">VAT</span>
@@ -777,10 +879,17 @@ export default function CheckoutPage() {
                   </div>
                 </div>
 
-                <div className="bg-[#ECFDF5] border border-[#A7F3D0] rounded-[12px] p-3 text-center mb-2 flex items-center justify-center gap-2">
-                  <PackageCheck className="w-5 h-5 text-[#C65A28]" />
-                  <span className="text-[slate-900] font-bold text-[14px]">🎉 You're getting FREE Delivery</span>
-                </div>
+                {deliveryFee === 0 ? (
+                  <div className="bg-[#ECFDF5] border border-[#A7F3D0] rounded-[12px] p-3 text-center mb-2 flex items-center justify-center gap-2">
+                    <PackageCheck className="w-5 h-5 text-[#C65A28]" />
+                    <span className="text-[slate-900] font-bold text-[14px]">🎉 You're getting FREE Delivery</span>
+                  </div>
+                ) : (
+                  <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-[12px] p-3 text-center mb-2 flex items-center justify-center gap-2">
+                    <Truck className="w-5 h-5 text-[#C65A28]" />
+                    <span className="text-[slate-900] font-bold text-[14px]">⚡ Express Delivery (Ksh {deliveryFee.toLocaleString()})</span>
+                  </div>
+                )}
               </div>
 
               {/* Trust Badges */}

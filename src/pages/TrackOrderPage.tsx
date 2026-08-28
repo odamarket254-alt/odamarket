@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabase";
 import { Package, Search, ChevronRight, CheckCircle2, Clock, Truck, FileText, AlertCircle, MapPin, XCircle } from "lucide-react";
 import { toast } from "sonner";
 import { format } from "date-fns";
+import { OptimizedImage } from "../components/ui/OptimizedImage";
 
 
 export default function TrackOrderPage() {
@@ -229,7 +230,13 @@ export default function TrackOrderPage() {
                       <div key={idx} className="py-4 flex gap-4 items-center">
                         {item.product_image_url ? (
                           <div className="w-16 h-16 bg-[#FAF5EC] rounded-lg border border-[#E8DCC9] overflow-hidden shrink-0">
-                            <img src={item.product_image_url} alt={item.product_name} className="w-full h-full object-cover" />
+                            <OptimizedImage 
+                              src={item.product_image_url} 
+                              alt={item.product_name || "Product"} 
+                              imgClassName="w-full h-full object-cover" 
+                              className="w-full h-full"
+                              imageType="product"
+                            />
                           </div>
                         ) : (
                           <div className="w-16 h-16 bg-[#FAF5EC] rounded-lg border border-[#E8DCC9] flex items-center justify-center shrink-0">

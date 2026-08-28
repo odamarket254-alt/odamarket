@@ -6,7 +6,7 @@ const router = Router();
 
 router.post("/", async (req, res) => {
   try {
-    const { items, shippingDetails, contactDetails, paymentMethod } = req.body;
+    const { items, shippingDetails, contactDetails, paymentMethod, deliveryMethod } = req.body;
     
     // Auth token check
     const authHeader = req.headers.authorization;
@@ -66,7 +66,14 @@ router.post("/", async (req, res) => {
       });
     }
 
-    // 2. Create the order
+    // 2. Derive delivery fee and total
+    const validDeliveryMethod = (deliveryMethod === 'express' || deliveryMethod === 'pickup') 
+      ? deliveryMethod 
+      : 'standard';
+    const deliveryFee = validDeliveryMethod === 'express' ? 250 : 0;
+    const finalTotal = totalAmount + deliveryFee;
+
+    // 3. Create the order
     const orderNumber = 'ORD-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
     const { data: orderData, error: orderError } = await supabase
       .from('orders')
@@ -74,8 +81,16 @@ router.post("/", async (req, res) => {
         user_id: user.id,
         status: 'pending',
         subtotal: totalAmount,
-        total: totalAmount,
-        notes: JSON.stringify({ shippingDetails, contactDetails, paymentMethod, orderNumber })
+        delivery_fee: deliveryFee,
+        total: finalTotal,
+        notes: JSON.stringify({ 
+          shippingDetails, 
+          contactDetails, 
+          paymentMethod, 
+          deliveryMethod: validDeliveryMethod,
+          deliveryFee,
+          orderNumber 
+        })
       })
       .select()
       .single();

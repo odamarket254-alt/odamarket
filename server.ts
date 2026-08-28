@@ -131,7 +131,10 @@ async function startServer() {
 
   app.use(express.json({ limit: "50mb" })); // Increase limit for file uploads
 
-  // Apply rate limiter to all API routes
+  // Image optimization proxy - mounted before strict API rate limiting to prevent image loads exhausting API quota
+  app.use("/api/image", imageRoutes);
+
+  // Apply rate limiter to all other API routes
   app.use("/api/", apiLimiter);
 
   // Auth Routes
@@ -139,7 +142,6 @@ async function startServer() {
 
   // Checkout Route
   app.use("/api/checkout", checkoutRoutes);
-  app.use("/api/image", imageRoutes);
 
   // AI Routes
   app.use("/api/ai", aiRoutes);

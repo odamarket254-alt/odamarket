@@ -33,12 +33,14 @@ export function OptimizedImage({
     if (!url) return '';
     if (url.startsWith('data:') || url.startsWith('blob:')) return url;
     
-    // Direct Supabase storage URLs - never proxy these
+    // Direct Supabase or Cloud storage URLs - never proxy these
     if (
       url.includes('supabase.co') || 
       url.includes('supabase.in') || 
       url.includes('supabase.net') || 
-      url.includes('/storage/v1/object/')
+      url.includes('/storage/v1/object/') ||
+      url.includes('storage.googleapis.com') ||
+      url.includes('googleusercontent.com')
     ) {
       return url;
     }
@@ -123,13 +125,11 @@ export function OptimizedImage({
 
   const isFallback = hasError || !src;
   const currentSrc = isFallback ? fallback : src;
-  const isSupabaseUrl = currentSrc?.includes('supabase.co') || currentSrc?.startsWith('data:') || currentSrc?.startsWith('blob:') || currentSrc?.startsWith('/');
+  const isDirectUrl = currentSrc?.includes('supabase.co') || currentSrc?.includes('storage.googleapis.com') || currentSrc?.startsWith('data:') || currentSrc?.startsWith('blob:') || currentSrc?.startsWith('/');
   
-  const srcSet = (!isFallback && !isSupabaseUrl && currentSrc) ? `
-    ${getOptimizedUrl(currentSrc, 400)} 400w,
-    ${getOptimizedUrl(currentSrc, 800)} 800w,
-    ${getOptimizedUrl(currentSrc, 1200)} 1200w
-  ` : undefined;
+  const srcSet = (!isFallback && !isDirectUrl && currentSrc)
+    ? `${getOptimizedUrl(currentSrc, 400)} 400w, ${getOptimizedUrl(currentSrc, 800)} 800w, ${getOptimizedUrl(currentSrc, 1200)} 1200w`
+    : undefined;
 
   const defaultSizes = "(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw";
   const isEager = priority || props.loading === 'eager';

@@ -1,0 +1,33 @@
+export interface Product {
+  id: string;
+  name: string;
+  slug?: string | null;
+  description?: string | null;
+  price: number;
+  sale_price?: number | null;
+  wholesale_price?: number | null;
+  wholesale_min_qty?: number | null;
+  wholesale_unit?: string | null;
+  stock: number;
+  low_stock_threshold?: number | null;
+  sku?: string | null;
+  barcode?: string | null;
+  is_active: boolean;
+  is_public?: boolean;
+  image_url?: string | null;
+  is_wholesale?: boolean;
+  is_featured?: boolean;
+  is_new_arrival?: boolean;
+  is_flash_sale?: boolean;
+  is_best_deal?: boolean;
+  is_lowest_price?: boolean;
+  is_electronics_zone?: boolean;
+  category_id?: string | null;
+  brand_id?: string | null;
+  created_at?: string;
+  updated_at?: string;
+  supplier_id?: string | null;
+  seller_id?: string | null;
+  unit?: string | null;
+  weight?: number | string | null;
+}

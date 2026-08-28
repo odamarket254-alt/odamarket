@@ -47,7 +47,7 @@ export function BrandFormModal({ brand, onClose }: BrandFormModalProps) {
       description: brand?.description || '',
       country: brand?.country || '',
       website: brand?.website || '',
-      status: brand?.status || 'active',
+      status: brand?.status || (brand?.is_active !== false ? 'active' : 'hidden'),
       featured: brand?.featured || false,
       homepage_status: brand?.homepage_status || false,
       seo_title: brand?.seo_title || '',
@@ -72,8 +72,9 @@ export function BrandFormModal({ brand, onClose }: BrandFormModalProps) {
     mutationFn: async (data: BrandFormData) => {
       const payload = {
         ...data,
-        logo_url: logoUrl,
-        banner_url: bannerUrl,
+        is_active: data.status === 'active',
+        logo_url: logoUrl || null,
+        banner_url: bannerUrl || null,
       };
       
       if (isEditing) {

@@ -10,11 +10,12 @@ import { cn } from '../../../lib/utils';
 interface ProductGridSectionProps {
   section: HomepageSection;
   sectionProducts?: SectionProduct[];
+  allProducts?: any[];
 }
 
-export const ProductGridSection = ({ section, sectionProducts }: ProductGridSectionProps) => {
+export const ProductGridSection = ({ section, sectionProducts, allProducts }: ProductGridSectionProps) => {
   const [products, setProducts] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!allProducts);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const scrollLeft = () => {
@@ -30,6 +31,78 @@ export const ProductGridSection = ({ section, sectionProducts }: ProductGridSect
   };
 
   useEffect(() => {
+    // If allProducts was provided by parent (DynamicHomepage), filter in-memory with ZERO duplicate network requests!
+    if (allProducts && allProducts.length > 0) {
+      const maxProducts = section.settings?.max_products || 10;
+      const filters = section.settings?.filters || {};
+
+      let filtered = [...allProducts];
+
+      if (sectionProducts) {
+        if (sectionProducts.length > 0) {
+          const productIds = sectionProducts.map(sp => sp.product_id);
+          filtered = filtered.filter(p => productIds.includes(p.id));
+          filtered.sort((a, b) => {
+            const aOrder = sectionProducts.find(sp => sp.product_id === a.id)?.sort_order || 0;
+            const bOrder = sectionProducts.find(sp => sp.product_id === b.id)?.sort_order || 0;
+            return aOrder - bOrder;
+          });
+        } else {
+          setProducts([]);
+          setIsLoading(false);
+          return;
+        }
+      } else {
+        if (filters.category_id) filtered = filtered.filter(p => p.category_id === filters.category_id);
+        if (filters.brand_id) filtered = filtered.filter(p => p.brand_id === filters.brand_id);
+        if (filters.min_price) filtered = filtered.filter(p => Number(p.price || 0) >= Number(filters.min_price));
+        if (filters.max_price) filtered = filtered.filter(p => Number(p.price || 0) <= Number(filters.max_price));
+        if (filters.has_discount) filtered = filtered.filter(p => p.sale_price !== null && p.sale_price !== undefined);
+
+        switch (section.type) {
+          case 'new_arrivals':
+          case 'recently_restocked':
+            filtered = filtered.filter(p => p.is_new_arrival);
+            break;
+          case 'featured_products':
+          case 'featured':
+            filtered = filtered.filter(p => p.is_featured);
+            break;
+          case 'flash_sales':
+          case 'flash_deals':
+          case 'sale':
+            filtered = filtered.filter(p => p.is_flash_sale);
+            break;
+          case 'best_deals':
+          case 'deal_of_the_day':
+            filtered = filtered.filter(p => p.is_best_deal);
+            break;
+          case 'wholesale':
+          case 'wholesale_products':
+            filtered = filtered.filter(p => p.is_wholesale);
+            break;
+          case 'lowest_price':
+            filtered = filtered.filter(p => p.is_lowest_price).sort((a, b) => Number(a.price || 0) - Number(b.price || 0));
+            break;
+          case 'electronics_zone':
+          case 'electronics':
+            filtered = filtered.filter(p => p.is_electronics_zone);
+            break;
+          case 'limited_stock':
+            filtered = filtered.filter(p => p.stock > 0 && p.stock <= 10).sort((a, b) => a.stock - b.stock);
+            break;
+          default:
+            break;
+        }
+
+        filtered = filtered.slice(0, maxProducts);
+      }
+
+      setProducts(filtered);
+      setIsLoading(false);
+      return;
+    }
+
     const fetchProducts = async () => {
       try {
         if (products.length === 0) setIsLoading(true);
@@ -104,7 +177,6 @@ export const ProductGridSection = ({ section, sectionProducts }: ProductGridSect
             query = query.gt('stock', 0).lte('stock', 10).order('stock', { ascending: true });
             break;
           default:
-            // For generic grids that might not have a specific type, maybe filter active?
             break;
         }
 
@@ -113,7 +185,17 @@ export const ProductGridSection = ({ section, sectionProducts }: ProductGridSect
 
       const { data, error } = await query;
       
-      if (!error && data) {
+      if (error) {
+        console.error(`[Supabase Request Failed] ProductGridSection (${section.type || section.title}):`, {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        });
+        throw error;
+      }
+
+      if (data) {
         // If it's a manual grid, sort them according to the linking table
         if (sectionProducts) {
           const sorted = data.sort((a, b) => {
@@ -126,12 +208,15 @@ export const ProductGridSection = ({ section, sectionProducts }: ProductGridSect
           setProducts(data);
         }
       }
-      setIsLoading(false);
-      } catch (err) { console.error("err", err); setIsLoading(false); }
+      } catch (err) { 
+        console.error(`[Supabase Request Failed] ProductGridSection (${section.type || section.title}) catch error:`, err); 
+      } finally {
+        setIsLoading(false);
+      }
     };
 
     fetchProducts();
-  }, [section, sectionProducts]);
+  }, [section, sectionProducts, allProducts]);
 
   if (isLoading) return null;
 

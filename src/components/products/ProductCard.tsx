@@ -49,6 +49,7 @@ export const ProductCard = ({ product, index, viewMode = "grid" }: { product: an
               alt={product.name} 
               imgClassName="w-full h-full object-contain mix-blend-multiply" 
               className="w-full h-full" 
+              imageType="product"
             />
           </Link>
           

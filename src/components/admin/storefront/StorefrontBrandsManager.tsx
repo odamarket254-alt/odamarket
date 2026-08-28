@@ -34,7 +34,13 @@ export function StorefrontBrandsManager() {
     try {
       if (brand.id.startsWith('new_')) {
         const { id, ...newBrand } = brand;
-        await supabase.from('brands').insert(newBrand);
+        const slug = newBrand.slug || newBrand.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
+        await supabase.from('brands').insert({
+          name: newBrand.name,
+          slug: slug || `brand-${Date.now()}`,
+          logo_url: newBrand.logo_url,
+          is_active: newBrand.is_active ?? true
+        });
       } else {
         await supabase.from('brands').update({
           name: brand.name,

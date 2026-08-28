@@ -7,9 +7,13 @@ import { OptimizedImage } from '../ui/OptimizedImage';
 import { useCartStore } from '../../store/useCartStore';
 import { toast } from 'sonner';
 
-export const WholesaleSection = () => {
-  const [products, setProducts] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+interface WholesaleSectionProps {
+  products?: any[];
+}
+
+export const WholesaleSection = ({ products: initialProducts }: WholesaleSectionProps) => {
+  const [products, setProducts] = useState<any[]>(initialProducts || []);
+  const [isLoading, setIsLoading] = useState(!initialProducts);
 
   const fetchWholesaleProducts = async () => {
     try {
@@ -23,20 +27,33 @@ export const WholesaleSection = () => {
         .order('created_at', { ascending: false })
         .limit(10);
         
-      if (error) throw error;
+      if (error) {
+        console.error('[Supabase Request Failed] WholesaleSection:', {
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        });
+        throw error;
+      }
       setProducts(data || []);
     } catch (err) {
-      console.error('Error fetching wholesale products:', err);
+      console.error('[Supabase Request Failed] WholesaleSection fetch error:', err);
     } finally {
       setIsLoading(false);
     }
   };
 
   useEffect(() => {
+    if (initialProducts) {
+      setProducts(initialProducts);
+      setIsLoading(false);
+      return;
+    }
     fetchWholesaleProducts();
     const channel = supabase.channel("wholesale_changes_" + Math.random().toString(36).substring(7)).on("postgres_changes", { event: "*", schema: "public", table: "products" }, () => fetchWholesaleProducts()).subscribe();
     return () => { supabase.removeChannel(channel); };
-  }, []);
+  }, [initialProducts]);
 
   if (isLoading || products.length === 0) {
     return null; // Don't show anything if loading or no wholesale products
@@ -134,6 +151,7 @@ const WholesaleProductCard = ({ product }: { product: any }) => {
           alt={product.name} 
           imgClassName="w-full h-full object-contain mix-blend-multiply transform group-hover:scale-110 transition-transform duration-500" 
           className="w-full h-full" 
+          imageType="product"
         />
         
         <div className={cn(

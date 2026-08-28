@@ -5,15 +5,38 @@ import { Link } from "react-router-dom";
 import { OptimizedImage } from "../../ui/OptimizedImage";
 import { Layers, ArrowRight } from 'lucide-react';
 
-export const CategoryGridSection = ({ section }: { section: HomepageSection }) => {
-  const [categories, setCategories] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+interface CategoryGridSectionProps {
+  section: HomepageSection;
+  categories?: any[];
+  products?: any[];
+}
+
+export const CategoryGridSection = ({ section, categories: initialCategories, products: allProducts }: CategoryGridSectionProps) => {
+  const [categories, setCategories] = useState<any[]>(initialCategories || []);
+  const [isLoading, setIsLoading] = useState(!initialCategories);
 
   useEffect(() => {
+    if (initialCategories && initialCategories.length > 0) {
+      if (allProducts) {
+        const counts: Record<string, number> = {};
+        allProducts.forEach(p => {
+          if (p.category_id) counts[p.category_id] = (counts[p.category_id] || 0) + 1;
+        });
+        setCategories(initialCategories.map(c => ({
+          ...c,
+          product_count: counts[c.id] || 0
+        })));
+      } else {
+        setCategories(initialCategories);
+      }
+      setIsLoading(false);
+      return;
+    }
+
     const fetchCategories = async () => {
       try {
         if (categories.length === 0) setIsLoading(true);
-        // Fetch up to 18 featured categories
+        // Fetch up to 8 featured categories
         const { data, error } = await supabase
           .from('categories')
           .select('id, name, slug, image_url, sort_order')
@@ -22,24 +45,36 @@ export const CategoryGridSection = ({ section }: { section: HomepageSection }) =
           .order('sort_order', { ascending: true })
           .limit(8);
 
-        if (!error && data) {
+        if (error) {
+          console.error("[Supabase Request Failed] CategoryGridSection:", {
+            message: error.message,
+            code: error.code,
+            details: error.details,
+            hint: error.hint
+          });
+          throw error;
+        }
+
+        if (data) {
           const catIds = data.map(c => c.id);
           
-          let countData = null;
-          if (catIds.length > 0) {
+          let counts: Record<string, number> = {};
+          if (allProducts) {
+            allProducts.forEach(p => {
+              if (p.category_id) counts[p.category_id] = (counts[p.category_id] || 0) + 1;
+            });
+          } else if (catIds.length > 0) {
             const res = await supabase
               .from('products')
               .select('category_id, status')
               .eq('is_active', true)
               .in('category_id', catIds);
-            countData = res.data;
-          }
-
-          const counts: Record<string, number> = {};
-          if (countData) {
-            countData.forEach(p => {
-              counts[p.category_id] = (counts[p.category_id] || 0) + 1;
-            });
+            
+            if (res.data) {
+              res.data.forEach(p => {
+                counts[p.category_id] = (counts[p.category_id] || 0) + 1;
+              });
+            }
           }
 
           setCategories(data.map(c => ({
@@ -48,7 +83,7 @@ export const CategoryGridSection = ({ section }: { section: HomepageSection }) =
           })));
         }
       } catch (err) {
-        console.error("Error fetching categories for grid:", err);
+        console.error("[Supabase Request Failed] CategoryGridSection fetch error:", err);
       } finally {
         setIsLoading(false);
       }
@@ -65,7 +100,7 @@ export const CategoryGridSection = ({ section }: { section: HomepageSection }) =
     return () => {
       supabase.removeChannel(channel);
     };
-  }, []);
+  }, [initialCategories, allProducts]);
 
   if (isLoading) {
     return (
@@ -127,6 +162,7 @@ export const CategoryGridSection = ({ section }: { section: HomepageSection }) =
                   className="w-full h-full flex items-center justify-center"
                   imgClassName="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ease-out" 
                   loading="lazy"
+                  imageType="category"
                 />
               ) : (
                 <Layers className="w-6 h-6 md:w-10 md:h-10 text-gray-300 group-hover:scale-105 transition-transform duration-300 ease-out" />

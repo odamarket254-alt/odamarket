@@ -14,7 +14,8 @@ export const HeroBannerSection = ({ section }: HeroBannerSectionProps) => {
   const allBanners = section.settings?.banners || [];
   const [now, setNow] = useState(new Date());
   useEffect(() => {
-    const timer = setInterval(() => setNow(new Date()), 1000);
+    // Check schedule every 60 seconds instead of every second to avoid re-render thrashing
+    const timer = setInterval(() => setNow(new Date()), 60000);
     return () => clearInterval(timer);
   }, []);
   
@@ -157,6 +158,9 @@ export const HeroBannerSection = ({ section }: HeroBannerSectionProps) => {
                   className={cn("absolute inset-0 w-full h-full pointer-events-none", banner.mobile_image_url ? "hidden md:block" : "block")}
                   imgClassName="w-full h-full object-cover object-center"
                   loading={index === 0 ? "eager" : "lazy"}
+                  priority={index === 0}
+                  imageType="banner"
+                  fallback="https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80"
                 />
               )}
               
@@ -167,6 +171,9 @@ export const HeroBannerSection = ({ section }: HeroBannerSectionProps) => {
                   className="absolute inset-0 w-full h-full block md:hidden pointer-events-none"
                   imgClassName="w-full h-full object-cover object-center"
                   loading={index === 0 ? "eager" : "lazy"}
+                  priority={index === 0}
+                  imageType="banner"
+                  fallback="https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80"
                 />
               )}
               

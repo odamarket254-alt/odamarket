@@ -64,10 +64,10 @@ export default function AdminBrandsPage() {
 
   const stats = {
     total: brands.length,
-    active: brands.filter(b => b.status === 'active').length,
+    active: brands.filter(b => b.status === 'active' || (b.is_active && !b.status)).length,
     draft: brands.filter(b => b.status === 'draft').length,
     archived: brands.filter(b => b.status === 'archived').length,
-    hidden: brands.filter(b => b.status === 'hidden').length,
+    hidden: brands.filter(b => b.status === 'hidden' || (b.is_active === false && !b.status)).length,
     featured: brands.filter(b => b.featured).length,
     homepage: brands.filter(b => b.homepage_status).length,
   };

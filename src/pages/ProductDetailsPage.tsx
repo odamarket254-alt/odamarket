@@ -16,8 +16,10 @@ export default function ProductDetailsPage() {
   const [quantity, setQuantity] = useState(1);
   const addItem = useCartStore(state => state.addItem);
 
-  useEffect(() => {
-    const fetchProduct = async () => {
+  const fetchProduct = async () => {
+    try {
+      setLoading(true);
+      setQueryError(null);
       const { data, error } = await supabase
         .from("products")
         .select("*, category:categories!left(name), brands(name)")
@@ -25,14 +27,26 @@ export default function ProductDetailsPage() {
         .single();
       
       if (error) {
-        console.error("Supabase error fetching product:", error);
+        console.error("[Supabase Request Failed] fetchProduct:", {
+          id,
+          message: error.message,
+          code: error.code,
+          details: error.details,
+          hint: error.hint
+        });
         setQueryError(error);
       } else {
         setProduct(data);
       }
+    } catch (err: any) {
+      console.error("[Supabase Request Failed] fetchProduct catch:", err);
+      setQueryError(err);
+    } finally {
       setLoading(false);
-    };
-    
+    }
+  };
+
+  useEffect(() => {
     if (id) {
       fetchProduct();
     }
@@ -53,17 +67,35 @@ export default function ProductDetailsPage() {
 
   if (loading) return <div className="min-h-screen bg-background pt-32 flex items-center justify-center"><div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" /></div>;
   if (queryError) return (
-    <div className="min-h-screen bg-background pt-32 flex flex-col items-center justify-center">
+    <div className="min-h-screen bg-background pt-32 flex flex-col items-center justify-center gap-4 px-4 text-center">
       <h1 className="text-2xl font-bold text-[#3A2418]">Error Loading Product</h1>
-      <pre className="mt-4 p-4 bg-red-50 text-red-600 rounded overflow-auto max-w-2xl text-sm">
-        {JSON.stringify(queryError, null, 2)}
-      </pre>
+      <p className="text-sm text-red-600 max-w-lg">{queryError.message || JSON.stringify(queryError)}</p>
+      <button
+        onClick={() => fetchProduct()}
+        className="px-6 py-2.5 bg-[#C65A28] text-white rounded-full font-medium hover:bg-[#b04f22] transition-colors"
+      >
+        Retry
+      </button>
     </div>
   );
   if (!product) return (
-    <div className="min-h-screen bg-background pt-32 flex flex-col items-center justify-center">
-      <h1 className="text-2xl font-bold text-[#3A2418]">Product {id} not found</h1>
-      <p className="mt-4 text-[#5F5A54]">The product you are looking for does not exist or has been removed.</p>
+    <div className="min-h-screen bg-background pt-32 flex flex-col items-center justify-center gap-4 px-4 text-center">
+      <h1 className="text-2xl font-bold text-[#3A2418]">Product not found</h1>
+      <p className="text-[#5F5A54] max-w-md">The product you are looking for does not exist or has been removed.</p>
+      <div className="flex gap-4">
+        <button
+          onClick={() => fetchProduct()}
+          className="px-5 py-2.5 bg-[#E8DCC9] text-[#3A2418] rounded-full font-medium hover:bg-[#dfd1bd] transition-colors"
+        >
+          Try Again
+        </button>
+        <Link
+          to="/products"
+          className="px-5 py-2.5 bg-[#C65A28] text-white rounded-full font-medium hover:bg-[#b04f22] transition-colors"
+        >
+          Browse Products
+        </Link>
+      </div>
     </div>
   );
 
@@ -95,7 +127,14 @@ export default function ProductDetailsPage() {
                 <Share2 className="h-4 w-4 sm:h-5 sm:w-5" />
               </Button>
             </div>
-            <OptimizedImage src={product.image_url || "https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&q=80"} alt={product.name} imgClassName="w-full h-full object-contain drop-shadow-xl hover:scale-105 transition-transform duration-500" className="w-full h-full" />
+            <OptimizedImage 
+              src={product.image_url || "https://images.unsplash.com/photo-1542838132-92c53300491e?w=800&q=80"} 
+              alt={product.name} 
+              imgClassName="w-full h-full object-contain drop-shadow-xl hover:scale-105 transition-transform duration-500" 
+              className="w-full h-full"
+              priority={true}
+              imageType="product"
+            />
           </motion.div>
 
           {/* Product Info */}

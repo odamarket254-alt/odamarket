@@ -129,6 +129,7 @@ const CategorySection = ({ parent, children }: { parent: any, children: any[] })
                     className="w-full h-full"
                     imgClassName="w-full h-full object-cover group-hover:scale-105 transition-transform duration-250" 
                     loading="lazy"
+                    imageType="category"
                   />
                 ) : (
                   <Package className="w-6 h-6 text-[#D9A62E]" />
@@ -187,7 +188,15 @@ export default function CategoriesPage() {
           .eq('is_active', true)
           .order('name', { ascending: true });
           
-        if (error) throw error;
+        if (error) {
+          console.error("[Supabase Request Failed] CategoriesPage:", {
+            message: error.message,
+            code: error.code,
+            details: error.details,
+            hint: error.hint
+          });
+          throw error;
+        }
         
         if (data) {
           const categoryIds = data.map(c => c.id);

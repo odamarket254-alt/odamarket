@@ -9,6 +9,7 @@ export interface Brand {
   country: string | null;
   featured: boolean;
   status: 'active' | 'draft' | 'archived' | 'hidden';
+  is_active?: boolean;
   homepage_status: boolean;
   seo_title: string | null;
   seo_description: string | null;

@@ -18,12 +18,20 @@ router.get("/", async (req, res) => {
       return res.status(400).send("URL is required");
     }
 
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(url);
+      if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+        return res.status(400).send("Invalid protocol");
+      }
+    } catch {
+      return res.status(400).send("Invalid URL");
+    }
+
     // Attempt to determine best format based on Accept headers
     const accepts = req.headers.accept || "";
     let format: "jpeg" | "webp" | "avif" = "jpeg";
     
-    // Fallbacks if browser doesn't explicitly advertise avif/webp 
-    // or if the underlying OS doesn't have AVIF support, we can try to rely on sharp defaults.
     if (accepts.includes("image/avif")) {
       format = "avif";
     } else if (accepts.includes("image/webp")) {
@@ -43,10 +51,12 @@ router.get("/", async (req, res) => {
       return res.send(cached);
     }
 
-    // Fetch the original image
-    const response = await fetch(url);
+    // Fetch the original image with 5-second timeout to prevent hanging
+    const response = await fetch(url, {
+      signal: AbortSignal.timeout(5000)
+    });
     if (!response.ok) {
-       return res.redirect(url); // gracefully degrade to original image if fetch fails
+       return res.redirect(302, url); // gracefully degrade to original image if fetch fails
     }
 
     const arrayBuffer = await response.arrayBuffer();
@@ -70,12 +80,16 @@ router.get("/", async (req, res) => {
     res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
     return res.send(optimized);
   } catch (err) {
-    console.error("Image proxy error:", err);
+    console.error("[Image Proxy Error]", err);
     // fallback gracefully to original url if possible
-    if (typeof req.query.url === "string") {
-      res.redirect(req.query.url);
+    if (typeof req.query.url === "string" && (req.query.url.startsWith('http://') || req.query.url.startsWith('https://'))) {
+      if (!res.headersSent) {
+        return res.redirect(302, req.query.url);
+      }
     } else {
-      res.status(500).send("Optimization failed");
+      if (!res.headersSent) {
+        return res.status(500).send("Optimization failed");
+      }
     }
   }
 });

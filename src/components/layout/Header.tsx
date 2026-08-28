@@ -1,10 +1,12 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Logo } from "../ui/Logo";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useCartStore } from "../../store/useCartStore";
+import { useWishlistStore } from "../../store/useWishlistStore";
 import { getWhatsAppLink } from "../../utils/whatsapp";
 import { supabase } from "../../lib/supabase";
+import { NotificationBell } from "./NotificationBell";
 import {
   Smartphone,
   MapPin,
@@ -28,9 +30,61 @@ export function Header() {
   const { user, profile } = useAuthStore();
   const cartCount = useCartStore((state) => state.getCartCount());
   const cartTotal = useCartStore((state) => state.getCartTotal());
+  const { items: wishlistItems } = useWishlistStore();
+  const wishlistCount = wishlistItems.length;
   const [scrolled, setScrolled] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [showDropdown, setShowDropdown] = useState(false);
+  const searchContainerRef = useRef<HTMLDivElement>(null);
+  const mobileSearchContainerRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        searchContainerRef.current && !searchContainerRef.current.contains(event.target as Node) &&
+        mobileSearchContainerRef.current && !mobileSearchContainerRef.current.contains(event.target as Node)
+      ) {
+        setShowDropdown(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  useEffect(() => {
+    const fetchSearchResults = async () => {
+      if (!searchQuery.trim()) {
+        setSearchResults([]);
+        setIsSearching(false);
+        return;
+      }
+      
+      setIsSearching(true);
+      setShowDropdown(true);
+      
+      try {
+        const { data, error } = await supabase
+          .from("products")
+          .select("id, name, image_url, price, compare_at_price")
+          .ilike("name", `%${searchQuery}%`)
+          .limit(5);
+          
+        if (!error && data) {
+          setSearchResults(data);
+        }
+      } catch (err) {
+        console.error("Predictive search error:", err);
+      } finally {
+        setIsSearching(false);
+      }
+    };
+
+    const debounceTimer = setTimeout(fetchSearchResults, 300);
+    return () => clearTimeout(debounceTimer);
+  }, [searchQuery]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -43,6 +97,7 @@ export function Header() {
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
+      setShowDropdown(false);
       navigate(`/products?q=${encodeURIComponent(searchQuery)}`);
     }
   };
@@ -90,6 +145,64 @@ export function Header() {
     };
   }, []);
 
+  const SearchDropdown = () => {
+    if (!showDropdown || !searchQuery.trim()) return null;
+
+    return (
+      <div className="absolute top-[100%] left-0 right-0 mt-2 bg-white rounded-xl shadow-xl border border-gray-100 z-[60] overflow-hidden">
+        {isSearching ? (
+          <div className="p-4 text-center text-sm text-gray-500">Searching...</div>
+        ) : searchResults.length > 0 ? (
+          <ul>
+            {searchResults.map((product) => (
+              <li key={product.id}>
+                <Link
+                  to={`/products/${product.id}`}
+                  onClick={() => {
+                    setShowDropdown(false);
+                    setSearchQuery("");
+                  }}
+                  className="flex items-center gap-3 p-3 hover:bg-gray-50 transition-colors border-b border-gray-50 last:border-0"
+                >
+                  <div className="w-12 h-12 bg-gray-100 rounded-md overflow-hidden flex-shrink-0">
+                    {product.image_url ? (
+                      <img src={product.image_url} alt={product.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <Package className="w-6 h-6 text-gray-400 m-auto mt-3" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h4 className="text-sm font-medium text-gray-900 truncate">{product.name}</h4>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="text-sm font-bold text-[#C65A28]">
+                        KSh {product.price?.toLocaleString()}
+                      </span>
+                      {product.compare_at_price && product.compare_at_price > product.price && (
+                        <span className="text-xs text-gray-400 line-through">
+                          KSh {product.compare_at_price.toLocaleString()}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                </Link>
+              </li>
+            ))}
+            <li>
+              <button 
+                onClick={handleSearch}
+                className="w-full p-3 text-center text-sm text-[#C65A28] font-medium hover:bg-gray-50 transition-colors"
+              >
+                View all results for "{searchQuery}"
+              </button>
+            </li>
+          </ul>
+        ) : (
+          <div className="p-4 text-center text-sm text-gray-500">No products found.</div>
+        )}
+      </div>
+    );
+  };
+
   return (
     <header className={`w-full z-50 transition-all duration-300 ${scrolled ? "bg-white shadow-md fixed top-0" : "bg-white relative"}`}>
       
@@ -104,11 +217,17 @@ export function Header() {
           </Link>
           
           <div className="flex items-center gap-1 sm:gap-2">
+            <NotificationBell isMobile triggerClassName="w-11 h-11" />
             <Link to={user ? (profile?.role === 'admin' ? '/admin/dashboard' : `/${profile?.role === 'customer' ? 'buyer' : profile?.role || 'buyer'}/dashboard`) : '/login'} className="w-11 h-11 flex items-center justify-center text-[#5F5A54] hover:bg-gray-100 rounded-full transition-colors shrink-0">
               <User className="w-[22px] h-[22px]" />
             </Link>
-            <Link to="/wishlist" className="w-11 h-11 flex items-center justify-center text-[#5F5A54] hover:bg-gray-100 rounded-full transition-colors shrink-0">
+            <Link to="/wishlist" className="w-11 h-11 flex items-center justify-center relative text-[#5F5A54] hover:bg-gray-100 rounded-full transition-colors shrink-0">
               <Heart className="w-[22px] h-[22px]" />
+              {wishlistCount > 0 && (
+                <span className="absolute top-1 right-1 w-[18px] h-[18px] bg-[#C65A28] text-white text-[10px] font-bold flex items-center justify-center rounded-full border-2 border-[#FFFDF8]">
+                  {wishlistCount}
+                </span>
+              )}
             </Link>
             <Link to="/cart" className="w-11 h-11 flex items-center justify-center relative text-[#3A2418] hover:bg-gray-100 rounded-full transition-colors shrink-0">
               <ShoppingCart className="w-[24px] h-[24px]" />
@@ -121,22 +240,26 @@ export function Header() {
 
         {/* Search Bar Row */}
         <div className={`px-4 transition-all duration-200 ${scrolled ? 'py-2' : 'py-3'} bg-white`}>
-          <form onSubmit={handleSearch} className="w-full flex items-center h-[50px] rounded-full border-2 border-[#C65A28] bg-white overflow-hidden focus-within:ring-2 focus-within:ring-[#C65A28]/20 transition-all">
-            <div className="hidden min-[380px]:flex items-center h-full px-3 border-r border-[#EAEAEA] bg-[#FAF5EC] cursor-pointer hover:bg-[#E8DCC9] shrink-0">
-              <span className="text-[13px] font-medium text-[#5F5A54] truncate max-w-[80px]">Categories</span>
-              <ChevronDown className="w-3.5 h-3.5 ml-1 text-[#5F5A54]" />
-            </div>
-            <input 
-              type="text" 
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search products..." 
-              className="flex-1 h-full px-3 sm:px-4 bg-transparent outline-none text-[#3A2418] placeholder-[#8B857D] text-[14px] sm:text-[15px] w-full min-w-0"
-            />
-            <button type="submit" className="h-full px-4 bg-[#C65A28] text-white flex items-center justify-center shrink-0 hover:bg-[#A84A1E] transition-colors">
-              <Search className="w-5 h-5" />
-            </button>
-          </form>
+          <div ref={mobileSearchContainerRef} className="relative w-full">
+            <form onSubmit={handleSearch} className="w-full flex items-center h-[50px] rounded-full border-2 border-[#C65A28] bg-white overflow-hidden focus-within:ring-2 focus-within:ring-[#C65A28]/20 transition-all">
+              <div className="hidden min-[380px]:flex items-center h-full px-3 border-r border-[#EAEAEA] bg-[#FAF5EC] cursor-pointer hover:bg-[#E8DCC9] shrink-0">
+                <span className="text-[13px] font-medium text-[#5F5A54] truncate max-w-[80px]">Categories</span>
+                <ChevronDown className="w-3.5 h-3.5 ml-1 text-[#5F5A54]" />
+              </div>
+              <input 
+                type="text" 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                onFocus={() => { if (searchQuery.trim()) setShowDropdown(true); }}
+                placeholder="Search products..." 
+                className="flex-1 h-full px-3 sm:px-4 bg-transparent outline-none text-[#3A2418] placeholder-[#8B857D] text-[14px] sm:text-[15px] w-full min-w-0"
+              />
+              <button type="submit" className="h-full px-4 bg-[#C65A28] text-white flex items-center justify-center shrink-0 hover:bg-[#A84A1E] transition-colors">
+                <Search className="w-5 h-5" />
+              </button>
+            </form>
+            <SearchDropdown />
+          </div>
         </div>
 
         {/* Delivery Information Row (36-40px height) */}
@@ -206,7 +329,7 @@ export function Header() {
             </div>
 
             {/* Search Bar (Desktop) */}
-            <div className="flex flex-1 w-full max-w-3xl mx-6 xl:mx-12 order-last md:order-none mt-3 md:mt-0">
+            <div ref={searchContainerRef} className="relative flex flex-1 w-full max-w-3xl mx-6 xl:mx-12 order-last md:order-none mt-3 md:mt-0">
               <div className="w-full flex items-center h-[50px] rounded-full border-2 border-[#C65A28] bg-white overflow-hidden focus-within:ring-2 focus-within:ring-[#C65A28]/20 transition-all">
                 <div className="hidden lg:flex items-center h-full px-4 border-r border-[#EAEAEA] bg-[#FAF5EC] cursor-pointer hover:bg-[#E8DCC9] shrink-0">
                   <span className="text-sm font-medium text-[#5F5A54]">All Categories</span>
@@ -217,6 +340,7 @@ export function Header() {
                     type="text" 
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
+                    onFocus={() => { if (searchQuery.trim()) setShowDropdown(true); }}
                     placeholder="I'm shopping for..." 
                     className="w-full h-full px-4 bg-transparent outline-none text-[#3A2418] placeholder-[#8B857D] text-[15px]"
                   />
@@ -228,6 +352,7 @@ export function Header() {
                   </button>
                 </form>
               </div>
+              <SearchDropdown />
             </div>
 
             {/* Right: Icons */}
@@ -246,22 +371,19 @@ export function Header() {
               </Link>
               
               {/* Notifications */}
-              <Link to="/notifications" className="hidden lg:flex items-center gap-3 group cursor-pointer relative">
-                <div className="w-10 h-10 rounded-full bg-[#FAF5EC] flex items-center justify-center text-[#5F5A54] group-hover:bg-[#C65A28]/10 group-hover:text-[#C65A28] transition-colors">
-                  <Bell className="w-5 h-5" strokeWidth={2} />
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#B94A48]/100 text-white text-[11px] font-bold flex items-center justify-center rounded-full border-2 border-white">
-                    3
-                  </span>
-                </div>
-              </Link>
+              <div className="hidden lg:flex items-center">
+                <NotificationBell />
+              </div>
               
               {/* Wishlist */}
               <Link to="/wishlist" className="hidden sm:flex items-center gap-3 group cursor-pointer relative">
                 <div className="w-10 h-10 rounded-full bg-[#FAF5EC] flex items-center justify-center text-[#5F5A54] group-hover:bg-[#C65A28]/10 group-hover:text-[#C65A28] transition-colors">
                   <Heart className="w-5 h-5" strokeWidth={2} />
-                  <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#C65A28] text-white text-[11px] font-bold flex items-center justify-center rounded-full border-2 border-white">
-                    0
-                  </span>
+                  {wishlistCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#C65A28] text-white text-[11px] font-bold flex items-center justify-center rounded-full border-2 border-white">
+                      {wishlistCount}
+                    </span>
+                  )}
                 </div>
               </Link>
 

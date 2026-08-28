@@ -1,60 +1,27 @@
 import { OptimizedImage } from "../components/ui/OptimizedImage";
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { Link } from "react-router-dom";
 import { Heart, Search, Grid, List, Trash2, Eye, Minus, Plus, ShoppingCart, Info, Loader2 } from "lucide-react";
 import { useCartStore } from "../store/useCartStore";
 import { useAuthStore } from "../store/useAuthStore";
-import { supabase } from "../lib/supabase";
+import { useWishlistStore } from "../store/useWishlistStore";
 import { toast } from "sonner";
 import { formatCurrency } from "../lib/utils";
 
 export default function WishlistPage() {
   const { user } = useAuthStore();
-  const [wishlist, setWishlist] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { items: wishlist, loading, fetchWishlist, toggleWishlist, initialized } = useWishlistStore();
   const { addItem } = useCartStore();
 
   useEffect(() => {
-    if (!user) {
-      setLoading(false);
-      return;
+    if (user && !initialized) {
+      fetchWishlist(user.id);
     }
-    
-    fetchWishlist();
+  }, [user, initialized, fetchWishlist]);
 
-    }, [user]);
-
-  const fetchWishlist = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('wishlists')
-        .select('id, product_id, products(*)').limit(100)
-        .eq('user_id', user!.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setWishlist(data || []);
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to load wishlist");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const removeFromWishlist = async (id: string) => {
-    try {
-      const { error } = await supabase
-        .from('wishlists')
-        .delete()
-        .eq('id', id);
-        
-      if (error) throw error;
-      toast.success("Removed from wishlist");
-      // UI updates optimistically via real-time!
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to remove item");
+  const removeFromWishlist = (id: string, productId: string) => {
+    if (user) {
+      toggleWishlist(user.id, productId);
     }
   };
 
@@ -69,9 +36,11 @@ export default function WishlistPage() {
     toast.success("Added to cart");
   };
 
+  const validWishlist = wishlist.filter(item => item.products);
+  
   const handleAddAllAvailable = () => {
     let added = 0;
-    wishlist.forEach((item) => {
+    validWishlist.forEach((item) => {
       if (item.products.stock > 0) {
         handleAddToCart(item.products);
         added++;
@@ -80,10 +49,10 @@ export default function WishlistPage() {
     if (added > 0) toast.success(`Added ${added} items to cart`);
   };
 
-  const availableItems = wishlist.filter(item => item.products.stock > 0).length;
-  const unavailableItems = wishlist.filter(item => item.products.stock === 0).length;
-  const estimatedValue = wishlist.reduce((acc, item) => acc + (item.products.price || 0), 0);
-  const totalSavings = wishlist.reduce((acc, item) => acc + ((item.products.compare_at_price || item.products.price) - item.products.price), 0);
+  const availableItems = validWishlist.filter(item => item.products.stock > 0).length;
+  const unavailableItems = validWishlist.filter(item => item.products.stock === 0).length;
+  const estimatedValue = validWishlist.reduce((acc, item) => acc + (item.products.price || 0), 0);
+  const totalSavings = validWishlist.reduce((acc, item) => acc + ((item.products.compare_at_price || item.products.price) - item.products.price), 0);
 
   if (loading) {
     return (
@@ -117,7 +86,7 @@ export default function WishlistPage() {
         <div className="flex flex-col lg:flex-row gap-8">
           <div className="flex-1 space-y-12">
             <div className="bg-[#FFFDF8] rounded-[24px] shadow-sm border border-[#E5E7EB] p-8">
-              {wishlist.length === 0 ? (
+              {validWishlist.length === 0 ? (
                 <div className="text-center py-12">
                   <Heart className="w-16 h-16 text-[#94A3B8] mx-auto mb-6" />
                   <h3 className="text-[20px] font-bold text-[#0B2346] mb-2">No items saved yet</h3>
@@ -128,7 +97,7 @@ export default function WishlistPage() {
                 </div>
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {wishlist.map((item) => (
+                  {validWishlist.map((item) => (
                     <div key={item.id} className="group relative bg-[#F8FAFC] rounded-[16px] border border-[#E5E7EB] overflow-hidden flex shadow-sm hover:shadow-md transition-all">
                       <div className="w-[140px] shrink-0 relative bg-white border-r border-[#E5E7EB]">
                         <OptimizedImage 
@@ -149,7 +118,7 @@ export default function WishlistPage() {
                               {item.products.name}
                             </h3>
                             <button 
-                              onClick={() => removeFromWishlist(item.id)}
+                              onClick={() => removeFromWishlist(item.id, item.product_id)}
                               className="text-[#94A3B8] hover:text-[#EF4444] p-1.5 -mr-1.5 rounded-full hover:bg-[#EF4444]/10 transition-colors"
                             >
                               <Trash2 className="w-4 h-4" />
@@ -190,7 +159,7 @@ export default function WishlistPage() {
               <div className="space-y-4 mb-8">
                 <div className="flex justify-between items-center text-[15px]">
                   <span className="text-[#6B7280]">Saved Items</span>
-                  <span className="text-[#0B2346] font-bold">{wishlist.length}</span>
+                  <span className="text-[#0B2346] font-bold">{validWishlist.length}</span>
                 </div>
                 <div className="flex justify-between items-center text-[15px]">
                   <span className="text-[#6B7280]">Estimated Cost</span>

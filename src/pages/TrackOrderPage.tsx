@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { Link } from "react-router-dom";
+import React, { useState, useEffect } from "react";
+import { Link, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { Package, Search, ChevronRight, CheckCircle2, Clock, Truck, FileText, AlertCircle, MapPin, XCircle } from "lucide-react";
 import { toast } from "sonner";
@@ -8,6 +8,7 @@ import { OptimizedImage } from "../components/ui/OptimizedImage";
 
 
 export default function TrackOrderPage() {
+  const [searchParams] = useSearchParams();
   const [orderId, setOrderId] = useState("");
   const [phoneOrEmail, setPhoneOrEmail] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -15,12 +16,9 @@ export default function TrackOrderPage() {
   const [orderItems, setOrderItems] = useState<any[]>([]);
   const [error, setError] = useState("");
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!orderId) {
-      setError("Please enter your Order ID");
-      return;
-    }
+  const executeTracking = async (searchId: string) => {
+    const rawId = (searchId || "").trim();
+    if (!rawId) return;
 
     setIsLoading(true);
     setError("");
@@ -28,24 +26,50 @@ export default function TrackOrderPage() {
     setOrderItems([]);
 
     try {
-      // Basic security check: We require either phone or email match, but since we don't know the exact schema 
-      // (whether it's user_id, contact_email, phone), we will try to fetch the order and verify if it matches user input if provided.
-      // But let's first query by ID. If it's a UUID, we query id. If it's a short string, we might need to query id.ilike.
-      
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(orderId);
-      
-      let query = supabase.from("orders").select("*");
-      if (isUuid) {
-        query = query.eq("id", orderId);
+      const cleanId = rawId.replace(/^#/, "");
+      const strippedId = cleanId.replace(/^ODA-/i, "");
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanId) ||
+                    /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(strippedId);
+      const uuidToQuery = isUuid 
+        ? (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanId) ? cleanId : strippedId)
+        : null;
+
+      let data: any = null;
+
+      if (uuidToQuery) {
+        const { data: foundOrder } = await supabase
+          .from("orders")
+          .select("*")
+          .eq("id", uuidToQuery)
+          .maybeSingle();
+        data = foundOrder;
       } else {
-        query = query.ilike("notes", `%${orderId.trim()}%`);
+        // Search by notes or order reference
+        const { data: foundOrder } = await supabase
+          .from("orders")
+          .select("*")
+          .ilike("notes", `%${cleanId}%`)
+          .limit(1)
+          .maybeSingle();
+        data = foundOrder;
+
+        // If not found by notes and short hex ID, search by ID prefix using RPC or list
+        if (!data && cleanId.length >= 6) {
+          const { data: recentOrders } = await supabase
+            .from("orders")
+            .select("*")
+            .order("created_at", { ascending: false })
+            .limit(100);
+
+          if (recentOrders) {
+            data = recentOrders.find((o: any) => 
+              o.id.toLowerCase().startsWith(strippedId.toLowerCase())
+            ) || null;
+          }
+        }
       }
 
-      const { data, error: fetchError } = await query.limit(1).single();
-
-      if (fetchError || !data) {
-        // If order_number failed, they might have entered the short part of the UUID. 
-        // We cannot ilike a UUID safely from JS without rpc, so we will show an error.
+      if (!data) {
         setError("Order not found. Please enter a valid full Order ID or Order Number.");
         setIsLoading(false);
         return;
@@ -81,6 +105,23 @@ export default function TrackOrderPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  useEffect(() => {
+    const paramOrderId = searchParams.get("orderId") || searchParams.get("id");
+    if (paramOrderId) {
+      setOrderId(paramOrderId);
+      executeTracking(paramOrderId);
+    }
+  }, [searchParams]);
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!orderId) {
+      setError("Please enter your Order ID");
+      return;
+    }
+    executeTracking(orderId);
   };
 
   const getStatusStep = (status: string) => {

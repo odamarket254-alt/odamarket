@@ -8,6 +8,8 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 import { useAuthStore } from "../store/useAuthStore";
 import { useCartStore } from "../store/useCartStore";
+import { useWishlistStore } from "../store/useWishlistStore";
+import { cn } from "../lib/utils";
 
 
 export interface MarketplaceProduct {
@@ -33,6 +35,9 @@ export const SwipeableProductCard = React.memo(({ product }: { product: Marketpl
   const navigate = useNavigate();
   const { user } = useAuthStore();
   const addItem = useCartStore((state) => state.addItem);
+  const { toggleWishlist, isInWishlist } = useWishlistStore();
+  
+  const isWishlisted = isInWishlist(product.id);
 
   const handleClick = (e: MouseEvent) => {
     navigate(`/products/${product.id}`);
@@ -64,12 +69,16 @@ export const SwipeableProductCard = React.memo(({ product }: { product: Marketpl
       <button
         onClick={(e) => {
           e.stopPropagation();
-          toast.success("Product added to wishlist!");
+          if (!user) {
+            toast.error("Please login to manage your wishlist");
+            return;
+          }
+          toggleWishlist(user.id, product.id);
         }}
         className="absolute top-3 right-3 z-20 p-2.5 rounded-full bg-background/80 backdrop-blur-md hover:bg-background text-muted-foreground hover:text-destructive transition-colors border border-border shadow-sm"
         aria-label="Save product"
       >
-        <Bookmark className="w-4 h-4" />
+        <Bookmark className={cn("w-4 h-4", isWishlisted && "fill-destructive text-destructive")} />
       </button>
 
       <div

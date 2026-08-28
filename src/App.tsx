@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "./components/ui/Sonner";
 import { useEffect, Suspense, lazy } from "react";
 import { supabase } from "./lib/supabase";
@@ -41,6 +41,7 @@ const HelpCenterPage = lazy(() => import("./pages/HelpCenterPage"));
 const StoreLocatorPage = lazy(() => import("./pages/StoreLocatorPage"));
 const CheckoutPage = lazy(() => import("./pages/CheckoutPage"));
 const CategoriesPage = lazy(() => import("./pages/CategoriesPage"));
+const NotificationsPage = lazy(() => import("./pages/NotificationsPage"));
 
 // Lazy Loaded Dashboard Pages
 const BuyerDashboardHome = lazy(() => import("./pages/dashboard/BuyerDashboardHome").then(m => ({ default: m.BuyerDashboardHome })));
@@ -197,7 +198,8 @@ export default function App() {
               <Route path="/help-center/track" element={<CustomerTicketTrackingPage />} />
               <Route path="/help-center/ticket/:id" element={<CustomerTicketDetailsPage />} />
               <Route path="/store-locator" element={<StoreLocatorPage />} />
-                                                        <Route path="/cookie-policy" element={<CookiePolicyPage />} />
+              <Route path="/cookie-policy" element={<CookiePolicyPage />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
             </Route>
 
             {/* Role Routing Interceptor */}
@@ -208,6 +210,8 @@ export default function App() {
               <Route path="/buyer/dashboard" element={<DashboardLayout />}>
                 <Route index element={<BuyerDashboardHome />} />
                 <Route path="orders" element={<OrdersPage />} />
+                <Route path="notifications" element={<NotificationsPage />} />
+                <Route path="track" element={<TrackOrderPage />} />
                 <Route path="settings" element={<SettingsPage />} />
               </Route>
             </Route>
@@ -246,6 +250,9 @@ export default function App() {
                 <Route path="audit" element={<AdminAuditPage />} />
               </Route>
             </Route>
+
+            {/* Catch-all route to prevent blank/white screen on unhandled URLs */}
+            <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>
       </ErrorBoundary>

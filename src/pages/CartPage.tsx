@@ -22,47 +22,8 @@ import {
 } from "lucide-react";
 
 export default function CartPage() {
-  const { 
-    items, 
-    removeItem, 
-    updateQuantity, 
-    getCartSubtotal, 
-    getDeliveryFee, 
-    getCartTotal, 
-    deliveryMethod, 
-    setDeliveryMethod, 
-    addItem 
-  } = useCartStore();
-  const { user, profile } = useAuthStore();
-  const navigate = useNavigate();
-
-  const fullName = user?.user_metadata?.full_name || user?.user_metadata?.first_name || "";
-  const userPhone = profile?.phone || user?.phone || user?.user_metadata?.phone || "";
-
-  const [coupon, setCoupon] = useState("");
-  const [showAuthModal, setShowAuthModal] = useState(false);
-
-  const handleCheckout = () => {
-    if (!user) {
-      setShowAuthModal(true);
-    } else {
-      navigate("/checkout");
-    }
-  };
-
-  const getSubtotal = (priceStr: string, qty: number) => {
-    const numPrice = parseFloat(String(priceStr).replace(/[^0-9.]/g, '')) || 0;
-    return (numPrice * qty).toLocaleString();
-  };
-
-  const subtotal = getCartSubtotal();
-  const deliveryFee = getDeliveryFee();
-  const total = getCartTotal();
-  const freeDeliveryThreshold = 4000;
-  const awayFromFreeDelivery = Math.max(0, freeDeliveryThreshold - subtotal);
-  const progressPercent = Math.min(100, (subtotal / freeDeliveryThreshold) * 100);
-
-  return (
+  return <div>Test Cart Page</div>;
+}
     <div className="min-h-screen bg-[#F8FAFC] pt-8 pb-24">
       <div className="max-w-[1400px] mx-auto px-4 md:px-6 lg:px-8">
         

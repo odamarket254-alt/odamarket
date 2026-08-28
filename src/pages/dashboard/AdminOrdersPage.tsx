@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../../lib/supabase';
 import { 
   Search, Filter, MoreVertical, Eye, FileText, Download,
-  CheckCircle2, Clock, Truck, Package, XCircle, AlertCircle
+  CheckCircle2, Clock, Truck, Package, XCircle, AlertCircle, Store
 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { format } from 'date-fns';
 import { OrderDetailsModal } from '../../components/admin/orders/OrderDetailsModal';
 import { toast } from 'sonner';
+import { notifyOrderStatusChange } from '../../services/notificationService';
 
 export default function AdminOrdersPage() {
   const [orders, setOrders] = useState<any[]>([]);
@@ -78,30 +79,72 @@ export default function AdminOrdersPage() {
 
   const updateOrderStatus = async (id: string, status: string) => {
     try {
-      const { error } = await supabase.from('orders').update({ status }).eq('id', id);
+      const existingOrder = orders.find((o) => o.id === id);
+      if (existingOrder && existingOrder.status?.toLowerCase() === status.toLowerCase()) {
+        toast.info(`Order is already marked as ${status.replace(/_/g, ' ')}`);
+        return;
+      }
+
+      const { error } = await supabase
+        .from('orders')
+        .update({ 
+          status, 
+          updated_at: new Date().toISOString() 
+        })
+        .eq('id', id);
+
       if (error) throw error;
-      toast.success(`Order marked as ${status}`);
+
+      // Optimistically update order in state
+      setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status } : o)));
+
+      // Trigger automatic customer notification
+      if (existingOrder?.user_id) {
+        await notifyOrderStatusChange({
+          orderId: id,
+          userId: existingOrder.user_id,
+          newStatus: status,
+          oldStatus: existingOrder.status,
+          orderNumber: existingOrder.order_number
+        });
+      }
+
+      toast.success(`Order marked as ${status.replace(/_/g, ' ')}`);
     } catch (error) {
+      console.error('Error updating order status:', error);
       toast.error('Failed to update order status');
     }
   };
 
   const filteredOrders = orders.filter(o => {
     const matchesSearch = o.id?.toLowerCase().includes(search.toLowerCase()) || 
-                          o.customer?.first_name?.toLowerCase().includes(search.toLowerCase());
+                          o.customer?.first_name?.toLowerCase().includes(search.toLowerCase()) ||
+                          o.customer?.last_name?.toLowerCase().includes(search.toLowerCase()) ||
+                          o.customer?.email?.toLowerCase().includes(search.toLowerCase());
     const matchesStatus = statusFilter === 'all' || o.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
   const getStatusConfig = (status: string) => {
     switch(status?.toLowerCase()) {
-      case 'pending': return { icon: Clock, color: 'text-[#D9A62E]', bg: 'bg-[#D9A62E]/10 dark:bg-[#D9A62E]/10' };
-      case 'confirmed': return { icon: CheckCircle2, color: 'text-[#C65A28]', bg: 'bg-[#E8DCC9] dark:bg-[#E8DCC9]0/10' };
-      case 'packed': return { icon: Package, color: 'text-[#C65A28]', bg: 'bg-[#E8DCC9] dark:bg-[#E8DCC9]0/10' };
-      case 'shipped': return { icon: Truck, color: 'text-[#6B8E23]', bg: 'bg-[#E8DCC9] dark:bg-[#E8DCC9]0/10' };
-      case 'delivered': return { icon: CheckCircle2, color: 'text-[#C65A28]', bg: 'bg-[#E8DCC9] dark:bg-[#C65A28]/10' };
-      case 'cancelled': return { icon: XCircle, color: 'text-[#B94A48]', bg: 'bg-[#B94A48]/10 dark:bg-[#B94A48]/10' };
-      default: return { icon: AlertCircle, color: 'text-[#5F5A54]', bg: 'bg-[#FAF5EC] dark:bg-[#FAF5EC]0/10' };
+      case 'pending': 
+        return { icon: Clock, color: 'text-[#D9A62E]', bg: 'bg-[#D9A62E]/10' };
+      case 'confirmed': 
+        return { icon: CheckCircle2, color: 'text-emerald-700', bg: 'bg-emerald-100' };
+      case 'processing':
+      case 'packed': 
+        return { icon: Package, color: 'text-indigo-700', bg: 'bg-indigo-100' };
+      case 'ready_for_pickup':
+        return { icon: Store, color: 'text-amber-700', bg: 'bg-amber-100' };
+      case 'out_for_delivery':
+      case 'shipped': 
+        return { icon: Truck, color: 'text-blue-700', bg: 'bg-blue-100' };
+      case 'delivered': 
+        return { icon: CheckCircle2, color: 'text-emerald-800', bg: 'bg-emerald-100' };
+      case 'cancelled': 
+        return { icon: XCircle, color: 'text-rose-700', bg: 'bg-rose-100' };
+      default: 
+        return { icon: AlertCircle, color: 'text-[#5F5A54]', bg: 'bg-[#FAF5EC]' };
     }
   };
 
@@ -122,7 +165,7 @@ export default function AdminOrdersPage() {
       <div className="bg-[#FFFDF8] dark:bg-[#3A2418] rounded-[18px] shadow-sm border border-[#E8DCC9] dark:border-slate-700/50 overflow-hidden flex flex-col">
         <div className="p-4 border-b border-[#E8DCC9] dark:border-slate-700/50 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-2 overflow-x-auto pb-2 sm:pb-0 scrollbar-hide">
-            {['all', 'pending', 'confirmed', 'packed', 'shipped', 'delivered', 'cancelled'].map(status => (
+            {['all', 'pending', 'confirmed', 'processing', 'ready_for_pickup', 'out_for_delivery', 'delivered', 'cancelled'].map(status => (
               <button 
                 key={status}
                 onClick={() => setStatusFilter(status)}
@@ -133,7 +176,7 @@ export default function AdminOrdersPage() {
                     : "text-[#5F5A54] dark:text-[#8B857D] hover:bg-[#FAF5EC] dark:hover:bg-slate-700/50"
                 )}
               >
-                {status}
+                {status.replace(/_/g, ' ')}
               </button>
             ))}
           </div>
@@ -227,15 +270,15 @@ export default function AdminOrdersPage() {
                             <button className="p-1.5 rounded-md hover:bg-[#E8DCC9] dark:hover:bg-slate-700 text-[#5F5A54] transition-colors">
                               <MoreVertical className="h-4 w-4" />
                             </button>
-                            <div className="absolute right-0 mt-1 w-36 bg-[#FFFDF8] dark:bg-[#3A2418] rounded-lg shadow-xl border border-[#E8DCC9] dark:border-slate-700 hidden group-hover/menu:block z-10">
+                            <div className="absolute right-0 mt-1 w-44 bg-[#FFFDF8] dark:bg-[#3A2418] rounded-lg shadow-xl border border-[#E8DCC9] dark:border-slate-700 hidden group-hover/menu:block z-10">
                               <div className="py-1">
-                                {['pending', 'confirmed', 'packed', 'shipped', 'delivered', 'cancelled'].map(s => (
+                                {['pending', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'].map(s => (
                                   <button 
                                     key={s}
                                     onClick={() => updateOrderStatus(order.id, s)}
                                     className="w-full text-left px-4 py-2 text-xs capitalize hover:bg-[#FAF5EC] dark:hover:bg-slate-700 text-[#5F5A54] dark:text-[#8B857D]"
                                   >
-                                    Mark as {s}
+                                    Mark as {s.replace(/_/g, ' ')}
                                   </button>
                                 ))}
                               </div>

@@ -5,6 +5,8 @@ import { cn } from '../../lib/utils';
 import { Link } from 'react-router-dom';
 import { OptimizedImage } from '../ui/OptimizedImage';
 import { useCartStore } from '../../store/useCartStore';
+import { useAuthStore } from '../../store/useAuthStore';
+import { useWishlistStore } from '../../store/useWishlistStore';
 import { toast } from 'sonner';
 
 interface WholesaleSectionProps {
@@ -104,8 +106,11 @@ export const WholesaleSection = ({ products: initialProducts }: WholesaleSection
 
 const WholesaleProductCard = ({ product }: { product: any }) => {
   const addItem = useCartStore((state) => state.addItem);
+  const { user } = useAuthStore();
+  const { toggleWishlist, isInWishlist } = useWishlistStore();
   const [isHovered, setIsHovered] = useState(false);
-  const [isWishlisted, setIsWishlisted] = useState(false);
+  
+  const isWishlisted = isInWishlist(product.id);
 
   const handleAdd = (e: any) => {
     e.preventDefault();
@@ -123,8 +128,11 @@ const WholesaleProductCard = ({ product }: { product: any }) => {
   const handleWishlist = (e: any) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsWishlisted(!isWishlisted);
-    toast.success(isWishlisted ? "Removed from wishlist" : "Added to wishlist");
+    if (!user) {
+      toast.error("Please login to manage your wishlist");
+      return;
+    }
+    toggleWishlist(user.id, product.id);
   };
 
   const retailPrice = Number(product.price || product.regular_price || 0);

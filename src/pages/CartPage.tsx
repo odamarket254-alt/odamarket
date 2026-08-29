@@ -22,8 +22,33 @@ import {
 } from "lucide-react";
 
 export default function CartPage() {
-  return <div>Test Cart Page</div>;
-}
+  const navigate = useNavigate();
+  const { user } = useAuthStore();
+  const { items, removeItem, updateQuantity, getSubtotal, getTotal } = useCartStore();
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [coupon, setCoupon] = useState("");
+  const [deliveryMethod, setDeliveryMethod] = useState('standard');
+
+  const subtotal = getTotal();
+  const deliveryFee = deliveryMethod === 'express' ? 250 : 0;
+  const total = subtotal + deliveryFee;
+  
+  const fullName = user?.user_metadata?.full_name || user?.email?.split('@')[0] || "User";
+  const userPhone = user?.user_metadata?.phone || "";
+
+  const handleCheckout = () => {
+    if (!user) {
+      setShowAuthModal(true);
+      return;
+    }
+    navigate("/checkout");
+  };
+
+  const FREE_DELIVERY_THRESHOLD = 4000;
+  const awayFromFreeDelivery = Math.max(0, FREE_DELIVERY_THRESHOLD - subtotal);
+  const progressPercent = Math.min(100, (subtotal / FREE_DELIVERY_THRESHOLD) * 100);
+
+  return (
     <div className="min-h-screen bg-[#F8FAFC] pt-8 pb-24">
       <div className="max-w-[1400px] mx-auto px-4 md:px-6 lg:px-8">
         

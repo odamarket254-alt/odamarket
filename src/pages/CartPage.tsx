@@ -24,12 +24,12 @@ import {
 export default function CartPage() {
   const navigate = useNavigate();
   const { user } = useAuthStore();
-  const { items, removeItem, updateQuantity, getSubtotal, getTotal } = useCartStore();
+  const { items, removeItem, updateQuantity, getCartSubtotal } = useCartStore();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [coupon, setCoupon] = useState("");
   const [deliveryMethod, setDeliveryMethod] = useState('standard');
 
-  const subtotal = getTotal();
+  const subtotal = getCartSubtotal();
   const deliveryFee = deliveryMethod === 'express' ? 250 : 0;
   const total = subtotal + deliveryFee;
   
@@ -255,7 +255,7 @@ export default function CartPage() {
                           
                           <div className="text-right">
                             <p className="text-[slate-900] font-bold text-[18px]">
-                              Ksh {getSubtotal(item.price, item.quantity)}
+                              Ksh {((parseFloat(String(item.price).replace(/[^0-9.]/g, "")) || 0) * item.quantity).toLocaleString()}
                             </p>
                           </div>
                         </div>

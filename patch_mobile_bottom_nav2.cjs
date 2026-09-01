@@ -1,4 +1,6 @@
-import { Link, useLocation, useNavigate } from "react-router-dom";
+const fs = require('fs');
+
+const code = `import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Home, Store, MessageCircle, User, ShoppingCart, Package, Menu, X, ShieldCheck, LogOut, Tags, LayoutDashboard, Truck, Heart, Gift, Ticket, CreditCard, MapPin, Bell, Headphones, Settings, FolderTree } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useAuthStore } from "../../store/useAuthStore";
@@ -217,3 +219,7 @@ export function MobileBottomNav() {
     </>
   );
 }
+`;
+
+fs.writeFileSync('src/components/layout/MobileBottomNav.tsx', code);
+console.log("Written MobileBottomNav");

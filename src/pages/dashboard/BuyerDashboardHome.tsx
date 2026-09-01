@@ -9,6 +9,8 @@ import {
   CheckCircle2, AlertCircle, Calendar, RefreshCcw, Search, Plus, Ticket, Image as ImageIcon
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { getWhatsAppLink } from '../../utils/whatsapp';
+import { MessageCircle } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatCurrency } from '../../lib/utils';
 import { Card } from '../../components/ui/Card';
@@ -360,7 +362,20 @@ export function BuyerDashboardHome() {
             </div>
           </Card>
 
+        
         </div>
+      </div>
+      
+      {/* Floating Action Button for WhatsApp (Mobile Only) */}
+      <div className="md:hidden fixed bottom-[84px] right-4 z-40">
+        <a
+          href={getWhatsAppLink("Hello ODA Market, I would like to place an order.")}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center w-14 h-14 bg-[#25D366] text-white rounded-full shadow-lg hover:scale-105 transition-transform"
+        >
+          <MessageCircle className="w-7 h-7" />
+        </a>
       </div>
     </div>
   );

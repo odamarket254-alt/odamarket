@@ -1,0 +1,13 @@
+import { create } from 'zustand';
+
+interface MobileMenuState {
+  isOpen: boolean;
+  setIsOpen: (isOpen: boolean) => void;
+  toggle: () => void;
+}
+
+export const useMobileMenuStore = create<MobileMenuState>((set) => ({
+  isOpen: false,
+  setIsOpen: (isOpen) => set({ isOpen }),
+  toggle: () => set((state) => ({ isOpen: !state.isOpen })),
+}));

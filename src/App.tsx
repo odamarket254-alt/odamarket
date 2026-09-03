@@ -54,6 +54,10 @@ const AdminProductFormPage = lazy(() => import("./pages/admin/AdminProductFormPa
 const AdminWholesaleProductsPage = lazy(() => import("./pages/admin/AdminWholesaleProductsPage"));
 const AdminWholesaleProductFormPage = lazy(() => import("./pages/admin/AdminWholesaleProductFormPage"));
 const SettingsPage = lazy(() => import("./pages/dashboard/SettingsPage"));
+const WhatsAppOrderingPage = lazy(() => import("./pages/dashboard/WhatsAppOrderingPage"));
+const DeliveryAddressesPage = lazy(() => import("./pages/dashboard/DeliveryAddressesPage"));
+const RewardsPage = lazy(() => import("./pages/dashboard/RewardsPage"));
+
 const AdminSettingsPage = lazy(() => import("./pages/admin/AdminSettingsPage"));
 const AdminOrdersPage = lazy(() => import("./pages/dashboard/AdminOrdersPage"));
 const AdminDiscountsPage = lazy(() => import("./pages/dashboard/AdminDiscountsPage"));
@@ -213,6 +217,10 @@ export default function App() {
                 <Route path="notifications" element={<NotificationsPage />} />
                 <Route path="track" element={<TrackOrderPage />} />
                 <Route path="settings" element={<SettingsPage />} />
+                <Route path="whatsapp-ordering" element={<WhatsAppOrderingPage />} />
+                <Route path="addresses" element={<DeliveryAddressesPage />} />
+                <Route path="rewards" element={<RewardsPage />} />
+
               </Route>
             </Route>
 

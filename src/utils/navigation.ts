@@ -67,7 +67,7 @@ export const getNavItems = (role: string | undefined, verified?: boolean) => {
         { icon: CreditCard, label: "Payment Methods", path: "/buyer/dashboard/payments" },
         { icon: MapPin, label: "Delivery Addresses", path: "/buyer/dashboard/addresses" },
         { icon: Bell, label: "Notifications", path: "/buyer/dashboard/notifications" },
-        { icon: MessageCircle, label: "WhatsApp Ordering", path: "/whatsapp-ordering", action: "whatsapp" },
+        { icon: MessageCircle, label: "WhatsApp Ordering", path: "/buyer/dashboard/whatsapp-ordering" },
         { icon: Headphones, label: "Help Center", path: "/help-center" },
         { icon: Settings, label: "Settings", path: "/buyer/dashboard/settings" },
       ];

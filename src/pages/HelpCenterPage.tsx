@@ -79,14 +79,15 @@ export default function HelpCenterPage() {
           customer_name: formData.name,
           customer_email: formData.email,
           customer_phone: formData.phone,
-          order_id: formData.order_id,
+          order_id: formData.order_id || null,
           category: formData.category,
           subject: formData.subject,
           description: formData.description,
+          message: formData.description,
           status: 'Open',
           priority: 'Normal'
         }
-      ]).select().single();
+      ]);
 
       if (error) {
         // Handle case where table doesn't exist yet
@@ -98,7 +99,12 @@ export default function HelpCenterPage() {
       }
 
       toast.success("Support request submitted successfully!");
-      navigate(`/help-center/ticket/${ticketNumber}`);
+      if (user) {
+        navigate(`/help-center/ticket/${ticketNumber}`);
+      } else {
+        // Guests can't view tickets directly in the portal without auth
+        setFormData({ name: '', email: '', phone: '', order_id: '', category: 'General Inquiry', subject: '', description: '' });
+      }
 
     } catch (error: any) {
       console.error('Error submitting ticket:', error);
@@ -187,7 +193,14 @@ export default function HelpCenterPage() {
               </p>
               <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
                 <button 
-                  onClick={() => setShowForm(true)}
+                  onClick={() => {
+                    if (user) {
+                      setShowForm(true);
+                    } else {
+                      toast.error("Please log in to submit a support ticket.");
+                      navigate("/login");
+                    }
+                  }}
                   className="bg-[#C65A28] text-white px-8 py-3 rounded-xl font-bold hover:bg-[#A84A1E] transition-colors flex items-center gap-2 w-full sm:w-auto justify-center"
                 >
                   <FileText className="w-5 h-5" /> Contact ODA Market Support

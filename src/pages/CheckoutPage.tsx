@@ -82,6 +82,35 @@ export default function CheckoutPage() {
   });
   
   const [isEditingAddress, setIsEditingAddress] = useState(false);
+  useEffect(() => {
+    const fetchDefaultAddress = async () => {
+      if (!user) return;
+      try {
+        const { data, error } = await supabase
+          .from('delivery_addresses')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('is_default', true)
+          .single();
+          
+        if (data && !error) {
+          setShippingDetails({
+            recipientName: data.full_name,
+            recipientPhone: data.phone,
+            county: data.county,
+            townCity: data.town_city,
+            areaLocation: data.area_location || "",
+            streetBuilding: data.street_building,
+            deliveryInstructions: data.delivery_instructions || ""
+          });
+        }
+      } catch(err) {
+        // ignore
+      }
+    };
+    fetchDefaultAddress();
+  }, [user]);
+
   const [editAddressData, setEditAddressData] = useState(shippingDetails);
   
   const [isEditingContact, setIsEditingContact] = useState(false);

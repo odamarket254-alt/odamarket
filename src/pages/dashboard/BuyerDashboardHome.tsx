@@ -99,6 +99,18 @@ export function BuyerDashboardHome() {
         setRecentProducts(recent);
       }
 
+      
+      // 5.5 Fetch Rewards
+      let totalPoints = 0;
+      try {
+        const { data: rewardsData } = await supabase
+          .from('reward_points')
+          .select('points')
+          .eq('user_id', user.id);
+        
+        totalPoints = rewardsData?.reduce((acc, curr) => acc + curr.points, 0) || 0;
+      } catch (e) {}
+
       // 6. Mock Savings Chart Data
       const mockSavings = Array.from({ length: 7 }).map((_, i) => ({
         name: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'][i],
@@ -107,7 +119,7 @@ export function BuyerDashboardHome() {
       setSavingsData(mockSavings);
       setStats(s => ({
         ...s,
-        rewardPoints: Math.floor(Math.random() * 5000) + 1000,
+        rewardPoints: totalPoints,
         totalSavings: mockSavings.reduce((sum, item) => sum + item.amount, 0)
       }));
 

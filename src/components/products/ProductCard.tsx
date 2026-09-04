@@ -1,12 +1,17 @@
 import { Link } from "react-router-dom";
-import { Plus } from "lucide-react";
+import { Plus, Heart } from "lucide-react";
 import { useCartStore } from "../../store/useCartStore";
+import { useWishlistStore } from "../../store/useWishlistStore";
+import { useAuthStore } from "../../store/useAuthStore";
 import { toast } from "sonner";
 import { cn } from "../../lib/utils";
 import { OptimizedImage } from "../ui/OptimizedImage";
 
 export const ProductCard = ({ product, index, viewMode = "grid" }: { product: any; index?: number; viewMode?: "grid" | "list" }) => {
   const addItem = useCartStore((state) => state.addItem);
+  const { user } = useAuthStore();
+  const { toggleWishlist, isInWishlist } = useWishlistStore();
+  const isWished = isInWishlist(product.id);
 
   const handleAdd = (e: any) => {
     e.preventDefault();
@@ -19,6 +24,16 @@ export const ProductCard = ({ product, index, viewMode = "grid" }: { product: an
       seller_id: product.seller_id,
     }, product.wholesale_min_qty || 1);
     toast.success("Added to cart");
+  };
+
+  const handleWishlist = (e: any) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!user) {
+      toast.error("Please login to manage your wishlist");
+      return;
+    }
+    toggleWishlist(user.id, product.id);
   };
 
   const regularPrice = Number(product.regular_price || product.price || 0);
@@ -43,6 +58,14 @@ export const ProductCard = ({ product, index, viewMode = "grid" }: { product: an
           "relative bg-[#FDFBF7] border border-[#EBE4D8] rounded-2xl shadow-[0_2px_10px_rgba(95,90,84,0.04)] flex items-center justify-center overflow-visible transition-colors duration-300 group-hover:bg-white group-hover:border-[#E1D7C6]",
           isList ? "w-full h-full p-2" : "w-full aspect-square p-2 md:p-3"
         )}>
+          <button
+            onClick={handleWishlist}
+            className="absolute top-2 right-2 w-[28px] h-[28px] md:w-[32px] md:h-[32px] rounded-full bg-white text-[#C65A28] flex items-center justify-center shadow-[0_2px_8px_rgba(0,0,0,0.1)] hover:scale-105 active:scale-95 transition-all z-10"
+            aria-label="Toggle wishlist"
+          >
+            <Heart className={cn("w-[14px] h-[14px] md:w-[16px] md:h-[16px]", isWished ? "fill-[#C65A28]" : "stroke-[2px]")} />
+          </button>
+
           <Link to={`/products/${product.id}`} className="block w-full h-full relative z-0">
             <OptimizedImage 
               src={product.image_url || "https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&q=80"} 

@@ -4,6 +4,9 @@ import { useParams, Link } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { motion } from "framer-motion";
 import { useCartStore } from "../store/useCartStore";
+import { useWishlistStore } from "../store/useWishlistStore";
+import { useAuthStore } from "../store/useAuthStore";
+import { cn } from "../lib/utils";
 import { toast } from "sonner";
 import { Button } from "../components/ui/Button";
 import { Minus, Plus, ShoppingCart, Star, Shield, Truck, RotateCcw, Heart, Share2 } from "lucide-react";
@@ -15,6 +18,20 @@ export default function ProductDetailsPage() {
   const [queryError, setQueryError] = useState<any>(null);
   const [quantity, setQuantity] = useState(1);
   const addItem = useCartStore(state => state.addItem);
+  const { user } = useAuthStore();
+  const { toggleWishlist, isInWishlist } = useWishlistStore();
+  const isWished = product ? isInWishlist(product.id) : false;
+
+  const handleWishlist = (e: any) => {
+    e.preventDefault();
+    if (!user) {
+      toast.error("Please login to manage your wishlist");
+      return;
+    }
+    if (product) {
+      toggleWishlist(user.id, product.id);
+    }
+  };
 
   const fetchProduct = async () => {
     try {
@@ -120,8 +137,8 @@ export default function ProductDetailsPage() {
             className="rounded-[24px] lg:rounded-[40px] bg-[#FAF5EC] p-6 sm:p-8 lg:p-16 flex items-center justify-center aspect-square relative"
           >
             <div className="absolute top-4 right-4 sm:top-6 sm:right-6 lg:top-8 lg:right-8 flex flex-col gap-2 sm:gap-4 z-10">
-              <Button size="icon" variant="ghost" className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-[#FFFDF8] shadow-sm hover:bg-[#E8DCC9] hover:text-[#B94A48] transition-colors">
-                <Heart className="h-4 w-4 sm:h-5 sm:w-5" />
+              <Button onClick={handleWishlist} size="icon" variant="ghost" className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-[#FFFDF8] shadow-sm hover:bg-[#E8DCC9] hover:text-[#B94A48] transition-colors">
+                <Heart className={cn("h-4 w-4 sm:h-5 sm:w-5", isWished ? "fill-[#C65A28] text-[#C65A28]" : "")} />
               </Button>
               <Button size="icon" variant="ghost" className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-[#FFFDF8] shadow-sm hover:bg-[#E8DCC9] hover:text-[#C65A28] transition-colors">
                 <Share2 className="h-4 w-4 sm:h-5 sm:w-5" />

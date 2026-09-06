@@ -139,7 +139,7 @@ export default function DashboardLayout() {
             const Icon = item.icon;
             const isPremium = profile?.role === "seller" && profile?.verified;
 
-            if (item.action === "whatsapp") {
+            if ((item as any).action === "whatsapp") {
               return (
                 <a
                   key={item.label}

@@ -98,7 +98,7 @@ async function startServer() {
         if (parts.length >= 2 && parts[0] === 'ord') {
           const orderId = parts[1];
           const { createClient } = await import('@supabase/supabase-js');
-          const supabaseUrl = (process.env.SUPABASE_URL || "").trim().replace(/^["']|["']$/g, "");
+          const supabaseUrl = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "").trim().replace(/^["']|["']$/g, "");
           const supabaseServiceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim().replace(/^["']|["']$/g, "");
           const supabase = createClient(supabaseUrl, supabaseServiceKey);
           

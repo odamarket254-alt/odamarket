@@ -125,15 +125,15 @@ export async function sendOrderConfirmationEmail(orderInfo: any) {
       console.warn("[EMAIL EDGE FUNCTION] ⚠️ RESEND_API_KEY is not configured. Email not sent.");
       return { success: false, error: "RESEND_API_KEY not configured" };
     }
-    const data = await resendClient.emails.send({
+    const response = await resendClient.emails.send({
       from: 'ODA Market <orders@odamarket.co.ke>',
       to: [customerEmail],
       subject: `Order Confirmed: ${orderNumber} 🎉`,
       html: htmlContent,
     });
     
-    console.log(`[EMAIL EDGE FUNCTION] 📧 Successfully sent confirmation to ${customerEmail}. Resend ID:`, data?.id);
-    return { success: true, data };
+    console.log(`[EMAIL EDGE FUNCTION] 📧 Successfully sent confirmation to ${customerEmail}. Resend ID:`, response.data?.id);
+    return { success: true, data: response };
   } catch (error) {
     console.error("[EMAIL EDGE FUNCTION] ❌ Failed to send order confirmation email:", error);
     // Important: we just return false instead of throwing to not break the payment flow

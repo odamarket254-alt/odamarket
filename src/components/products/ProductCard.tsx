@@ -66,6 +66,12 @@ export const ProductCard = ({ product, index, viewMode = "grid" }: { product: an
             <Heart className={cn("w-[14px] h-[14px] md:w-[16px] md:h-[16px]", isWished ? "fill-[#C65A28]" : "stroke-[2px]")} />
           </button>
 
+          {typeof product.stock === 'number' && product.stock <= 0 && (
+            <div className="absolute top-2 left-2 bg-[#B94A48] text-white text-[9px] md:text-[10px] font-bold px-2 py-1 rounded-md tracking-wide z-10 shadow-sm pointer-events-none uppercase">
+              Out of Stock
+            </div>
+          )}
+
           <Link to={`/products/${product.id}`} className="block w-full h-full relative z-0">
             <OptimizedImage 
               src={product.image_url || "https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&q=80"} 
@@ -80,7 +86,13 @@ export const ProductCard = ({ product, index, viewMode = "grid" }: { product: an
           {!isList && (
             <button 
               onClick={handleAdd} 
-              className="absolute bottom-2 right-2 w-[30px] h-[30px] rounded-full bg-[#C65A28] text-white flex items-center justify-center border-[1.5px] border-[#FDFBF7] group-hover:border-white shadow-[0_2px_8px_rgba(198,90,40,0.25)] hover:scale-105 active:scale-95 transition-all z-10"
+              disabled={typeof product.stock === 'number' && product.stock <= 0}
+              className={cn(
+                "absolute bottom-2 right-2 w-[30px] h-[30px] rounded-full flex items-center justify-center border-[1.5px] transition-all z-10",
+                typeof product.stock === 'number' && product.stock <= 0
+                  ? "bg-gray-200 border-gray-200 text-gray-400 cursor-not-allowed"
+                  : "bg-[#C65A28] text-white border-[#FDFBF7] group-hover:border-white shadow-[0_2px_8px_rgba(198,90,40,0.25)] hover:scale-105 active:scale-95"
+              )}
               aria-label="Add to cart"
             >
               <Plus className="w-[18px] h-[18px] stroke-[2.5px]" />
@@ -116,7 +128,13 @@ export const ProductCard = ({ product, index, viewMode = "grid" }: { product: an
         {isList && (
           <button 
             onClick={handleAdd} 
-            className="mt-auto self-end w-[32px] h-[32px] rounded-full bg-[#C65A28] text-white flex items-center justify-center border-[1.5px] border-white shadow-sm hover:scale-105 active:scale-95 transition-transform"
+            disabled={typeof product.stock === 'number' && product.stock <= 0}
+            className={cn(
+              "mt-auto self-end w-[32px] h-[32px] rounded-full flex items-center justify-center border-[1.5px] shadow-sm transition-transform",
+              typeof product.stock === 'number' && product.stock <= 0
+                ? "bg-gray-200 border-gray-200 text-gray-400 cursor-not-allowed"
+                : "bg-[#C65A28] text-white border-white hover:scale-105 active:scale-95"
+            )}
             aria-label="Add to cart"
           >
             <Plus className="w-[18px] h-[18px] stroke-[2.5px]" />

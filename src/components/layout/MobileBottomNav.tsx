@@ -42,11 +42,11 @@ export function MobileBottomNav() {
           {bottomNavItems.map((item) => {
             const isActive = location.pathname === item.href || (item.href !== "/" && item.href !== "#" && location.pathname.startsWith(item.href));
             
-            if (item.action) {
+            if ((item as any).action) {
               return (
                 <button
                   key={item.name}
-                  onClick={item.action}
+                  onClick={(item as any).action}
                   className={cn(
                     "flex flex-col items-center justify-center w-full h-full space-y-1.5 transition-colors relative",
                     isOpen ? "text-[#C65A28]" : "text-[#5F5A54] hover:text-[#3A2418]"
@@ -146,7 +146,7 @@ export function MobileBottomNav() {
                   </Link>
                 )}
                 {drawerItems.map((item) => {
-                  if (item.action === "whatsapp") {
+                  if ((item as any).action === "whatsapp") {
                     return (
                       <a
                         key={item.label}

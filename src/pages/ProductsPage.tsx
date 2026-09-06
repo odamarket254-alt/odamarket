@@ -1,3 +1,4 @@
+import { useQuery } from "@tanstack/react-query";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
@@ -26,84 +27,58 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   
   // Metadata state
-  const [allCategories, setAllCategories] = useState<any[]>([]);
-  const [allBrands, setAllBrands] = useState<any[]>([]);
-  const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
-  const [brandCounts, setBrandCounts] = useState<Record<string, number>>({});
-  const [priceBounds, setPriceBounds] = useState({ min: 0, max: 10000 });
-  const [metadataLoading, setMetadataLoading] = useState(true);
+  const { data: metadata, isLoading: metadataLoading } = useQuery({
+    queryKey: ['products-metadata'],
+    queryFn: async () => {
+      const [catsRes, brandsRes, rpcRes] = await Promise.all([
+        supabase.from("categories").select("id, name, slug").eq("is_active", true).order("name"),
+        supabase.from("brands").select("id, name, slug").eq("is_active", true).order("name"),
+        supabase.rpc("get_product_aggregates")
+      ]);
+      
+      let categoryCounts = {};
+      let brandCounts = {};
+      let priceBounds = { min: 0, max: 10000 };
+      
+      if (rpcRes.data) {
+        categoryCounts = rpcRes.data.category_counts || {};
+        brandCounts = rpcRes.data.brand_counts || {};
+        priceBounds = {
+          min: rpcRes.data.min_price ? Math.floor(rpcRes.data.min_price) : 0,
+          max: rpcRes.data.max_price ? Math.ceil(rpcRes.data.max_price) : 10000
+        };
+      }
+      
+      return {
+        categories: catsRes.data || [],
+        brands: brandsRes.data || [],
+        categoryCounts,
+        brandCounts,
+        priceBounds
+      };
+    },
+    staleTime: 5 * 60 * 1000, // 5 minutes
+  });
+
+  const allCategories = metadata?.categories || [];
+  const allBrands = metadata?.brands || [];
+  const categoryCounts = metadata?.categoryCounts || {};
+  const brandCounts = metadata?.brandCounts || {};
+  const priceBounds = metadata?.priceBounds || { min: 0, max: 10000 };
 
   const [viewMode, setViewMode] = useState<"grid" | "list">("grid");
   const [isMobileFiltersOpen, setIsMobileFiltersOpen] = useState(false);
-  
-  // Local state for price inputs
   const [localMinPrice, setLocalMinPrice] = useState(minPriceParam);
   const [localMaxPrice, setLocalMaxPrice] = useState(maxPriceParam);
-  
   const [brandSearchQuery, setBrandSearchQuery] = useState("");
 
-  // 1. Fetch Metadata (Categories, Brands, Counts)
+  // Update local inputs when params change or metadata loads
   useEffect(() => {
-    async function fetchMetadata() {
-      try {
-        const [catsRes, brandsRes, prodsRes] = await Promise.all([
-          supabase.from("categories").select("id, name, slug").eq("is_active", true).order("name"),
-          supabase.from("brands").select("id, name, slug").eq("is_active", true).order("name"),
-          supabase.from("products").select("id, category_id, brand_id, price, sale_price").eq("is_active", true)
-        ]);
+    setLocalMinPrice(minPriceParam || priceBounds.min.toString());
+    setLocalMaxPrice(maxPriceParam || priceBounds.max.toString());
+  }, [minPriceParam, maxPriceParam, priceBounds.min, priceBounds.max]);
 
-        if (catsRes.data) setAllCategories(catsRes.data);
-        if (brandsRes.data) setAllBrands(brandsRes.data);
-        
-        if (prodsRes.data) {
-          const cCounts: Record<string, number> = {};
-          const bCounts: Record<string, number> = {};
-          let min = Infinity;
-          let max = -Infinity;
-          
-          prodsRes.data.forEach(p => {
-            if (p.category_id) cCounts[p.category_id] = (cCounts[p.category_id] || 0) + 1;
-            if (p.brand_id) bCounts[p.brand_id] = (bCounts[p.brand_id] || 0) + 1;
-            
-            const actualPrice = p.sale_price || p.price;
-            if (actualPrice < min) min = actualPrice;
-            if (actualPrice > max) max = actualPrice;
-          });
-          
-          setCategoryCounts(cCounts);
-          setBrandCounts(bCounts);
-          setPriceBounds({ 
-            min: min === Infinity ? 0 : Math.floor(min), 
-            max: max === -Infinity ? 10000 : Math.ceil(max) 
-          });
-          
-          if (!minPriceParam) setLocalMinPrice(min === Infinity ? "0" : Math.floor(min).toString());
-          if (!maxPriceParam) setLocalMaxPrice(max === -Infinity ? "10000" : Math.ceil(max).toString());
-        }
-      } catch (err) {
-        console.error("Error fetching metadata:", err);
-      } finally {
-        setMetadataLoading(false);
-      }
-    }
-    fetchMetadata();
-  }, []);
-
-  // Subscribe to real-time products changes
-  useEffect(() => {
-    const channel = supabase
-      .channel('public:products_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => {
-         fetchProducts();
-      })
-      .subscribe();
-      
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // 2. Fetch Filtered Products
+// 2. Fetch Filtered Products
   const fetchProducts = useCallback(async () => {
     if (metadataLoading) return;
     

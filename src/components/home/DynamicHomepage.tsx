@@ -123,33 +123,7 @@ export const DynamicHomepage = () => {
   useEffect(() => {
     fetchHomepageData();
 
-    // Debounced realtime refresher to prevent rapid multiple updates from overwhelming browser/connection
-    const handleRealtimeUpdate = () => {
-      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-      debounceTimerRef.current = setTimeout(() => {
-        fetchHomepageData();
-      }, 500);
-    };
-
-    const channel1 = supabase.channel("sections_changes_" + Math.random().toString(36).substring(7))
-      .on("postgres_changes", { event: "*", schema: "public", table: "homepage_sections" }, handleRealtimeUpdate)
-      .subscribe();
-
-    const channel2 = supabase.channel("featured_changes_" + Math.random().toString(36).substring(7))
-      .on("postgres_changes", { event: "*", schema: "public", table: "featured_products" }, handleRealtimeUpdate)
-      .subscribe();
-
-    const channel3 = supabase.channel("products_changes_" + Math.random().toString(36).substring(7))
-      .on("postgres_changes", { event: "*", schema: "public", table: "products" }, handleRealtimeUpdate)
-      .subscribe();
-
-    return () => {
-      if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
-      supabase.removeChannel(channel1);
-      supabase.removeChannel(channel2);
-      supabase.removeChannel(channel3);
-    };
-  }, [fetchHomepageData]);
+}, [fetchHomepageData]);
 
   if (error && sections.length === 0) {
     return (

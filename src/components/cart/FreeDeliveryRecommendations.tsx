@@ -43,17 +43,7 @@ export function FreeDeliveryRecommendations({
     loadRecommendations();
 
     // Subscribe to realtime database changes so any added, updated, or removed products reflect immediately
-    const channel = supabase
-      .channel('public:products_recommendations_channel')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'products' }, () => {
-        loadRecommendations();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [loadRecommendations]);
+    }, [loadRecommendations]);
 
   const handleAddToCart = (product: Product) => {
     const effectivePrice = product.sale_price && product.sale_price > 0 ? product.sale_price : product.price;

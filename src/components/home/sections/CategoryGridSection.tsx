@@ -91,16 +91,7 @@ export const CategoryGridSection = ({ section, categories: initialCategories, pr
     
     fetchCategories();
 
-    const channel = supabase.channel(`category_grid_changes_${section.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'categories' }, () => {
-        fetchCategories();
-      })
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [initialCategories, allProducts]);
+    }, [initialCategories, allProducts]);
 
   if (isLoading) {
     return (

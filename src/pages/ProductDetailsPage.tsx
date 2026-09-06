@@ -136,6 +136,11 @@ export default function ProductDetailsPage() {
             animate={{ opacity: 1, y: 0 }}
             className="rounded-[24px] lg:rounded-[40px] bg-[#FAF5EC] p-6 sm:p-8 lg:p-16 flex items-center justify-center aspect-square relative"
           >
+            {typeof product.stock === 'number' && product.stock <= 0 && (
+              <div className="absolute top-4 left-4 sm:top-6 sm:left-6 lg:top-8 lg:left-8 bg-[#B94A48] text-white text-xs sm:text-sm font-bold px-3 sm:px-4 py-1.5 sm:py-2 rounded-lg tracking-wide z-10 shadow-md pointer-events-none uppercase">
+                Out of Stock
+              </div>
+            )}
             <div className="absolute top-4 right-4 sm:top-6 sm:right-6 lg:top-8 lg:right-8 flex flex-col gap-2 sm:gap-4 z-10">
               <Button onClick={handleWishlist} size="icon" variant="ghost" className="h-10 w-10 sm:h-12 sm:w-12 rounded-full bg-[#FFFDF8] shadow-sm hover:bg-[#E8DCC9] hover:text-[#B94A48] transition-colors">
                 <Heart className={cn("h-4 w-4 sm:h-5 sm:w-5", isWished ? "fill-[#C65A28] text-[#C65A28]" : "")} />
@@ -219,7 +224,8 @@ export default function ProductDetailsPage() {
                       }
                       toast.success(`Added ${product.wholesale_min_qty} wholesale items to cart`);
                     }}
-                    className="w-full mt-4 bg-[#3A2418] hover:bg-[#3A2418]/90 text-white border-none h-12"
+                    disabled={typeof product.stock === 'number' && product.stock <= 0}
+                    className="w-full mt-4 bg-[#3A2418] hover:bg-[#3A2418]/90 text-white border-none h-12 disabled:bg-gray-300 disabled:text-gray-500 disabled:cursor-not-allowed"
                   >
                     Buy Wholesale (Min {product.wholesale_min_qty})
                   </Button>
@@ -242,10 +248,17 @@ export default function ProductDetailsPage() {
               
               <Button 
                 size="lg" 
-                className="w-full h-14 sm:h-16 rounded-full bg-[#C65A28] hover:bg-[#C65A28] text-white font-bold text-base sm:text-xl transition-all shadow-lg shadow-[#C65A28]/30 hover:-translate-y-1"
+                className={cn(
+                  "w-full h-14 sm:h-16 rounded-full font-bold text-base sm:text-xl transition-all shadow-lg",
+                  typeof product.stock === 'number' && product.stock <= 0
+                    ? "bg-gray-300 text-gray-500 cursor-not-allowed shadow-none"
+                    : "bg-[#C65A28] hover:bg-[#C65A28] text-white shadow-[#C65A28]/30 hover:-translate-y-1"
+                )}
+                disabled={typeof product.stock === 'number' && product.stock <= 0}
                 onClick={handleAddToCart}
               >
-                <ShoppingCart className="mr-3 h-5 w-5 sm:h-6 sm:w-6" /> Add to Cart
+                <ShoppingCart className="mr-3 h-5 w-5 sm:h-6 sm:w-6" /> 
+                {typeof product.stock === 'number' && product.stock <= 0 ? "Out of Stock" : "Add to Cart"}
               </Button>
             </div>
 

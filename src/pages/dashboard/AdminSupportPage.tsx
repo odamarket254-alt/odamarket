@@ -134,9 +134,7 @@ export default function AdminSupportPage() {
         updated_at: new Date().toISOString() 
       };
       
-      if (newStatus === 'Resolved' || newStatus === 'Closed') {
-        updateData.resolved_at = new Date().toISOString();
-      }
+      // Removed resolved_at since column doesn't exist
       
       const { error } = await supabase
         .from('support_tickets')
@@ -151,7 +149,7 @@ export default function AdminSupportPage() {
       
       toast.success(`Ticket marked as ${newStatus}`);
     } catch (err: any) {
-      toast.error("Failed to update status");
+      console.error("Support status update error:", err); toast.error(err.message || "Failed to update status");
     } finally {
       setIsUpdatingStatus(false);
     }
@@ -184,7 +182,7 @@ export default function AdminSupportPage() {
     open: tickets.filter(t => t.status === 'Open').length,
     inProgress: tickets.filter(t => t.status === 'In Progress').length,
     waiting: tickets.filter(t => t.status === 'Waiting for Customer').length,
-    resolved: tickets.filter(t => t.status === 'Resolved' && new Date(t.resolved_at).toDateString() === new Date().toDateString()).length,
+    resolved: tickets.filter(t => (t.status === 'Resolved' || t.status === 'Closed') && new Date(t.updated_at).toDateString() === new Date().toDateString()).length,
   };
 
   if (isLoading) {

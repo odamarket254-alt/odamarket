@@ -15,7 +15,7 @@ router.post("/", async (req, res) => {
     }
     const token = authHeader.replace("Bearer ", "");
 
-    const supabaseUrl = (process.env.SUPABASE_URL || "").trim().replace(/^["']|["']$/g, "");
+    const supabaseUrl = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "").trim().replace(/^["']|["']$/g, "");
     const supabaseServiceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim().replace(/^["']|["']$/g, "");
 
     if (!supabaseUrl || !supabaseServiceKey) {
@@ -26,6 +26,8 @@ router.post("/", async (req, res) => {
 
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     if (userError || !user) {
+      console.error("Auth error:", userError);
+
       return res.status(401).json({ error: "Invalid or expired token" });
     }
 
@@ -157,7 +159,7 @@ router.post("/verify", async (req, res) => {
       }
     }
 
-    const supabaseUrl = (process.env.SUPABASE_URL || "").trim().replace(/^["']|["']$/g, "");
+    const supabaseUrl = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "").trim().replace(/^["']|["']$/g, "");
     const supabaseServiceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim().replace(/^["']|["']$/g, "");
 
     if (!supabaseUrl || !supabaseServiceKey) {

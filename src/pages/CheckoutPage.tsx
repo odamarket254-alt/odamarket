@@ -97,11 +97,8 @@ export default function CheckoutPage() {
           setShippingDetails({
             recipientName: data.full_name,
             recipientPhone: data.phone,
-            county: data.county,
-            townCity: data.town_city,
-            areaLocation: data.area_location || "",
-            streetBuilding: data.street_building,
-            deliveryInstructions: data.delivery_instructions || ""
+            location: (data.county || "") + ", " + (data.town_city || ""),
+            fullAddress: (data.area_location || "") + ", " + (data.street_building || "")
           });
         }
       } catch(err) {

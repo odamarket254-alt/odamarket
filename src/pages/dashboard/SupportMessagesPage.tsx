@@ -88,7 +88,7 @@ export default function SupportMessagesPage() {
       toast.success("Message marked as resolved");
     } catch(err) {
       console.error("Error resolving", err);
-      toast.error("Failed to update status");
+      console.error("Support status update error:", err); toast.error(err.message || "Failed to update status");
     }
   };
 

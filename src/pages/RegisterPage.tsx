@@ -129,12 +129,22 @@ export default function RegisterPage() {
 
   const onAccountSubmit = async (data: AccountFormValues) => {
     setAccountData(data);
+    setStep(3); // Skip OTP, go straight to Address
+  };
+
+  const onAddressSubmit = async (data: AddressFormValues) => {
+    setAddressData(data);
+    if (!accountData) {
+      setStep(1);
+      return;
+    }
+    
     setIsLoading(true);
     try {
-      const res = await fetch('/api/auth/register-step1', {
+      const res = await fetch('/api/auth/register-complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accountData: data })
+        body: JSON.stringify({ accountData, addressData: data })
       });
       let resData;
       try {
@@ -142,41 +152,12 @@ export default function RegisterPage() {
       } catch (e) {
         throw new Error("Server returned an invalid response. Please try again.");
       }
-      if (!res.ok) throw new Error(resData?.details ? `${resData.error} (${resData.details})` : (resData?.error || "Failed to create account."));
+      if (!res.ok) throw new Error(resData?.error || "Failed to create account.");
       
       setCreatedUserId(resData.userId);
-      toast.success("Verification code sent via SMS!");
-      setCountdown(60);
-      setStep(2); // Move to Verification step
-    } catch (error: any) {
-      toast.error(error.message || "Failed to create account.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const onAddressSubmit = async (data: AddressFormValues) => {
-    setAddressData(data);
-    setIsLoading(true);
-    try {
-      if (!accountData || !createdUserId) return;
-
-      const { error } = await supabase.from("delivery_addresses").insert({
-        user_id: createdUserId,
-        phone_number: accountData.phone,
-        street_address: data.street || data.formatted_address || "",
-        apartment_suite: data.apartment || data.house_number || "",
-        city: data.town || "",
-        county: data.county,
-        postal_code: "",
-        is_default: true,
-      });
-      
-      if (error) throw error;
-
       setStep(4);
     } catch (error: any) {
-      toast.error(error.message || "Failed to save address.");
+      toast.error(error.message || "Failed to register.");
     } finally {
       setIsLoading(false);
     }
@@ -335,7 +316,7 @@ export default function RegisterPage() {
 
       {/* Progress Indicator */}
       {step < 4 && (
-        <div className="w-full max-w-[600px] flex justify-between items-center mb-8 relative px-2">
+        <div className="w-full max-w-[400px] flex justify-between items-center mb-8 relative px-2 mx-auto">
           {/* Connecting line */}
           <div className="absolute top-1/2 left-6 right-6 h-[2px] bg-[#E8DCC9] -z-10 -translate-y-1/2"></div>
           
@@ -347,21 +328,13 @@ export default function RegisterPage() {
           </div>
           
           <div className="flex flex-col items-center gap-2 bg-[#F8F3EB] px-2">
-            <div className={cn("w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-colors", step >= 2 ? "bg-[#D96A27] text-white shadow-md" : "bg-white border-2 border-[#E8DCC9] text-[#9CA3AF]")}>
-              {step > 2 ? <Check className="w-5 h-5" /> : "2"}
-            </div>
-            <span className={cn("text-[11px] font-bold uppercase tracking-wider", step >= 2 ? "text-[#D96A27]" : "text-[#9CA3AF]")}>Verification</span>
-          </div>
-          
-          <div className="flex flex-col items-center gap-2 bg-[#F8F3EB] px-2">
             <div className={cn("w-10 h-10 rounded-full flex items-center justify-center font-bold text-sm transition-colors", step >= 3 ? "bg-[#D96A27] text-white shadow-md" : "bg-white border-2 border-[#E8DCC9] text-[#9CA3AF]")}>
-              3
+              2
             </div>
             <span className={cn("text-[11px] font-bold uppercase tracking-wider", step >= 3 ? "text-[#D96A27]" : "text-[#9CA3AF]")}>Address</span>
           </div>
         </div>
       )}
-
       {/* Main Card */}
       <motion.div 
         layout
@@ -793,14 +766,15 @@ export default function RegisterPage() {
                 
                 <h2 className="text-3xl font-bold text-[#1A1A1A] mb-3">Congratulations!</h2>
                 <p className="text-[#666] text-center mb-8 max-w-sm text-lg">
-                  Your account has been created successfully.
+                  Your account has been created successfully. <br/><br/>
+                  <span className="font-bold text-[#1A1A1A]">Please check your email to confirm your account.</span>
                 </p>
 
                 <Link
-                  to="/dashboard"
+                  to="/login"
                   className="w-full max-w-sm h-[52px] rounded-xl bg-[#D96A27] hover:bg-[#c45a1f] text-white font-bold text-[16px] shadow-[0_4px_14px_rgba(217,106,39,0.3)] hover:shadow-[0_6px_20px_rgba(217,106,39,0.4)] transition-all duration-300 flex items-center justify-center gap-2"
                 >
-                  Start Shopping <ArrowRight className="w-5 h-5 ml-1" />
+                  Go to Login <ArrowRight className="w-5 h-5 ml-1" />
                 </Link>
               </motion.div>
             )}

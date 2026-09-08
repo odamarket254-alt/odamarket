@@ -43,14 +43,10 @@ export default function OrdersPage() {
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
         
-      if (data) {
+      if (error) {
+        console.error("Error fetching orders:", error);
+      } else if (data) {
         setOrders(data);
-      } else {
-        // Mock data if table doesn't exist
-        setOrders([
-          { id: 'ORD-2023-1045', status: 'shipped', total: 4500, created_at: new Date().toISOString(), items_count: 5 },
-          { id: 'ORD-2023-1044', status: 'delivered', total: 1250, created_at: new Date(Date.now() - 86400000).toISOString(), items_count: 2 },
-        ]);
       }
     } catch (err) {
       console.error(err);

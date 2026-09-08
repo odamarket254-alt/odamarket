@@ -59,7 +59,7 @@ export function BuyerDashboardHome() {
         .order('created_at', { ascending: false })
         .limit(5);
 
-      if (ordersData && ordersData.length > 0) {
+      if (ordersData) {
         setActiveOrders(ordersData);
         const active = ordersData.filter((o: any) => 
           o.status !== 'delivered' && 
@@ -68,14 +68,6 @@ export function BuyerDashboardHome() {
           o.payment_status !== 'abandoned'
         );
         setStats(s => ({ ...s, activeOrders: active.length, pendingDeliveries: active.filter((a: any) => a.status === 'out_for_delivery').length }));
-      } else {
-        // Fallback for demo
-        const demoOrders = [
-          { id: 'ORD-123', status: 'shipped', total: 4500, created_at: new Date().toISOString() },
-          { id: 'ORD-124', status: 'processing', total: 1200, created_at: new Date().toISOString() }
-        ];
-        setActiveOrders(demoOrders);
-        setStats(s => ({ ...s, activeOrders: 2, pendingDeliveries: 1 }));
       }
 
       // 2. Fetch Wishlist Items

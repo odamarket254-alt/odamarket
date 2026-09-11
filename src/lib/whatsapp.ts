@@ -82,7 +82,13 @@ OdaMarket
 Quality. Value. Convenience.`;
 };
 
+export const ODAMARKET_WHATSAPP_NUMBER = "2547928687386";
+
 export const getWhatsAppUrl = (message: string): string => {
-  const ownerNumber = import.meta.env.VITE_WHATSAPP_NUMBER || "";
-  return `https://wa.me/${ownerNumber}?text=${encodeURIComponent(message)}`;
+  const ownerNumber = import.meta.env.VITE_WHATSAPP_NUMBER || ODAMARKET_WHATSAPP_NUMBER;
+  // Ensure the number is formatted as required: exactly the digits, no leading plus.
+  // If a user puts 07... we should theoretically format it, but falling back to the constant is safer.
+  const cleanNumber = ownerNumber.replace(/[^0-9]/g, '');
+  const finalNumber = cleanNumber.startsWith('0') ? '254' + cleanNumber.substring(1) : cleanNumber;
+  return `https://wa.me/${finalNumber}?text=${encodeURIComponent(message)}`;
 };

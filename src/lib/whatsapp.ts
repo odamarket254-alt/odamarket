@@ -82,7 +82,7 @@ OdaMarket
 Quality. Value. Convenience.`;
 };
 
-export const ODAMARKET_WHATSAPP_NUMBER = "2547928687386";
+export const ODAMARKET_WHATSAPP_NUMBER = "254792867386";
 
 export const getWhatsAppUrl = (message: string): string => {
   const ownerNumber = import.meta.env.VITE_WHATSAPP_NUMBER || ODAMARKET_WHATSAPP_NUMBER;

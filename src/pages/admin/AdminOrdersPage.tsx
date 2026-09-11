@@ -113,8 +113,10 @@ export default function AdminOrdersPage() {
         const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(search.trim());
         if (isUuid) {
           query = query.eq('id', search.trim());
+        } else if (search.trim().toUpperCase().startsWith('ODA-')) {
+          query = query.eq('order_number', search.trim().toUpperCase());
         } else {
-          query = query.ilike('notes', `%${search.trim()}%`);
+          query = query.or(`order_number.ilike.%${search.trim()}%,notes.ilike.%${search.trim()}%`);
         }
       }
 
@@ -332,7 +334,7 @@ export default function AdminOrdersPage() {
                     </td>
                     <td className="py-3 px-4">
                       <Link to={`/admin/dashboard/orders/${order.id}`} className="font-semibold text-[#3A2418] hover:text-[#C65A28]">
-                        #{order.id.slice(0, 8).toUpperCase()}
+                        {order.order_number || '#' + order.id.slice(0, 8).toUpperCase()}
                       </Link>
                     </td>
                     <td className="py-3 px-4 text-sm text-[#5F5A54]">

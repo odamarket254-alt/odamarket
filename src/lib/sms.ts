@@ -89,11 +89,16 @@ export async function sendOrderSMS(orderId: string, phone: string, customerName:
   if (supabaseUrl && supabaseKey) {
     supabase = createClient(supabaseUrl, supabaseKey);
     try {
-      const { data: order } = await supabase.from('orders').select('notes').eq('id', orderId).single();
-      if (order && order.notes) {
-        currentNotes = typeof order.notes === 'string' ? JSON.parse(order.notes) : order.notes;
-        if (currentNotes.orderNumber) {
-          orderNumber = currentNotes.orderNumber;
+      const { data: order } = await supabase.from('orders').select('notes, order_number').eq('id', orderId).single();
+      if (order) {
+        if (order.order_number) {
+          orderNumber = order.order_number;
+        }
+        if (order.notes) {
+          currentNotes = typeof order.notes === 'string' ? JSON.parse(order.notes) : order.notes;
+          if (currentNotes.orderNumber && !order.order_number) {
+            orderNumber = currentNotes.orderNumber;
+          }
         }
       }
     } catch (e) {
@@ -103,7 +108,7 @@ export async function sendOrderSMS(orderId: string, phone: string, customerName:
 
   // Format message
   const firstName = customerName.split(' ')[0] || 'Customer';
-  const displayOrderNumber = orderNumber.startsWith('ORD-') ? orderNumber : `ODA-${orderNumber.substring(0, 8).toUpperCase()}`;
+  const displayOrderNumber = orderNumber.startsWith('ORD-') || orderNumber.startsWith('ODA-') ? orderNumber : `ODA-${orderNumber.substring(0, 8).toUpperCase()}`;
   const message = `Hello ${firstName}, your ODA Market order #${displayOrderNumber} has been received successfully. We are processing your order. Thank you for shopping with ODA Market.`;
   
   // Send SMS

@@ -48,7 +48,7 @@ export default function TrackOrderPage() {
         const { data: foundOrder } = await supabase
           .from("orders")
           .select("*")
-          .ilike("notes", `%${cleanId}%`)
+          .or(`order_number.ilike.%${cleanId}%,notes.ilike.%${cleanId}%`)
           .limit(1)
           .maybeSingle();
         data = foundOrder;
@@ -63,7 +63,8 @@ export default function TrackOrderPage() {
 
           if (recentOrders) {
             data = recentOrders.find((o: any) => 
-              o.id.toLowerCase().startsWith(strippedId.toLowerCase())
+              o.id.toLowerCase().startsWith(strippedId.toLowerCase()) ||
+              (o.order_number && o.order_number.toLowerCase().includes(strippedId.toLowerCase()))
             ) || null;
           }
         }
@@ -163,7 +164,7 @@ export default function TrackOrderPage() {
               <Package className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8B857D] w-5 h-5" />
               <input
                 type="text"
-                placeholder="Order Number (e.g., ORD-12345)"
+                placeholder="Order Number (e.g., ODA-A8F3Q9TZ)"
                 value={orderId}
                 onChange={(e) => setOrderId(e.target.value)}
                 className="w-full pl-10 pr-4 py-3 bg-[#FAF5EC] border border-[#E8DCC9] rounded-xl text-[#3A2418] focus:outline-none focus:border-[#C65A28] focus:ring-1 focus:ring-[#C65A28]"
@@ -208,7 +209,7 @@ export default function TrackOrderPage() {
             <div className="bg-white p-6 md:p-8 rounded-2xl shadow-sm border border-[#E8DCC9]">
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                 <div>
-                  <h2 className="text-xl font-bold text-[#3A2418]">Order #{order.id?.split('-')[0] || order.id}</h2>
+                  <h2 className="text-xl font-bold text-[#3A2418]">Order {order.order_number || '#' + (order.id?.split('-')[0] || order.id)}</h2>
                   <p className="text-[#5F5A54] text-sm mt-1">
                     Placed on {order.created_at ? format(new Date(order.created_at), 'MMMM d, yyyy h:mm a') : 'Unknown date'}
                   </p>

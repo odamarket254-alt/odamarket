@@ -118,6 +118,7 @@ export default function AdminOrdersPage() {
 
   const filteredOrders = orders.filter(o => {
     const matchesSearch = o.id?.toLowerCase().includes(search.toLowerCase()) || 
+                          o.order_number?.toLowerCase().includes(search.toLowerCase()) ||
                           o.customer?.first_name?.toLowerCase().includes(search.toLowerCase()) ||
                           o.customer?.last_name?.toLowerCase().includes(search.toLowerCase()) ||
                           o.customer?.email?.toLowerCase().includes(search.toLowerCase());
@@ -233,7 +234,7 @@ export default function AdminOrdersPage() {
                       <td className="px-6 py-4"><input type="checkbox" className="rounded border-slate-300 text-[#C65A28] focus:ring-blue-500 text-[#3A2418] dark:text-[#3A2418] placeholder:text-[#8B857D] caret-slate-900" /></td>
                       <td className="px-6 py-4">
                         <span className="text-sm font-bold text-[#C65A28] dark:text-blue-400 cursor-pointer">
-                          #{order.id.slice(0,8).toUpperCase()}
+                          {order.order_number || '#' + order.id.slice(0,8).toUpperCase()}
                         </span>
                       </td>
                       <td className="px-6 py-4">

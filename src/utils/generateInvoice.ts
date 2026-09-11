@@ -58,7 +58,7 @@ export async function generateInvoice(order: any) {
 
     // Order Details
     doc.setFontSize(11);
-    doc.text(`Order Number: ${order.id}`, margin, currentY);
+    doc.text(`Order Number: ${order.order_number || order.id}`, margin, currentY);
     doc.text(`Date: ${new Date(order.created_at).toLocaleDateString()}`, margin, currentY + 6);
     doc.text(`Status: ${order.status.toUpperCase()}`, margin, currentY + 12);
     
@@ -132,7 +132,7 @@ export async function generateInvoice(order: any) {
     doc.text("Thank you for shopping with ODA Market!", margin, 280);
 
     // Save PDF
-    doc.save(`Invoice_${order.id}.pdf`);
+    doc.save(`Invoice_${order.order_number || order.id}.pdf`);
     return true;
   } catch (err) {
     console.error("Error generating invoice:", err);

@@ -216,7 +216,7 @@ export default function OrdersPage() {
               <div className="flex flex-wrap items-center gap-6">
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Order Number</p>
-                  <p className="font-semibold text-sm">{order.id}</p>
+                  <p className="font-semibold text-sm">{order.order_number || order.id}</p>
                 </div>
                 <div>
                   <p className="text-xs text-muted-foreground uppercase tracking-wider mb-1">Date Placed</p>

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { createClient } from "@supabase/supabase-js";
 import { sendOrderSMS } from "../src/lib/sms.js";
+import crypto from "crypto";
 
 const router = Router();
 
@@ -76,11 +77,13 @@ router.post("/", async (req, res) => {
     const finalTotal = totalAmount + deliveryFee;
 
     // 3. Create the order
-    const orderNumber = 'ORD-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+    const odaNumber = 'ODA-' + crypto.randomBytes(4).toString('hex').toUpperCase();
+    const orderNumber = odaNumber; // keep for notes backwards compatibility
     const { data: orderData, error: orderError } = await supabase
       .from('orders')
       .insert({
         user_id: user.id,
+        order_number: odaNumber,
         status: 'pending',
         subtotal: totalAmount,
         delivery_fee: deliveryFee,

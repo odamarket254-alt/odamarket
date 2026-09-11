@@ -80,7 +80,7 @@ export default function RecentOrders() {
               {orders.map((order) => (
                 <tr key={order.id} className="hover:bg-[#FAF5EC] transition-colors">
                   <td className="py-3 px-6">
-                    <span className="font-semibold text-[#3A2418] text-sm">#{order.id.substring(0, 8).toUpperCase()}</span>
+                    <span className="font-semibold text-[#3A2418] text-sm">{order.order_number || '#' + order.id.substring(0, 8).toUpperCase()}</span>
                     <div className="text-xs text-[#5F5A54]">{format(new Date(order.created_at), 'MMM d, h:mm a')}</div>
                   </td>
                   <td className="py-3 px-6">

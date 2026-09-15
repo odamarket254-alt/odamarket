@@ -85,14 +85,34 @@ export const HeroBannerSection = ({ section }: HeroBannerSectionProps) => {
   return (
     <section className="w-full flex justify-center py-3 md:py-7">
       <div 
-        className="relative w-[calc(100%-24px)] md:w-[calc(100%-64px)] max-w-[1280px] h-[180px] sm:h-[220px] md:h-[340px] lg:h-[370px] rounded-[18px] md:rounded-[24px] overflow-hidden group shadow-sm bg-gray-100"
+        className={cn(
+          "relative w-[calc(100%-24px)] md:w-[calc(100%-64px)] max-w-[1280px] rounded-[18px] md:rounded-[24px] overflow-hidden group shadow-sm bg-gray-100",
+          !(displayBanners[0]?.desktop_image_url || displayBanners[0]?.mobile_image_url) && "h-[250px] md:h-[340px] lg:h-[370px]"
+        )}
         onMouseEnter={() => setIsPaused(true)}
         onMouseLeave={() => setIsPaused(false)}
       >
+        {/* Invisible spacer to maintain natural height based on the first slide's image */}
+        {(displayBanners[0]?.desktop_image_url || displayBanners[0]?.mobile_image_url) && (
+          <div className="w-full invisible pointer-events-none select-none">
+            <picture>
+              {displayBanners[0]?.mobile_image_url && displayBanners[0]?.desktop_image_url && (
+                <source media="(max-width: 767px)" srcSet={displayBanners[0].mobile_image_url} />
+              )}
+              <img 
+                src={displayBanners[0]?.desktop_image_url || displayBanners[0]?.mobile_image_url || ""} 
+                alt="spacer" 
+                className="w-full h-auto block" 
+              />
+            </picture>
+          </div>
+        )}
+
         {displayBanners.map((banner, index) => {
           const isActive = index === currentIndex;
           
           const hasImage = Boolean(banner.desktop_image_url || banner.mobile_image_url);
+          const defaultImage = banner.desktop_image_url || banner.mobile_image_url;
           
           const textOverlay = !hasImage && (
             <>
@@ -151,30 +171,18 @@ export const HeroBannerSection = ({ section }: HeroBannerSectionProps) => {
 
           const slideContent = (
             <>
-              {banner.desktop_image_url && (
-                <OptimizedImage
-                  src={banner.desktop_image_url}
-                  alt={banner.title || 'Banner'}
-                  className={cn("absolute inset-0 w-full h-full pointer-events-none", banner.mobile_image_url ? "hidden md:block" : "block")}
-                  imgClassName="w-full h-full object-cover object-center"
-                  loading={index === 0 ? "eager" : "lazy"}
-                  priority={index === 0}
-                  imageType="banner"
-                  fallback="https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80"
-                />
-              )}
-              
-              {banner.mobile_image_url && (
-                <OptimizedImage
-                  src={banner.mobile_image_url}
-                  alt={banner.title || 'Banner'}
-                  className="absolute inset-0 w-full h-full block md:hidden pointer-events-none"
-                  imgClassName="w-full h-full object-cover object-center"
-                  loading={index === 0 ? "eager" : "lazy"}
-                  priority={index === 0}
-                  imageType="banner"
-                  fallback="https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&q=80"
-                />
+              {hasImage && (
+                <picture className="absolute inset-0 w-full h-full pointer-events-none">
+                  {banner.mobile_image_url && banner.desktop_image_url && (
+                    <source media="(max-width: 767px)" srcSet={banner.mobile_image_url} />
+                  )}
+                  <img
+                    src={defaultImage || ""}
+                    alt={banner.title || 'Banner'}
+                    className="w-full h-full object-cover object-center"
+                    loading={index === 0 ? "eager" : "lazy"}
+                  />
+                </picture>
               )}
               
               {textOverlay}

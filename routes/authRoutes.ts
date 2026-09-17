@@ -274,7 +274,7 @@ router.post('/register-complete', async (req, res) => {
       email: accountData.email,
       password: accountData.password,
       phone: formattedPhone,
-      email_confirm: false,
+      email_confirm: true,
       phone_confirm: false,
       user_metadata: {
         first_name: accountData.first_name,

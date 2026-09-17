@@ -308,34 +308,27 @@ router.post('/register-complete', async (req, res) => {
       }
     }
 
-    // Generate link for email confirmation
-    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'signup',
-      email: accountData.email,
-      password: accountData.password,
-    });
-    
-    if (linkData && linkData.properties?.action_link) {
-      try {
+    // Optional: Send a simple welcome email via Resend if configured
+    try {
+      if (process.env.RESEND_API_KEY) {
         const { Resend } = await import('resend');
-        const resend = new Resend(process.env.RESEND_API_KEY || 're_placeholder');
+        const resend = new Resend(process.env.RESEND_API_KEY);
         await resend.emails.send({
           from: 'ODA Market <noreply@odamarket.co.ke>', 
           to: accountData.email,
-          subject: 'Confirm your ODA Market Account',
+          subject: 'Welcome to ODA Market',
           html: `
             <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; text-align: center;">
               <h1 style="color: #C65A28;">Welcome to ODA Market!</h1>
               <p style="font-size: 16px; color: #333;">Hi ${accountData.first_name},</p>
-              <p style="font-size: 16px; color: #333;">Thanks for joining ODA Market. Please confirm your email address to activate your account.</p>
-              <a href="${linkData.properties.action_link}" style="display: inline-block; background-color: #C65A28; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 20px;">Confirm Email</a>
-              <p style="font-size: 14px; color: #666; margin-top: 30px;">If you didn't create an account, you can safely ignore this email.</p>
+              <p style="font-size: 16px; color: #333;">Thanks for joining ODA Market. Your account has been successfully created.</p>
+              <a href="https://odamarket.co.ke" style="display: inline-block; background-color: #C65A28; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; font-weight: bold; margin-top: 20px;">Start Shopping</a>
             </div>
           `
         });
-      } catch (e) {
-        console.error("Resend error:", e);
       }
+    } catch (e) {
+      console.error("Resend error:", e);
     }
 
     res.status(200).json({ success: true, userId: userId });

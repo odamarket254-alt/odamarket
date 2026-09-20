@@ -1,175 +1,115 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Confirm your email address</title>
-  <style>
-    /* Base resets and typography */
-    body {
-      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-      background-color: #f4f4f5;
-      margin: 0;
-      padding: 0;
-      -webkit-font-smoothing: antialiased;
-    }
-    
-    table {
-      border-collapse: collapse;
-      width: 100%;
-    }
-    
-    /* Layout */
-    .wrapper {
-      padding: 40px 20px;
-      background-color: #f4f4f5;
-    }
-    
-    .container {
-      max-width: 600px;
-      margin: 0 auto;
-      background-color: #ffffff;
-      border-radius: 12px;
-      overflow: hidden;
-      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-    }
-    
-    /* Header Structure */
-    .header {
-      background-color: #047857; /* Emerald 700 */
-      padding: 32px 40px;
-      text-align: center;
-    }
-    
-    .header h1 {
-      color: #ffffff;
-      margin: 0;
-      font-size: 28px;
-      font-weight: 700;
-      letter-spacing: -0.5px;
-    }
-    
-    /* Body Content */
-    .content {
-      padding: 40px;
-      color: #3f3f46; /* Zinc 700 */
-      line-height: 1.6;
-    }
-    
-    .content h2 {
-      font-size: 22px;
-      color: #18181b; /* Zinc 900 */
-      margin-top: 0;
-      margin-bottom: 20px;
-      font-weight: 600;
-    }
-    
-    .content p {
-      font-size: 16px;
-      margin-top: 0;
-      margin-bottom: 20px;
-    }
-    
-    /* Call to Action Button */
-    .button-container {
-      text-align: center;
-      margin: 36px 0;
-    }
-    
-    .button {
-      background-color: #10b981; /* Emerald 500 */
-      color: #ffffff;
-      text-decoration: none;
-      padding: 14px 32px;
-      border-radius: 8px;
-      font-weight: 600;
-      font-size: 16px;
-      display: inline-block;
-      box-shadow: 0 2px 4px rgba(16, 185, 129, 0.25);
-    }
-    
-    .button:hover {
-      background-color: #059669; /* Emerald 600 */
-    }
-    
-    /* Fallback Link */
-    .fallback-link {
-      word-break: break-all;
-      color: #059669;
-      font-size: 14px;
-      background-color: #f0fdf4; /* Emerald 50 */
-      padding: 12px;
-      border-radius: 6px;
-      margin-bottom: 24px;
-    }
-    
-    /* Footer */
-    .footer {
-      background-color: #fafafa;
-      padding: 32px 40px;
-      text-align: center;
-      font-size: 13px;
-      color: #71717a; /* Zinc 500 */
-      border-top: 1px solid #e4e4e7; /* Zinc 200 */
-    }
-    
-    .footer p {
-      margin: 0 0 8px 0;
-    }
-    
-    .footer a {
-      color: #059669;
-      text-decoration: none;
-      font-weight: 500;
-    }
-    .footer a:hover {
-      text-decoration: underline;
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Confirm Your ODA Market Account</title>
+  <style type="text/css">
+    body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+    table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+    img { -ms-interpolation-mode: bicubic; border: 0; outline: none; text-decoration: none; }
+    body { height: 100% !important; margin: 0 !important; padding: 0 !important; width: 100% !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #FAF5EC; }
+    @media screen and (max-width: 600px) {
+      .email-container { width: 100% !important; margin: auto !important; }
+      .fluid-padding { padding-left: 20px !important; padding-right: 20px !important; }
     }
   </style>
 </head>
-<body>
-  <div class="wrapper">
-    <div class="container">
-      
-      <!-- Header -->
-      <div class="header">
-        <h1>Odamarket</h1>
-      </div>
-      
-      <!-- Main Content -->
-      <div class="content">
-        <h2>Confirm your email address</h2>
-        
-        <p>Welcome to Odamarket! We're thrilled to have you join our marketplace.</p>
-        
-        <p>To get started, secure your account, and unlock all features, please confirm your email address by clicking the button below.</p>
-        
-        <!-- CTA Button -->
-        <div class="button-container">
-          <a href="{{ .ConfirmationURL }}" class="button">Confirm Email Address</a>
-        </div>
-        
-        <p>If the button above doesn't work, you can copy and paste the following link directly into your browser:</p>
-        
-        <div class="fallback-link">
-          {{ .ConfirmationURL }}
-        </div>
-        
-        <p style="font-size: 14px; color: #71717a;">If you didn't create an account with Odamarket, you can safely ignore this email.</p>
-        
-        <p style="margin-bottom: 0;">
-          Best regards,<br>
-          <strong>The Odamarket Team</strong>
-        </p>
-      </div>
-      
-      <!-- Footer -->
-      <div class="footer">
-        <p>&copy; 2026 Odamarket. All rights reserved.</p>
-        <p>Need help? Contact us at <a href="mailto:info@odamarket.co.ke">info@odamarket.co.ke</a></p>
-      </div>
-      
-    </div>
-  </div>
+<body style="margin: 0; padding: 0; background-color: #FAF5EC; -webkit-font-smoothing: antialiased;">
+  <!-- Full background wrapper -->
+  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #FAF5EC; table-layout: fixed;">
+    <tr>
+      <td align="center" style="padding: 40px 15px;">
+        <!-- Email card container -->
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" class="email-container" style="max-width: 580px; background-color: #FFFFFF; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(58, 36, 24, 0.08); border: 1px solid #E8DCC9;">
+          
+          <!-- Top Brand Accent Bar -->
+          <tr>
+            <td style="height: 6px; background: linear-gradient(90deg, #D96A27 0%, #F49C64 100%);"></td>
+          </tr>
+
+          <!-- Header Logo & Branding -->
+          <tr>
+            <td align="center" style="padding: 36px 30px 20px 30px; text-align: center;">
+              <h1 style="margin: 0; color: #D96A27; font-size: 30px; font-weight: 800; letter-spacing: -0.5px; line-height: 1.2;">
+                ODA MARKET
+              </h1>
+              <p style="margin: 6px 0 0 0; color: #8B857D; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;">
+                Fresh Groceries Delivered
+              </p>
+            </td>
+          </tr>
+
+          <!-- Main Content Body -->
+          <tr>
+            <td class="fluid-padding" style="padding: 0 40px 36px 40px;">
+              
+              <!-- Greeting & Context Box -->
+              <div style="background-color: #FFFDF8; border: 1px solid #E8DCC9; border-radius: 12px; padding: 24px; margin-bottom: 28px;">
+                <h2 style="margin: 0 0 12px 0; color: #3A2418; font-size: 20px; font-weight: 700; line-height: 1.3;">
+                  Confirm your email address
+                </h2>
+                <p style="margin: 0 0 12px 0; color: #4B5563; font-size: 15px; line-height: 1.6;">
+                  Welcome to <strong>ODA Market</strong>! We're thrilled to have you join our marketplace.
+                </p>
+                <p style="margin: 0; color: #4B5563; font-size: 15px; line-height: 1.6;">
+                  To activate your account, secure your profile, and start ordering fresh farm produce, groceries, and household essentials, please verify your email address below.
+                </p>
+              </div>
+
+              <!-- Call to Action Button -->
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 32px;">
+                <tr>
+                  <td align="center">
+                    <table border="0" cellpadding="0" cellspacing="0">
+                      <tr>
+                        <td align="center" style="border-radius: 12px; background-color: #D96A27;">
+                          <a href="{{ .ConfirmationURL }}" target="_blank" style="display: inline-block; padding: 16px 40px; font-size: 16px; font-weight: 700; color: #FFFFFF; text-decoration: none; border-radius: 12px; background-color: #D96A27; box-shadow: 0 4px 14px rgba(217, 106, 39, 0.35); text-align: center;">
+                            Confirm Email Address &rarr;
+                          </a>
+                        </td>
+                      </tr>
+                    </table>
+                  </td>
+                </tr>
+              </table>
+
+              <!-- Fallback Direct Link -->
+              <p style="margin: 0 0 8px 0; color: #6B7280; font-size: 13px; line-height: 1.5;">
+                If the button above does not work in your email client, copy and paste this link into your browser:
+              </p>
+              <div style="background-color: #FAF5EC; border: 1px solid #E8DCC9; border-radius: 8px; padding: 12px 14px; margin-bottom: 24px; word-break: break-all;">
+                <a href="{{ .ConfirmationURL }}" target="_blank" style="color: #D96A27; font-size: 12px; text-decoration: underline; line-height: 1.5;">
+                  {{ .ConfirmationURL }}
+                </a>
+              </div>
+
+              <!-- Expiry & Safety Notice -->
+              <div style="border-top: 1px solid #F0E6D8; padding-top: 20px;">
+                <p style="margin: 0; color: #9CA3AF; font-size: 12px; line-height: 1.6;">
+                  This verification link will expire in 24 hours. If you did not create an account with ODA Market, please safely disregard this email.
+                </p>
+              </div>
+
+            </td>
+          </tr>
+
+          <!-- Footer -->
+          <tr>
+            <td style="background-color: #FAF5EC; padding: 24px 30px; text-align: center; border-top: 1px solid #E8DCC9;">
+              <p style="margin: 0 0 6px 0; color: #3A2418; font-size: 12px; font-weight: 600;">
+                &copy; 2026 ODA Market. All rights reserved.
+              </p>
+              <p style="margin: 0; color: #8B857D; font-size: 12px; line-height: 1.5;">
+                Nairobi, Kenya &bull; Need help? Contact us at <a href="mailto:info@odamarket.co.ke" style="color: #D96A27; text-decoration: none; font-weight: 600;">info@odamarket.co.ke</a>
+              </p>
+            </td>
+          </tr>
+
+        </table>
+      </td>
+    </tr>
+  </table>
 </body>
 </html>

@@ -1,5 +1,7 @@
 import express from 'express';
 import crypto from 'crypto';
+import fs from 'fs';
+import path from 'path';
 import { sendOTP, formatPhone } from '../src/lib/sms.js';
 import { createClient } from '@supabase/supabase-js';
 
@@ -261,76 +263,80 @@ router.post('/verify-otp', async (req, res) => {
 });
 
 
-function getConfirmationEmailHtml(firstName: string, actionLink: string) {
-  const name = firstName ? firstName.trim() : 'there';
-  return `
-    <!DOCTYPE html>
-    <html lang="en">
-      <head>
-        <meta charset="utf-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0">
-        <title>Confirm Your ODA Market Account</title>
-      </head>
-      <body style="margin:0;padding:0;background-color:#F8F3EB;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased;">
-        <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color:#F8F3EB;padding:40px 15px;">
+function getConfirmationEmailHtml(actionLink: string, firstName?: string): string {
+  try {
+    const templatePath = path.join(process.cwd(), 'email-templates', 'email-confirmation.html');
+    if (fs.existsSync(templatePath)) {
+      let html = fs.readFileSync(templatePath, 'utf8');
+      html = html.replace(/\{\{\s*\.ConfirmationURL\s*\}\}/g, actionLink);
+      if (firstName && firstName.trim()) {
+        html = html.replace('Welcome to <strong>ODA Market</strong>!', `Hi <strong>${firstName.trim()}</strong>, welcome to <strong>ODA Market</strong>!`);
+      }
+      return html;
+    }
+  } catch (err) {
+    console.warn('[EmailTemplate] Could not load template from disk, using inline fallback:', err);
+  }
+
+  const nameGreeting = firstName && firstName.trim() ? `Hi <strong>${firstName.trim()}</strong>, welcome to <strong>ODA Market</strong>!` : `Welcome to <strong>ODA Market</strong>!`;
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Confirm Your ODA Market Account</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #FAF5EC; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #FAF5EC;">
+    <tr>
+      <td align="center" style="padding: 40px 15px;">
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 580px; background-color: #FFFFFF; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(58, 36, 24, 0.08); border: 1px solid #E8DCC9;">
           <tr>
-            <td align="center">
-              <table width="100%" border="0" cellspacing="0" cellpadding="0" style="max-width:560px;background-color:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,0.06);border:1px solid #E8DCC9;">
+            <td style="height: 6px; background: linear-gradient(90deg, #D96A27 0%, #F49C64 100%);"></td>
+          </tr>
+          <tr>
+            <td align="center" style="padding: 36px 30px 20px 30px; text-align: center;">
+              <h1 style="margin: 0; color: #D96A27; font-size: 30px; font-weight: 800; letter-spacing: -0.5px; line-height: 1.2;">ODA MARKET</h1>
+              <p style="margin: 6px 0 0 0; color: #8B857D; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;">Fresh Groceries Delivered</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 0 40px 36px 40px;">
+              <div style="background-color: #FFFDF8; border: 1px solid #E8DCC9; border-radius: 12px; padding: 24px; margin-bottom: 28px;">
+                <h2 style="margin: 0 0 12px 0; color: #3A2418; font-size: 20px; font-weight: 700;">Confirm your email address</h2>
+                <p style="margin: 0 0 12px 0; color: #4B5563; font-size: 15px; line-height: 1.6;">${nameGreeting} We're thrilled to have you join our marketplace.</p>
+                <p style="margin: 0; color: #4B5563; font-size: 15px; line-height: 1.6;">To activate your account, secure your profile, and start ordering fresh farm produce, groceries, and household essentials, please verify your email address below.</p>
+              </div>
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="margin-bottom: 32px;">
                 <tr>
-                  <td style="height:6px;background:linear-gradient(90deg, #D96A27, #f49c64);"></td>
-                </tr>
-                <tr>
-                  <td style="padding:36px 36px 20px 36px;text-align:center;">
-                    <h1 style="margin:0 0 6px 0;color:#D96A27;font-size:28px;font-weight:800;letter-spacing:-0.5px;">ODA MARKET</h1>
-                    <p style="margin:0;color:#8C7E72;font-size:12px;font-weight:700;letter-spacing:1px;text-transform:uppercase;">Fresh Groceries Delivered</p>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding:0 36px 36px 36px;">
-                    <div style="background-color:#FFFDF8;border:1px solid #E8DCC9;border-radius:14px;padding:24px;margin-bottom:28px;">
-                      <h2 style="margin:0 0 12px 0;color:#1A1A1A;font-size:20px;font-weight:700;">Confirm your email address</h2>
-                      <p style="margin:0 0 12px 0;color:#4B5563;font-size:15px;line-height:1.6;">
-                        Hi <strong>${name}</strong>,
-                      </p>
-                      <p style="margin:0;color:#4B5563;font-size:15px;line-height:1.6;">
-                        Thank you for registering with ODA Market! Please confirm your email address by clicking the button below to activate your account and start shopping for fresh groceries and household essentials.
-                      </p>
-                    </div>
-
-                    <div style="text-align:center;margin-bottom:32px;">
-                      <a href="${actionLink}" style="display:inline-block;background-color:#D96A27;color:#ffffff;padding:15px 36px;font-size:16px;font-weight:700;text-decoration:none;border-radius:12px;box-shadow:0 4px 14px rgba(217,106,39,0.35);">
-                        Confirm Email Address
-                      </a>
-                    </div>
-
-                    <p style="margin:0 0 8px 0;color:#6B7280;font-size:13px;line-height:1.5;">
-                      If the button above does not work, copy and paste this link into your browser:
-                    </p>
-                    <p style="margin:0 0 24px 0;font-size:12px;color:#D96A27;word-break:break-all;line-height:1.4;">
-                      <a href="${actionLink}" style="color:#D96A27;text-decoration:underline;">${actionLink}</a>
-                    </p>
-
-                    <div style="border-top:1px solid #F0E6D8;padding-top:20px;">
-                      <p style="margin:0;color:#9CA3AF;font-size:12px;line-height:1.5;">
-                        This verification link will expire in 24 hours. If you did not sign up for an ODA Market account, you can safely ignore this email.
-                      </p>
-                    </div>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="background-color:#FAF5EC;padding:20px 36px;text-align:center;border-top:1px solid #E8DCC9;">
-                    <p style="margin:0;color:#8C7E72;font-size:12px;font-weight:500;">
-                      © 2026 ODA Market. All rights reserved. Nairobi, Kenya.
-                    </p>
+                  <td align="center">
+                    <a href="${actionLink}" target="_blank" style="display: inline-block; padding: 16px 40px; font-size: 16px; font-weight: 700; color: #FFFFFF; text-decoration: none; border-radius: 12px; background-color: #D96A27; box-shadow: 0 4px 14px rgba(217, 106, 39, 0.35); text-align: center;">
+                      Confirm Email Address &rarr;
+                    </a>
                   </td>
                 </tr>
               </table>
+              <p style="margin: 0 0 8px 0; color: #6B7280; font-size: 13px; line-height: 1.5;">If the button above does not work in your email client, copy and paste this link into your browser:</p>
+              <div style="background-color: #FAF5EC; border: 1px solid #E8DCC9; border-radius: 8px; padding: 12px 14px; margin-bottom: 24px; word-break: break-all;">
+                <a href="${actionLink}" target="_blank" style="color: #D96A27; font-size: 12px; text-decoration: underline;">${actionLink}</a>
+              </div>
+              <div style="border-top: 1px solid #F0E6D8; padding-top: 20px;">
+                <p style="margin: 0; color: #9CA3AF; font-size: 12px; line-height: 1.6;">This verification link will expire in 24 hours. If you did not create an account with ODA Market, please safely disregard this email.</p>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color: #FAF5EC; padding: 24px 30px; text-align: center; border-top: 1px solid #E8DCC9;">
+              <p style="margin: 0 0 6px 0; color: #3A2418; font-size: 12px; font-weight: 600;">&copy; 2026 ODA Market. All rights reserved.</p>
+              <p style="margin: 0; color: #8B857D; font-size: 12px;">Nairobi, Kenya &bull; Need help? Contact us at <a href="mailto:info@odamarket.co.ke" style="color: #D96A27; text-decoration: none; font-weight: 600;">info@odamarket.co.ke</a></p>
             </td>
           </tr>
         </table>
-      </body>
-    </html>
-  `;
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
 }
 
 router.post('/register-complete', async (req, res) => {
@@ -370,14 +376,30 @@ router.post('/register-complete', async (req, res) => {
 
     // Save address if provided
     if (addressData) {
+      const fullName = [accountData.first_name, accountData.last_name].filter(Boolean).join(' ').trim() || 'Valued Customer';
+      const phone = accountData.phone || formattedPhone || '';
+      const county = addressData.county || '';
+      const townCity = addressData.town || addressData.town_city || '';
+      const areaLocation = addressData.estate || addressData.area_location || addressData.town || county || '';
+
+      const streetParts = [
+        addressData.street,
+        addressData.apartment ? `Apt ${addressData.apartment}` : '',
+        addressData.house_number ? `House ${addressData.house_number}` : '',
+        addressData.formatted_address && !addressData.street ? addressData.formatted_address : ''
+      ].filter(Boolean);
+
+      const streetBuilding = streetParts.join(', ') || addressData.formatted_address || 'Delivery Address';
+
       const { error: addressError } = await supabaseAdmin.from('delivery_addresses').insert({
         user_id: userId,
-        phone_number: accountData.phone,
-        street_address: addressData.street || addressData.formatted_address || "",
-        apartment_suite: addressData.apartment || addressData.house_number || "",
-        city: addressData.town || "",
-        county: addressData.county,
-        postal_code: "",
+        full_name: fullName,
+        phone: phone,
+        county: county,
+        town_city: townCity,
+        area_location: areaLocation,
+        street_building: streetBuilding,
+        delivery_instructions: addressData.delivery_instructions || '',
         is_default: true,
       });
       if (addressError) {
@@ -385,52 +407,64 @@ router.post('/register-complete', async (req, res) => {
       }
     }
 
-    // 1. Trigger Supabase's native email automation (the identical system that sends when clicking "Send confirmation email" in Supabase dashboard)
     const origin = req.headers.origin || process.env.APP_URL || 'https://odamarket.co.ke';
     const redirectUrl = `${origin}/login?confirmed=true`;
+    let emailSent = false;
 
-    try {
-      const { data: resendData, error: resendError } = await supabaseAnon.auth.resend({
-        type: 'signup',
-        email: accountData.email,
-        options: {
-          emailRedirectTo: redirectUrl
+    // 1. Send the branded HTML template directly via Resend if configured
+    if (process.env.RESEND_API_KEY) {
+      try {
+        const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+          type: 'signup',
+          email: accountData.email,
+          password: accountData.password,
+          options: {
+            redirectTo: redirectUrl
+          }
+        });
+
+        const actionLink = linkData?.properties?.action_link;
+        if (actionLink) {
+          const { Resend } = await import('resend');
+          const resend = new Resend(process.env.RESEND_API_KEY);
+          const emailRes = await resend.emails.send({
+            from: 'ODA Market <noreply@odamarket.co.ke>', 
+            to: accountData.email,
+            subject: 'Confirm your ODA Market account',
+            html: getConfirmationEmailHtml(actionLink, accountData.first_name)
+          });
+          if (!emailRes.error) {
+            emailSent = true;
+            console.log(`[Auth] Branded template confirmation email sent successfully to ${accountData.email}, id: ${emailRes?.data?.id}`);
+          } else {
+            console.warn("[Auth] Resend error:", emailRes.error);
+          }
+        } else if (linkError) {
+          console.warn("[Auth] generateLink error:", linkError.message);
         }
-      });
-      if (resendError) {
-        console.warn("[Auth] Supabase native auth.resend notice:", resendError.message);
-      } else {
-        console.log("[Auth] Supabase native confirmation email automation dispatched to:", accountData.email);
+      } catch (e) {
+        console.warn("[Auth] Resend sending exception:", e);
       }
-    } catch (sbErr) {
-      console.warn("[Auth] Supabase native resend exception:", sbErr);
     }
 
-    // 2. ALSO send via Resend as redundant delivery channel if configured
-    try {
-      const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-        type: 'signup',
-        email: accountData.email,
-        password: accountData.password,
-        options: {
-          redirectTo: redirectUrl
-        }
-      });
-
-      const actionLink = linkData?.properties?.action_link;
-      if (actionLink && process.env.RESEND_API_KEY) {
-        const { Resend } = await import('resend');
-        const resend = new Resend(process.env.RESEND_API_KEY);
-        const emailRes = await resend.emails.send({
-          from: 'ODA Market <noreply@odamarket.co.ke>', 
-          to: accountData.email,
-          subject: 'Confirm your ODA Market account',
-          html: getConfirmationEmailHtml(accountData.first_name, actionLink)
+    // 2. If Resend was not configured or failed, fallback to Supabase native mailer
+    if (!emailSent) {
+      try {
+        const { data: resendData, error: resendError } = await supabaseAnon.auth.resend({
+          type: 'signup',
+          email: accountData.email,
+          options: {
+            emailRedirectTo: redirectUrl
+          }
         });
-        console.log(`Resend confirmation email sent successfully to ${accountData.email}, id: ${emailRes?.data?.id}`);
+        if (resendError) {
+          console.warn("[Auth] Supabase native auth.resend fallback notice:", resendError.message);
+        } else {
+          console.log("[Auth] Supabase native confirmation email fallback dispatched to:", accountData.email);
+        }
+      } catch (sbErr) {
+        console.warn("[Auth] Supabase native resend fallback exception:", sbErr);
       }
-    } catch (e) {
-      console.warn("Resend secondary send notice:", e);
     }
 
     res.status(200).json({ success: true, userId: userId, email: accountData.email });
@@ -449,31 +483,12 @@ router.post('/resend-confirmation-email', async (req, res) => {
 
     const origin = req.headers.origin || process.env.APP_URL || 'https://odamarket.co.ke';
     const redirectUrl = `${origin}/login?confirmed=true`;
+    let emailSent = false;
 
-    // 1. Trigger Supabase native mailer
-    let sbSuccess = false;
-    try {
-      const { error: resendError } = await supabaseAnon.auth.resend({
-        type: 'signup',
-        email: email,
-        options: {
-          emailRedirectTo: redirectUrl
-        }
-      });
-      if (!resendError) {
-        sbSuccess = true;
-        console.log(`[Auth] Supabase native resend dispatched to ${email}`);
-      } else {
-        console.warn('[Auth] Supabase native resend warning:', resendError.message);
-      }
-    } catch (e) {
-      console.warn('[Auth] Supabase native resend exception:', e);
-    }
-
-    // 2. Also send via Resend if RESEND_API_KEY is configured
+    // 1. Send the branded HTML template directly via Resend
     if (process.env.RESEND_API_KEY) {
       try {
-        const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({
+        const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
           type: 'magiclink',
           email: email,
           options: {
@@ -484,16 +499,43 @@ router.post('/resend-confirmation-email', async (req, res) => {
         if (actionLink) {
           const { Resend } = await import('resend');
           const resend = new Resend(process.env.RESEND_API_KEY);
-          await resend.emails.send({
+          const emailRes = await resend.emails.send({
             from: 'ODA Market <noreply@odamarket.co.ke>',
             to: email,
             subject: 'Confirm your ODA Market account',
-            html: getConfirmationEmailHtml('there', actionLink)
+            html: getConfirmationEmailHtml(actionLink)
           });
-          console.log(`Resend confirmation email dispatched to ${email}`);
+          if (!emailRes.error) {
+            emailSent = true;
+            console.log(`[Auth] Resend template confirmation email dispatched to ${email}, id: ${emailRes?.data?.id}`);
+          } else {
+            console.warn('[Auth] Resend error during resend:', emailRes.error);
+          }
+        } else if (linkError) {
+          console.warn('[Auth] generateLink error during resend:', linkError.message);
         }
       } catch (err) {
-        console.warn('Resend backup send error:', err);
+        console.warn('[Auth] Resend backup send error:', err);
+      }
+    }
+
+    // 2. Fallback to Supabase native mailer
+    if (!emailSent) {
+      try {
+        const { error: resendError } = await supabaseAnon.auth.resend({
+          type: 'signup',
+          email: email,
+          options: {
+            emailRedirectTo: redirectUrl
+          }
+        });
+        if (!resendError) {
+          console.log(`[Auth] Supabase native resend dispatched to ${email}`);
+        } else {
+          console.warn('[Auth] Supabase native resend warning:', resendError.message);
+        }
+      } catch (e) {
+        console.warn('[Auth] Supabase native resend exception:', e);
       }
     }
 

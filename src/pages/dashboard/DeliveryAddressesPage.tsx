@@ -18,16 +18,27 @@ interface Address {
 }
 
 export default function DeliveryAddressesPage() {
-  const { user } = useAuthStore();
+  const { user, profile } = useAuthStore();
   const [addresses, setAddresses] = useState<Address[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentAddressId, setCurrentAddressId] = useState<string | null>(null);
 
+  const getDefaultName = () => {
+    return user?.user_metadata?.full_name || 
+      [profile?.first_name, profile?.last_name].filter(Boolean).join(' ').trim() || 
+      user?.user_metadata?.first_name || 
+      "";
+  };
+
+  const getDefaultPhone = () => {
+    return user?.user_metadata?.phone || profile?.phone || user?.phone || "";
+  };
+
   const [formData, setFormData] = useState({
-    full_name: user?.user_metadata?.full_name || "",
-    phone: user?.user_metadata?.phone || "",
+    full_name: getDefaultName(),
+    phone: getDefaultPhone(),
     county: "",
     town_city: "",
     area_location: "",
@@ -39,8 +50,14 @@ export default function DeliveryAddressesPage() {
   useEffect(() => {
     if (user) {
       fetchAddresses();
+      // Prepopulate name/phone if empty
+      setFormData(prev => ({
+        ...prev,
+        full_name: prev.full_name || getDefaultName(),
+        phone: prev.phone || getDefaultPhone()
+      }));
     }
-  }, [user]);
+  }, [user, profile]);
 
   const fetchAddresses = async () => {
     try {
@@ -63,8 +80,8 @@ export default function DeliveryAddressesPage() {
 
   const resetForm = () => {
     setFormData({
-      full_name: user?.user_metadata?.full_name || "",
-      phone: user?.user_metadata?.phone || "",
+      full_name: getDefaultName(),
+      phone: getDefaultPhone(),
       county: "",
       town_city: "",
       area_location: "",
@@ -79,6 +96,16 @@ export default function DeliveryAddressesPage() {
   const handleSaveAddress = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
+
+    if (!formData.full_name.trim()) {
+      toast.error("Please enter a full name for the recipient");
+      return;
+    }
+    if (!formData.phone.trim()) {
+      toast.error("Please enter a phone number");
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -110,8 +137,8 @@ export default function DeliveryAddressesPage() {
       resetForm();
       fetchAddresses();
     } catch (err: any) {
-      console.error(err);
-      toast.error(err.code === '42P01' ? "Database schema needs update." : "Failed to save address");
+      console.error("Failed to save address:", err);
+      toast.error(err.message || (err.code === '42P01' ? "Database schema needs update." : "Failed to save address"));
     } finally {
       setIsLoading(false);
     }

@@ -1,5 +1,5 @@
 import { OptimizedImage } from "../components/ui/OptimizedImage";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -18,7 +18,8 @@ import {
   ShieldCheck,
   Clock,
   CreditCard,
-  ShoppingBag
+  ShoppingBag,
+  CheckCircle2
 } from "lucide-react";
 import { cn } from "../lib/utils";
 import { Logo } from "../components/ui/Logo";
@@ -36,6 +37,15 @@ export default function LoginPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const { setProfile, setUser } = useAuthStore();
+
+  const searchParams = new URLSearchParams(location.search);
+  const isEmailConfirmed = searchParams.get("confirmed") === "true";
+
+  useEffect(() => {
+    if (isEmailConfirmed) {
+      toast.success("Your email has been confirmed! You can now log in.");
+    }
+  }, [isEmailConfirmed]);
 
   const from = (location.state as any)?.from?.pathname || "/dashboard";
 
@@ -95,7 +105,11 @@ export default function LoginPage() {
         navigate(from, { replace: true });
       }
     } catch (error: any) {
-      toast.error(error.message || "Failed to sign in. Please check your credentials.");
+      if (error.message?.includes("Email not confirmed")) {
+        toast.error("Please confirm your email before signing in. Check your inbox for the confirmation link.");
+      } else {
+        toast.error(error.message || "Failed to sign in. Please check your credentials.");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -191,6 +205,16 @@ export default function LoginPage() {
                 Sign in to shop fresh groceries, beverages, and everyday products.
               </p>
             </div>
+
+            {isEmailConfirmed && (
+              <div className="mb-6 p-4 rounded-xl bg-green-50 border border-green-200 flex items-start gap-3 text-left">
+                <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="text-sm font-bold text-green-900">Email Verified!</h4>
+                  <p className="text-xs text-green-700 mt-0.5">Your email address has been confirmed. You can now log in below.</p>
+                </div>
+              </div>
+            )}
 
             <button
               type="button"

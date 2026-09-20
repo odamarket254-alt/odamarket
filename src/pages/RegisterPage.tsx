@@ -89,6 +89,7 @@ export default function RegisterPage() {
   const [createdUserId, setCreatedUserId] = useState<string | null>(null);
   const [accountData, setAccountData] = useState<AccountFormValues | null>(null);
   const [addressData, setAddressData] = useState<AddressFormValues | null>(null);
+  const [isResendingEmail, setIsResendingEmail] = useState(false);
 
   const navigate = useNavigate();
   const { setUser, setProfile } = useAuthStore();
@@ -139,6 +140,28 @@ export default function RegisterPage() {
       if (error) throw error;
     } catch (error: any) {
       toast.error(error.message || "Failed to sign in with Google.");
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    if (!accountData?.email) {
+      toast.error("Email address not found. Please try again.");
+      return;
+    }
+    setIsResendingEmail(true);
+    try {
+      const res = await fetch('/api/auth/resend-confirmation-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: accountData.email }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to resend confirmation email');
+      toast.success('Confirmation email sent! Please check your inbox.');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to resend email');
+    } finally {
+      setIsResendingEmail(false);
     }
   };
 
@@ -369,25 +392,6 @@ export default function RegisterPage() {
                 exit={{ opacity: 0, x: 20 }}
                 transition={{ duration: 0.3 }}
               >
-                {/* Email Confirmation Notice */}
-                <div className="mb-6 p-4 sm:p-5 bg-[#FFFDF8] border border-[#E8DCC9] rounded-2xl flex flex-col sm:flex-row items-start gap-3 sm:gap-4 shadow-sm">
-                  <div className="w-10 h-10 rounded-full bg-[#D96A27]/10 flex items-center justify-center shrink-0">
-                    <Info className="w-5 h-5 text-[#D96A27]" />
-                  </div>
-                  <div>
-                    <h3 className="font-bold text-[#1A1A1A] text-[15px] mb-1">Email Confirmation Notice</h3>
-                    <p className="text-[#666] text-sm leading-relaxed mb-3">
-                      We are currently experiencing a temporary issue with email confirmation. Our team is working to resolve the issue as soon as possible.
-                    </p>
-                    <p className="text-[#1A1A1A] text-sm font-semibold mb-3 bg-[#D96A27]/5 inline-block px-3 py-1.5 rounded-lg border border-[#D96A27]/10">
-                      You can still create your account using Google below while we work on fixing this issue.
-                    </p>
-                    <p className="text-[#666] text-sm leading-relaxed">
-                      We apologize for the inconvenience and appreciate your patience.
-                    </p>
-                  </div>
-                </div>
-
                 <form onSubmit={handleAccountSubmit(onAccountSubmit)} className="space-y-5">
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
                   <div className="space-y-1.5 relative group/field">
@@ -555,14 +559,8 @@ export default function RegisterPage() {
                     <div className="w-full border-t border-gray-200"></div>
                   </div>
                   <div className="relative flex justify-center text-sm">
-                    <span className="px-4 bg-white text-gray-400 font-medium">Or</span>
+                    <span className="px-4 bg-white text-gray-400 font-medium">Or continue with</span>
                   </div>
-                </div>
-                
-                <div className="text-center mb-4">
-                  <p className="text-[14px] font-semibold text-[#D96A27]">
-                    Having trouble with email confirmation? Continue with Google instead.
-                  </p>
                 </div>
                 
                 <button
@@ -818,29 +816,55 @@ export default function RegisterPage() {
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.4, type: "spring" }}
-                className="flex flex-col items-center py-10"
+                className="flex flex-col items-center py-8 text-center"
               >
                 <motion.div 
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   transition={{ delay: 0.2, type: "spring", stiffness: 200 }}
-                  className="w-24 h-24 rounded-full bg-green-100 flex items-center justify-center mb-6"
+                  className="w-20 h-20 rounded-full bg-[#D96A27]/10 flex items-center justify-center mb-6 shadow-sm border border-[#D96A27]/20"
                 >
-                  <CheckCircle2 className="w-12 h-12 text-green-600" />
+                  <Mail className="w-10 h-10 text-[#D96A27]" />
                 </motion.div>
                 
-                <h2 className="text-3xl font-bold text-[#1A1A1A] mb-3">Congratulations!</h2>
-                <p className="text-[#666] text-center mb-8 max-w-sm text-lg">
-                  Your account has been created successfully. <br/><br/>
-                  <span className="font-bold text-[#1A1A1A]">Please check your email to confirm your account.</span>
-                </p>
+                <h2 className="text-2xl sm:text-3xl font-extrabold text-[#1A1A1A] mb-3">Confirm Your Email</h2>
+                <div className="bg-[#FFFDF8] border border-[#E8DCC9] rounded-2xl p-5 mb-8 max-w-md w-full text-center">
+                  <p className="text-[#4B5563] text-[15px] leading-relaxed mb-2">
+                    We've sent a verification link to:
+                  </p>
+                  <p className="font-bold text-[#D96A27] text-[16px] break-all mb-3">
+                    {accountData?.email || "your email address"}
+                  </p>
+                  <p className="text-[#6B7280] text-[13px] leading-relaxed">
+                    Please check your inbox (and spam folder) and click the link to confirm your account and start shopping.
+                  </p>
+                </div>
 
-                <Link
-                  to="/login"
-                  className="w-full max-w-sm h-[52px] rounded-xl bg-[#D96A27] hover:bg-[#c45a1f] text-white font-bold text-[16px] shadow-[0_4px_14px_rgba(217,106,39,0.3)] hover:shadow-[0_6px_20px_rgba(217,106,39,0.4)] transition-all duration-300 flex items-center justify-center gap-2"
-                >
-                  Go to Login <ArrowRight className="w-5 h-5 ml-1" />
-                </Link>
+                <div className="w-full max-w-sm space-y-3.5 mb-6">
+                  <Link
+                    to="/login"
+                    className="w-full h-[52px] rounded-xl bg-[#D96A27] hover:bg-[#c45a1f] text-white font-bold text-[16px] shadow-[0_4px_14px_rgba(217,106,39,0.3)] hover:shadow-[0_6px_20px_rgba(217,106,39,0.4)] transition-all duration-300 flex items-center justify-center gap-2"
+                  >
+                    Go to Login <ArrowRight className="w-5 h-5 ml-1" />
+                  </Link>
+
+                  <button
+                    type="button"
+                    onClick={handleResendConfirmation}
+                    disabled={isResendingEmail}
+                    className="w-full h-[48px] rounded-xl bg-white border border-[#E5E7EB] hover:bg-gray-50 text-[#374151] font-semibold text-[14px] transition-all flex items-center justify-center gap-2 shadow-sm disabled:opacity-60"
+                  >
+                    {isResendingEmail ? (
+                      <div className="w-4 h-4 border-2 border-[#D96A27]/30 border-t-[#D96A27] rounded-full animate-spin"></div>
+                    ) : (
+                      "Didn't receive email? Click to resend"
+                    )}
+                  </button>
+                </div>
+
+                <p className="text-[12px] text-[#9CA3AF] max-w-xs">
+                  Confirmation links expire after 24 hours.
+                </p>
               </motion.div>
             )}
 

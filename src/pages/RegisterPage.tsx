@@ -150,14 +150,36 @@ export default function RegisterPage() {
     }
     setIsResendingEmail(true);
     try {
+      let clientSent = false;
+      try {
+        const { error: sbError } = await supabase.auth.resend({
+          type: 'signup',
+          email: accountData.email,
+          options: {
+            emailRedirectTo: `${window.location.origin}/login?confirmed=true`
+          }
+        });
+        if (!sbError) {
+          clientSent = true;
+        } else {
+          console.warn("Supabase client resend notice:", sbError.message);
+        }
+      } catch (err) {
+        console.warn("Supabase client resend error:", err);
+      }
+
       const res = await fetch('/api/auth/resend-confirmation-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: accountData.email }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to resend confirmation email');
-      toast.success('Confirmation email sent! Please check your inbox.');
+      const data = await res.json().catch(() => null);
+
+      if (clientSent || res.ok) {
+        toast.success('Confirmation email sent! Please check your inbox and spam folder.');
+      } else {
+        throw new Error(data?.error || 'Failed to resend confirmation email');
+      }
     } catch (err: any) {
       toast.error(err.message || 'Failed to resend email');
     } finally {
@@ -194,6 +216,20 @@ export default function RegisterPage() {
       
       setCreatedUserId(resData.userId);
       setStep(4);
+
+      // Trigger Supabase native confirmation email automation directly from the browser
+      try {
+        await supabase.auth.resend({
+          type: 'signup',
+          email: accountData.email,
+          options: {
+            emailRedirectTo: `${window.location.origin}/login?confirmed=true`
+          }
+        });
+        console.log("Client-side Supabase confirmation email automation dispatched.");
+      } catch (sbErr) {
+        console.warn("Client-side resend notice:", sbErr);
+      }
     } catch (error: any) {
       toast.error(error.message || "Failed to register.");
     } finally {

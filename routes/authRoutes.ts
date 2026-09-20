@@ -10,6 +10,11 @@ const supabaseAdmin = createClient(
   (process.env.SUPABASE_SERVICE_ROLE_KEY || "placeholder-service-key").trim().replace(/^["']|["']$/g, '')
 );
 
+const supabaseAnon = createClient(
+  (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://placeholder-project.supabase.co").trim().replace(/^["']|["']$/g, ''),
+  (process.env.VITE_SUPABASE_ANON_KEY || "placeholder-anon-key").trim().replace(/^["']|["']$/g, '')
+);
+
 const requestLimits = new Map<string, number>();
 
 function hashOtp(otp: string) {
@@ -380,27 +385,40 @@ router.post('/register-complete', async (req, res) => {
       }
     }
 
-    // Generate link for email confirmation and send via Resend
+    // 1. Trigger Supabase's native email automation (the identical system that sends when clicking "Send confirmation email" in Supabase dashboard)
     const origin = req.headers.origin || process.env.APP_URL || 'https://odamarket.co.ke';
     const redirectUrl = `${origin}/login?confirmed=true`;
 
-    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'signup',
-      email: accountData.email,
-      password: accountData.password,
-      options: {
-        redirectTo: redirectUrl
+    try {
+      const { data: resendData, error: resendError } = await supabaseAnon.auth.resend({
+        type: 'signup',
+        email: accountData.email,
+        options: {
+          emailRedirectTo: redirectUrl
+        }
+      });
+      if (resendError) {
+        console.warn("[Auth] Supabase native auth.resend notice:", resendError.message);
+      } else {
+        console.log("[Auth] Supabase native confirmation email automation dispatched to:", accountData.email);
       }
-    });
-
-    if (linkError) {
-      console.error("Supabase generateLink error:", linkError);
+    } catch (sbErr) {
+      console.warn("[Auth] Supabase native resend exception:", sbErr);
     }
 
-    const actionLink = linkData?.properties?.action_link;
+    // 2. ALSO send via Resend as redundant delivery channel if configured
+    try {
+      const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+        type: 'signup',
+        email: accountData.email,
+        password: accountData.password,
+        options: {
+          redirectTo: redirectUrl
+        }
+      });
 
-    if (actionLink && process.env.RESEND_API_KEY) {
-      try {
+      const actionLink = linkData?.properties?.action_link;
+      if (actionLink && process.env.RESEND_API_KEY) {
         const { Resend } = await import('resend');
         const resend = new Resend(process.env.RESEND_API_KEY);
         const emailRes = await resend.emails.send({
@@ -409,12 +427,10 @@ router.post('/register-complete', async (req, res) => {
           subject: 'Confirm your ODA Market account',
           html: getConfirmationEmailHtml(accountData.first_name, actionLink)
         });
-        console.log(`Confirmation email sent successfully to ${accountData.email}, id: ${emailRes?.data?.id}`);
-      } catch (e) {
-        console.error("Resend confirmation email error:", e);
+        console.log(`Resend confirmation email sent successfully to ${accountData.email}, id: ${emailRes?.data?.id}`);
       }
-    } else if (!actionLink) {
-      console.warn("Could not generate action_link for user confirmation email.");
+    } catch (e) {
+      console.warn("Resend secondary send notice:", e);
     }
 
     res.status(200).json({ success: true, userId: userId, email: accountData.email });
@@ -434,30 +450,51 @@ router.post('/resend-confirmation-email', async (req, res) => {
     const origin = req.headers.origin || process.env.APP_URL || 'https://odamarket.co.ke';
     const redirectUrl = `${origin}/login?confirmed=true`;
 
-    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-      type: 'magiclink',
-      email: email,
-      options: {
-        redirectTo: redirectUrl
+    // 1. Trigger Supabase native mailer
+    let sbSuccess = false;
+    try {
+      const { error: resendError } = await supabaseAnon.auth.resend({
+        type: 'signup',
+        email: email,
+        options: {
+          emailRedirectTo: redirectUrl
+        }
+      });
+      if (!resendError) {
+        sbSuccess = true;
+        console.log(`[Auth] Supabase native resend dispatched to ${email}`);
+      } else {
+        console.warn('[Auth] Supabase native resend warning:', resendError.message);
       }
-    });
-
-    if (linkError) {
-      console.error('Failed to generate resend link:', linkError);
-      return res.status(400).json({ error: 'Could not generate confirmation link. Please verify your email.' });
+    } catch (e) {
+      console.warn('[Auth] Supabase native resend exception:', e);
     }
 
-    const actionLink = linkData?.properties?.action_link;
-    if (actionLink && process.env.RESEND_API_KEY) {
-      const { Resend } = await import('resend');
-      const resend = new Resend(process.env.RESEND_API_KEY);
-      await resend.emails.send({
-        from: 'ODA Market <noreply@odamarket.co.ke>',
-        to: email,
-        subject: 'Confirm your ODA Market account',
-        html: getConfirmationEmailHtml('there', actionLink)
-      });
-      console.log(`Resend confirmation email dispatched to ${email}`);
+    // 2. Also send via Resend if RESEND_API_KEY is configured
+    if (process.env.RESEND_API_KEY) {
+      try {
+        const { data: linkData } = await supabaseAdmin.auth.admin.generateLink({
+          type: 'magiclink',
+          email: email,
+          options: {
+            redirectTo: redirectUrl
+          }
+        });
+        const actionLink = linkData?.properties?.action_link;
+        if (actionLink) {
+          const { Resend } = await import('resend');
+          const resend = new Resend(process.env.RESEND_API_KEY);
+          await resend.emails.send({
+            from: 'ODA Market <noreply@odamarket.co.ke>',
+            to: email,
+            subject: 'Confirm your ODA Market account',
+            html: getConfirmationEmailHtml('there', actionLink)
+          });
+          console.log(`Resend confirmation email dispatched to ${email}`);
+        }
+      } catch (err) {
+        console.warn('Resend backup send error:', err);
+      }
     }
 
     return res.status(200).json({ success: true, message: 'Confirmation email sent.' });

@@ -827,3 +827,75 @@ CREATE TABLE IF NOT EXISTS public.phone_verifications (
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- ==============================================================
+-- PROFILE INSERTION EMAIL DISPATCH TRIGGER
+-- ==============================================================
+CREATE OR REPLACE FUNCTION public.handle_new_profile_email_dispatch()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_webhook_url TEXT;
+  v_payload JSONB;
+  v_headers JSONB;
+  v_request_id BIGINT;
+BEGIN
+  IF NEW.email IS NULL OR TRIM(NEW.email) = '' THEN
+    RETURN NEW;
+  END IF;
+
+  v_payload := jsonb_build_object(
+    'type', 'INSERT',
+    'table', 'profiles',
+    'schema', 'public',
+    'event', 'profile.created',
+    'created_at', now(),
+    'record', jsonb_build_object(
+      'id', NEW.id,
+      'email', NEW.email,
+      'first_name', COALESCE(NEW.first_name, ''),
+      'last_name', COALESCE(NEW.last_name, ''),
+      'role', COALESCE(NEW.role::text, 'customer'),
+      'phone_number', COALESCE(NEW.phone_number, ''),
+      'created_at', NEW.created_at
+    )
+  );
+
+  v_webhook_url := COALESCE(
+    NULLIF(current_setting('app.settings.profile_webhook_url', true), ''),
+    'https://odamarket.co.ke/api/webhooks/profile-created'
+  );
+
+  v_headers := jsonb_build_object(
+    'Content-Type', 'application/json',
+    'User-Agent', 'ODA-PostgreSQL-Trigger/1.0',
+    'X-Supabase-Event', 'profiles.insert'
+  );
+
+  BEGIN
+    IF EXISTS (
+      SELECT 1 FROM pg_proc p
+      JOIN pg_namespace n ON p.pronamespace = n.oid
+      WHERE n.nspname IN ('net', 'extensions') AND p.proname = 'http_post'
+    ) THEN
+      SELECT net.http_post(
+        url := v_webhook_url,
+        headers := v_headers,
+        body := v_payload
+      ) INTO v_request_id;
+    END IF;
+  EXCEPTION
+    WHEN OTHERS THEN
+      RAISE WARNING '[handle_new_profile_email_dispatch] HTTP dispatch notice for profile %: %', NEW.id, SQLERRM;
+  END;
+
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION public.handle_new_profile_email_dispatch() TO postgres, authenticated, anon, service_role;
+
+DROP TRIGGER IF EXISTS on_profile_created_email_dispatch ON public.profiles;
+CREATE TRIGGER on_profile_created_email_dispatch
+  AFTER INSERT ON public.profiles
+  FOR EACH ROW
+  EXECUTE FUNCTION public.handle_new_profile_email_dispatch();

@@ -10,6 +10,7 @@ import aiRoutes from "./routes/aiRoutes.js";
 import authRoutes from "./routes/authRoutes.js";
 import checkoutRoutes from "./routes/checkoutRoutes.js";
 import imageRoutes from "./routes/imageRoutes.js";
+import webhookRoutes from "./routes/webhookRoutes.js";
 import rateLimit from "express-rate-limit";
 
 const allowedMimeTypes = ["image/jpeg", "image/png", "image/webp", "image/avif", "application/pdf", "image/svg+xml"];
@@ -187,6 +188,9 @@ async function startServer() {
 
   // Image optimization proxy - mounted before strict API rate limiting to prevent image loads exhausting API quota
   app.use("/api/image", imageRoutes);
+
+  // Webhook Routes (PostgreSQL triggers, Supabase webhooks)
+  app.use("/api/webhooks", webhookRoutes);
 
   // Apply rate limiter to all other API routes
   app.use("/api/", apiLimiter);

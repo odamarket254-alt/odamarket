@@ -41,7 +41,7 @@ const safeStorage = {
 };
 
 
-const customFetch = async (url, init) => {
+const customFetch = async (url: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
   const urlStr = url.toString();
   if (urlStr.includes("placeholder-project.supabase.co") || supabaseAnonKey === "placeholder-anon-key") {
     console.warn("Mocking Supabase fetch because VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY is missing.");
@@ -62,7 +62,44 @@ const customFetch = async (url, init) => {
       headers: { 'Content-Type': 'application/json' }
     });
   }
-  return fetch(url, init);
+
+  const res = await fetch(url, init);
+
+  // Development-only diagnostic logging and GoTrue response normalization for /auth/v1/signup
+  if (urlStr.includes('/auth/v1/signup')) {
+    try {
+      const clone = res.clone();
+      const payload = await clone.json();
+
+      if (import.meta.env.DEV) {
+        console.groupCollapsed('[Supabase Auth Network Audit] /auth/v1/signup');
+        console.log('HTTP Status:', res.status, res.statusText);
+        console.log('Raw GoTrue Payload:', payload);
+        console.log('confirmation_sent_at:', payload?.confirmation_sent_at || '(none)');
+        console.log('email_confirmed_at:', payload?.email_confirmed_at || '(null - confirmation required)');
+        console.log('User ID:', payload?.id || payload?.user?.id);
+        console.groupEnd();
+      }
+
+      // If GoTrue returned user at root without 'user' wrapper (standard when email confirmation is pending)
+      if (res.ok && payload && payload.id && !payload.user) {
+        const normalized = {
+          user: payload,
+          session: null,
+          ...payload,
+        };
+        return new Response(JSON.stringify(normalized), {
+          status: res.status,
+          statusText: res.statusText,
+          headers: res.headers,
+        });
+      }
+    } catch {
+      // Fallback to original response on any parse error
+    }
+  }
+
+  return res;
 };
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {

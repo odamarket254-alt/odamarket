@@ -196,22 +196,108 @@ export default function RegisterPage() {
     
     setIsLoading(true);
     try {
-      const res = await fetch('/api/auth/register-complete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accountData, addressData: data })
-      });
-      let resData;
-      try {
-        resData = await res.json();
-      } catch (e) {
-        throw new Error("Server returned an invalid response. Please try again.");
+      let formattedPhone = accountData.phone.trim().replace(/[\s\-()]/g, '');
+      if (formattedPhone.startsWith('0')) {
+        formattedPhone = '+254' + formattedPhone.substring(1);
+      } else if (!formattedPhone.startsWith('+')) {
+        formattedPhone = '+' + formattedPhone;
       }
-      if (!res.ok) throw new Error(resData?.error || "Failed to create account.");
-      
-      setCreatedUserId(resData.userId);
+
+      // Configure emailRedirectTo: production OdaMarket URL or current origin in preview/local
+      const isProduction = typeof window !== 'undefined' && 
+        (window.location.hostname === 'odamarket.co.ke' || window.location.hostname === 'www.odamarket.co.ke');
+      const emailRedirectTo = isProduction
+        ? 'https://odamarket.co.ke/login?confirmed=true'
+        : `${window.location.origin}/login?confirmed=true`;
+
+      const userMetadata = {
+        first_name: accountData.first_name.trim(),
+        last_name: accountData.last_name.trim(),
+        full_name: `${accountData.first_name.trim()} ${accountData.last_name.trim()}`,
+        phone: formattedPhone,
+        role: 'customer',
+        county: data.county,
+        town_city: data.town,
+        street_building: data.street,
+        estate: data.estate || '',
+        house_number: data.house_number || '',
+        apartment: data.apartment || '',
+      };
+
+      if (import.meta.env.DEV) {
+        console.group('[OdaMarket Registration Flow Audit: Request]');
+        console.log('Method: supabase.auth.signUp()');
+        console.log('Target Email:', accountData.email.trim().toLowerCase());
+        console.log('emailRedirectTo:', emailRedirectTo);
+        console.log('Metadata payload:', userMetadata);
+        console.groupEnd();
+      }
+
+      // Core registration using official Supabase Auth SDK
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+        email: accountData.email.trim().toLowerCase(),
+        password: accountData.password,
+        options: {
+          emailRedirectTo,
+          data: userMetadata,
+        },
+      });
+
+      if (import.meta.env.DEV) {
+        console.group('[OdaMarket Registration Flow Audit: Response]');
+        console.log('Returned error:', signUpError);
+        console.log('Returned data.user:', signUpData?.user);
+        console.log('Returned data.session:', signUpData?.session);
+        const userObj: any = signUpData?.user;
+        const confirmationSentAt = userObj?.confirmation_sent_at;
+        console.log('confirmation_sent_at:', confirmationSentAt || '(none returned in user object)');
+        console.log('Email delivery status:', confirmationSentAt ? 'CONFIRMATION_EMAIL_REQUESTED' : 'AWAITING_VERIFICATION');
+        console.log('Supabase accepted signup:', !signUpError && !!signUpData);
+        console.groupEnd();
+      }
+
+      if (signUpError) {
+        throw signUpError;
+      }
+
+      const returnedUserId = signUpData?.user?.id || null;
+      if (returnedUserId) {
+        setCreatedUserId(returnedUserId);
+      }
+
+      // Save delivery address to database
+      try {
+        await fetch('/api/auth/save-address', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            userId: returnedUserId,
+            email: accountData.email.trim().toLowerCase(),
+            addressData: {
+              county: data.county,
+              town_city: data.town,
+              street_building: data.street,
+              estate: data.estate,
+              house_number: data.house_number,
+              apartment: data.apartment,
+              full_name: `${accountData.first_name.trim()} ${accountData.last_name.trim()}`,
+              phone: formattedPhone,
+              delivery_instructions: data.delivery_instructions,
+            },
+          }),
+        });
+      } catch (addrErr) {
+        if (import.meta.env.DEV) {
+          console.warn('[OdaMarket] Non-fatal notice saving delivery address:', addrErr);
+        }
+      }
+
+      // Advance to step 4 (Email confirmation notice)
       setStep(4);
     } catch (error: any) {
+      if (import.meta.env.DEV) {
+        console.error('[OdaMarket Registration Flow Audit: Failure]', error);
+      }
       toast.error(error.message || "Failed to register.");
     } finally {
       setIsLoading(false);

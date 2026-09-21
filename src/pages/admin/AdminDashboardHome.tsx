@@ -8,6 +8,7 @@ import TopProducts from '../../components/admin/dashboard/TopProducts';
 import RecentActivities from '../../components/admin/dashboard/RecentActivities';
 import SystemHealth from '../../components/admin/dashboard/SystemHealth';
 import QuickActions from '../../components/admin/dashboard/QuickActions';
+import UnconfirmedUsersWidget from '../../components/admin/dashboard/UnconfirmedUsersWidget';
 import { useAuthStore } from '../../store/useAuthStore';
 
 export default function AdminDashboardHome() {
@@ -62,7 +63,10 @@ export default function AdminDashboardHome() {
         </div>
       </div>
 
-      {/* 4. Bottom Utilities Row */}
+      {/* 4. Diagnostic: Unconfirmed Email Registrations */}
+      <UnconfirmedUsersWidget />
+
+      {/* 5. Bottom Utilities Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-2">
           <QuickActions />

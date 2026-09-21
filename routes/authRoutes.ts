@@ -4,6 +4,7 @@ import fs from 'fs';
 import path from 'path';
 import { sendOTP, formatPhone } from '../src/lib/sms.js';
 import { createClient } from '@supabase/supabase-js';
+import { runSupabaseAuthDiagnostics } from '../src/utils/supabaseAuthDiagnostics.js';
 
 const router = express.Router();
 
@@ -474,6 +475,62 @@ router.post('/register-complete', async (req, res) => {
   }
 });
 
+router.post('/save-address', async (req, res) => {
+  try {
+    const { userId, email, addressData } = req.body;
+    let targetUserId = userId;
+
+    if (!targetUserId && email) {
+      const { data: profile } = await supabaseAdmin
+        .from('profiles')
+        .select('id')
+        .eq('email', email.trim().toLowerCase())
+        .maybeSingle();
+      if (profile) targetUserId = profile.id;
+    }
+
+    if (!targetUserId) {
+      return res.status(404).json({ error: 'User not found to associate address.' });
+    }
+
+    if (addressData) {
+      const county = addressData.county || '';
+      const townCity = addressData.town || addressData.town_city || '';
+      const areaLocation = addressData.estate || addressData.area_location || addressData.town || county || '';
+
+      const streetParts = [
+        addressData.street || addressData.street_building,
+        addressData.apartment ? `Apt ${addressData.apartment}` : '',
+        addressData.house_number ? `House ${addressData.house_number}` : '',
+      ].filter(Boolean);
+
+      const streetBuilding = streetParts.join(', ') || addressData.formatted_address || 'Delivery Address';
+
+      const { error: addressError } = await supabaseAdmin.from('delivery_addresses').insert({
+        user_id: targetUserId,
+        full_name: addressData.full_name || 'Valued Customer',
+        phone: addressData.phone || '',
+        county: county,
+        town_city: townCity,
+        area_location: areaLocation,
+        street_building: streetBuilding,
+        delivery_instructions: addressData.delivery_instructions || '',
+        is_default: true,
+      });
+
+      if (addressError) {
+        console.warn('[Address] Warning inserting delivery address:', addressError.message);
+        return res.status(400).json({ error: addressError.message });
+      }
+    }
+
+    res.status(200).json({ success: true });
+  } catch (err: any) {
+    console.error('[Address] Failed to save address:', err);
+    res.status(500).json({ error: 'Failed to save address.' });
+  }
+});
+
 router.post('/resend-confirmation-email', async (req, res) => {
   try {
     const { email } = req.body;
@@ -543,6 +600,400 @@ router.post('/resend-confirmation-email', async (req, res) => {
   } catch (error) {
     console.error('Failed to resend confirmation email:', error);
     res.status(500).json({ error: 'Failed to resend confirmation email.' });
+  }
+});
+
+/**
+ * Admin endpoint to safely delete a user and cascade all child records
+ * (e.g. delivery_addresses, reward_points, support_tickets, wishlists, cart_items, notifications)
+ */
+router.post('/admin/delete-user', async (req, res) => {
+  try {
+    const { userId, email } = req.body;
+    let targetUserId = userId;
+
+    if (!targetUserId && email) {
+      const { data: usersData } = await supabaseAdmin.auth.admin.listUsers();
+      const match = (usersData?.users as any[])?.find((u: any) => u.email?.toLowerCase() === email.toLowerCase());
+      if (match) {
+        targetUserId = match.id;
+      }
+    }
+
+    if (!targetUserId) {
+      return res.status(400).json({ error: 'Target userId or valid email is required' });
+    }
+
+    console.log(`[Auth:delete-user] Initiating safe deletion cascade for user: ${targetUserId}`);
+
+    // Pre-clean child tables to avoid FK constraint blocks if database lacks ON DELETE CASCADE
+    const cleanupOps = [
+      supabaseAdmin.from('delivery_addresses').delete().eq('user_id', targetUserId),
+      supabaseAdmin.from('reward_points').delete().eq('user_id', targetUserId),
+      supabaseAdmin.from('support_tickets').delete().eq('user_id', targetUserId),
+      supabaseAdmin.from('support_tickets').delete().eq('customer_id', targetUserId),
+      supabaseAdmin.from('cart_items').delete().eq('user_id', targetUserId),
+      supabaseAdmin.from('wishlists').delete().eq('user_id', targetUserId),
+      supabaseAdmin.from('wishlists').delete().eq('buyer_id', targetUserId),
+      supabaseAdmin.from('notifications').delete().eq('user_id', targetUserId),
+      supabaseAdmin.from('saved_for_later').delete().eq('user_id', targetUserId),
+      supabaseAdmin.from('price_drop_alerts').delete().eq('user_id', targetUserId),
+      supabaseAdmin.from('back_in_stock_notifications').delete().eq('user_id', targetUserId),
+      supabaseAdmin.from('recent_views').delete().eq('buyer_id', targetUserId),
+      supabaseAdmin.from('recent_views').delete().eq('user_id', targetUserId),
+      supabaseAdmin.from('inquiries').delete().eq('buyer_id', targetUserId),
+      supabaseAdmin.from('inquiries').delete().eq('seller_id', targetUserId),
+      supabaseAdmin.from('profiles').delete().eq('id', targetUserId)
+    ];
+
+    await Promise.allSettled(cleanupOps);
+
+    // Delete user from GoTrue / Supabase Auth
+    const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(targetUserId);
+    if (deleteError) {
+      console.error(`[Auth:delete-user] Supabase deleteUser error for ${targetUserId}:`, deleteError);
+      return res.status(500).json({ error: deleteError.message });
+    }
+
+    console.log(`[Auth:delete-user] Successfully deleted user ${targetUserId}`);
+    return res.status(200).json({ success: true, message: `User ${targetUserId} deleted successfully.` });
+  } catch (err: any) {
+    console.error('[Auth:delete-user] Unexpected error deleting user:', err);
+    return res.status(500).json({ error: err.message || 'Failed to delete user' });
+  }
+});
+
+/**
+ * Diagnostic endpoint to check Supabase Auth 'Confirm email' setting & SMTP configuration
+ */
+router.get('/diagnostics', async (req, res) => {
+  try {
+    const diagnosticReport = await runSupabaseAuthDiagnostics();
+    return res.status(200).json(diagnosticReport);
+  } catch (err: any) {
+    console.error('[Auth:diagnostics] Error running diagnostics:', err);
+    return res.status(500).json({ error: err.message || 'Failed to run auth diagnostics' });
+  }
+});
+
+/**
+ * Diagnostic test dispatch endpoint: Sends a test confirmation email to verify delivery pipeline
+ */
+router.post('/diagnostics/test-email', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'Target email is required for delivery test' });
+    }
+
+    const report = await runSupabaseAuthDiagnostics();
+    let resendResult: any = null;
+    let gotrueResult: any = null;
+
+    // Test Resend dispatch if configured
+    if (process.env.RESEND_API_KEY) {
+      try {
+        const { Resend } = await import('resend');
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const { data, error } = await resend.emails.send({
+          from: 'ODA Market <noreply@odamarket.co.ke>',
+          to: email,
+          subject: 'ODA Market - SMTP & Auth Diagnostic Test',
+          html: `<div style="font-family: sans-serif; padding: 20px; background-color: #FAF5EC; border-radius: 8px;">
+            <h2 style="color: #D96A27;">Supabase Auth & SMTP Diagnostic Test</h2>
+            <p>This is a live diagnostic verification email sent from ODA Market.</p>
+            <ul>
+              <li><strong>Confirm Email Setting:</strong> ${report.confirmEmailEnabled ? 'Enabled' : 'Disabled'}</li>
+              <li><strong>Email Provider:</strong> ${report.emailProviderEnabled ? 'Active' : 'Inactive'}</li>
+              <li><strong>Timestamp:</strong> ${new Date().toISOString()}</li>
+            </ul>
+            <p style="color: #4B5563;">If you received this message, transactional email delivery is functioning correctly.</p>
+          </div>`
+        });
+        resendResult = { success: !error, data, error };
+      } catch (rErr: any) {
+        resendResult = { success: false, error: rErr.message };
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      email,
+      report,
+      resendResult,
+      gotrueResult
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Error executing test email' });
+  }
+});
+
+/**
+ * Diagnostic endpoint: Lists all users whose email_confirmed_at is null
+ * Returns segmentation metrics (by registration age, domain, role)
+ */
+router.get('/admin/unconfirmed-users', async (req, res) => {
+  try {
+    const { data: usersData, error: usersError } = await supabaseAdmin.auth.admin.listUsers({
+      perPage: 1000
+    });
+
+    if (usersError) {
+      console.error('[Auth:unconfirmed-users] listUsers error:', usersError);
+      return res.status(500).json({ error: usersError.message });
+    }
+
+    const allUsers = usersData?.users || [];
+    const unconfirmedRaw = allUsers.filter(u => !u.email_confirmed_at);
+
+    // Fetch corresponding profiles for extra context (role, name, phone)
+    const userIds = unconfirmedRaw.map(u => u.id);
+    let profilesMap: Record<string, any> = {};
+
+    if (userIds.length > 0) {
+      const { data: profiles, error: profileErr } = await supabaseAdmin
+        .from('profiles')
+        .select('id, email, first_name, last_name, phone_number, role, avatar_url, created_at')
+        .in('id', userIds);
+
+      if (!profileErr && profiles) {
+        profiles.forEach((p: any) => {
+          profilesMap[p.id] = p;
+        });
+      }
+    }
+
+    const now = Date.now();
+
+    // Map users with diagnostic attributes
+    const formattedUsers = unconfirmedRaw.map(u => {
+      const profile = profilesMap[u.id] || {};
+      const createdAt = new Date(u.created_at).getTime();
+      const diffMs = now - createdAt;
+      const hoursAgo = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60)));
+      const daysAgo = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+
+      const email = u.email || profile.email || 'No email';
+      const domain = email.includes('@') ? email.split('@')[1].toLowerCase() : 'unknown';
+
+      let timeSegment: 'under24h' | 'from1to7d' | 'over7d' = 'over7d';
+      if (hoursAgo < 24) {
+        timeSegment = 'under24h';
+      } else if (daysAgo <= 7) {
+        timeSegment = 'from1to7d';
+      }
+
+      return {
+        id: u.id,
+        email,
+        domain,
+        timeSegment,
+        hoursAgo,
+        daysAgo,
+        createdAt: u.created_at,
+        lastSignInAt: u.last_sign_in_at,
+        provider: u.app_metadata?.provider || 'email',
+        role: profile.role || (u.user_metadata as any)?.role || 'customer',
+        firstName: profile.first_name || (u.user_metadata as any)?.first_name || '',
+        lastName: profile.last_name || (u.user_metadata as any)?.last_name || '',
+        phoneNumber: profile.phone_number || u.phone || '',
+        avatarUrl: profile.avatar_url || ''
+      };
+    });
+
+    // Sort newest first
+    formattedUsers.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    // Compute segment breakdowns
+    const domainCounts: Record<string, number> = {};
+    const roleCounts: Record<string, number> = {};
+    let under24hCount = 0;
+    let from1to7dCount = 0;
+    let over7dCount = 0;
+
+    formattedUsers.forEach(u => {
+      domainCounts[u.domain] = (domainCounts[u.domain] || 0) + 1;
+      roleCounts[u.role] = (roleCounts[u.role] || 0) + 1;
+
+      if (u.timeSegment === 'under24h') under24hCount++;
+      else if (u.timeSegment === 'from1to7d') from1to7dCount++;
+      else over7dCount++;
+    });
+
+    const totalRegistered = allUsers.length;
+    const totalUnconfirmed = formattedUsers.length;
+    const unconfirmedPercentage = totalRegistered > 0
+      ? Number(((totalUnconfirmed / totalRegistered) * 100).toFixed(1))
+      : 0;
+
+    return res.status(200).json({
+      success: true,
+      metrics: {
+        totalRegistered,
+        totalUnconfirmed,
+        unconfirmedPercentage,
+        segments: {
+          under24h: under24hCount,
+          from1to7d: from1to7dCount,
+          over7d: over7dCount,
+          domains: domainCounts,
+          roles: roleCounts
+        }
+      },
+      users: formattedUsers
+    });
+  } catch (err: any) {
+    console.error('[Auth:unconfirmed-users] Exception:', err);
+    return res.status(500).json({ error: err.message || 'Failed to list unconfirmed users' });
+  }
+});
+
+/**
+ * Diagnostic action: Manually mark an unconfirmed user's email as confirmed
+ */
+router.post('/admin/confirm-user-email', async (req, res) => {
+  try {
+    const { userId } = req.body;
+    if (!userId) {
+      return res.status(400).json({ error: 'userId is required' });
+    }
+
+    console.log(`[Auth:confirm-user-email] Manually confirming email for user: ${userId}`);
+
+    const { data, error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+      email_confirm: true
+    });
+
+    if (error) {
+      console.error(`[Auth:confirm-user-email] Supabase error:`, error);
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `User email confirmed successfully.`,
+      user: {
+        id: data.user.id,
+        email: data.user.email,
+        email_confirmed_at: data.user.email_confirmed_at
+      }
+    });
+  } catch (err: any) {
+    console.error('[Auth:confirm-user-email] Exception:', err);
+    return res.status(500).json({ error: err.message || 'Failed to confirm user email' });
+  }
+});
+
+/**
+ * Diagnostic action: Generate a direct action/verification link for manual delivery
+ */
+router.post('/admin/generate-verification-link', async (req, res) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'email is required' });
+    }
+
+    const { data, error } = await supabaseAdmin.auth.admin.generateLink({
+      type: 'magiclink',
+      email,
+      options: {
+        redirectTo: 'https://odamarket.co.ke/login?confirmed=true'
+      }
+    });
+
+    if (error) {
+      return res.status(500).json({ error: error.message });
+    }
+
+    return res.status(200).json({
+      success: true,
+      actionLink: data?.properties?.action_link || null
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to generate link' });
+  }
+});
+
+/**
+ * Diagnostic action: Trigger re-dispatch of verification email to user
+ */
+router.post('/admin/resend-verification-email', async (req, res) => {
+  try {
+    const { email, firstName } = req.body;
+    if (!email) {
+      return res.status(400).json({ error: 'email is required' });
+    }
+
+    // Generate link first
+    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+      type: 'magiclink',
+      email,
+      options: {
+        redirectTo: 'https://odamarket.co.ke/login?confirmed=true'
+      }
+    });
+
+    if (linkError) {
+      return res.status(500).json({ error: linkError.message });
+    }
+
+    const actionLink = linkData?.properties?.action_link;
+
+    // If Resend API Key is available, dispatch custom branded email directly
+    let emailSent = false;
+    if (process.env.RESEND_API_KEY && actionLink) {
+      try {
+        const { Resend } = await import('resend');
+        const resend = new Resend(process.env.RESEND_API_KEY);
+        const displayName = firstName ? ` ${firstName}` : '';
+
+        await resend.emails.send({
+          from: 'ODA Market <noreply@odamarket.co.ke>',
+          to: email,
+          subject: 'Confirm Your ODA Market Account',
+          html: `
+            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 28px; background-color: #FAF5EC; border-radius: 12px; border: 1px solid #E8DCC9;">
+              <div style="text-align: center; margin-bottom: 24px;">
+                <h1 style="color: #3A2418; font-size: 24px; margin: 0; font-weight: 700;">ODA MARKET</h1>
+                <p style="color: #C65A28; font-size: 13px; margin: 4px 0 0 0; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">Account Verification</p>
+              </div>
+              <div style="background-color: #FFFFFF; padding: 24px; border-radius: 8px; border: 1px solid #E8DCC9;">
+                <p style="color: #3A2418; font-size: 15px; line-height: 1.6; margin-top: 0;">
+                  Hello${displayName},
+                </p>
+                <p style="color: #5F5A54; font-size: 14px; line-height: 1.6;">
+                  We noticed your ODA Market registration email may not have reached your inbox. Click the button below to verify your account and complete your sign-in:
+                </p>
+                <div style="text-align: center; margin: 28px 0;">
+                  <a href="${actionLink}" style="display: inline-block; background-color: #C65A28; color: #FFFFFF; font-weight: 600; font-size: 15px; padding: 12px 28px; border-radius: 8px; text-decoration: none; box-shadow: 0 2px 4px rgba(198, 90, 40, 0.2);">
+                    Confirm My Account
+                  </a>
+                </div>
+                <p style="color: #8B857D; font-size: 12px; line-height: 1.5; margin-bottom: 0;">
+                  If the button above does not work, copy and paste this link into your browser:<br/>
+                  <a href="${actionLink}" style="color: #C65A28; word-break: break-all;">${actionLink}</a>
+                </p>
+              </div>
+            </div>
+          `
+        });
+        emailSent = true;
+      } catch (sendErr) {
+        console.error('[Auth:resend-verification-email] Resend error:', sendErr);
+      }
+    }
+
+    return res.status(200).json({
+      success: true,
+      emailSent,
+      actionLink,
+      message: emailSent
+        ? `Verification email successfully dispatched to ${email}.`
+        : `Action link generated for ${email}.`
+    });
+  } catch (err: any) {
+    return res.status(500).json({ error: err.message || 'Failed to resend verification' });
   }
 });
 

@@ -1,4 +1,5 @@
-import { sendOrderConfirmationEmail } from "./emailService.js";
+import { sendOrderConfirmationEmail, sendOrderConfirmationEmailForOrder } from "./emailService.js";
+import { handlePaystackWebhook } from "./routes/paystackWebhook.js";
 import express from "express";
 import os from "os";
 import fsModule from "fs";
@@ -81,108 +82,7 @@ async function startServer() {
   const PORT = 3000;
 
   // Webhook must be parsed as raw text/buffer for signature verification
-  app.post("/api/webhook/paystack", express.raw({ type: 'application/json' }), async (req, res) => {
-    try {
-      const crypto = await import('crypto');
-      const secret = process.env.PAYSTACK_SECRET_KEY || "";
-      const hash = crypto.createHmac('sha512', secret).update(req.body).digest('hex');
-      
-      if (hash !== req.headers['x-paystack-signature']) {
-        return res.status(401).send("Invalid signature");
-      }
-
-      const event = JSON.parse(req.body.toString());
-      
-      if (event.event === 'charge.success') {
-        const reference = event.data.reference;
-        const parts = reference.split('_');
-        if (parts.length >= 2 && parts[0] === 'ord') {
-          const orderId = parts[1];
-          const { createClient } = await import('@supabase/supabase-js');
-          const supabaseUrl = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "").trim().replace(/^["']|["']$/g, "");
-          const supabaseServiceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim().replace(/^["']|["']$/g, "");
-          const supabase = createClient(supabaseUrl, supabaseServiceKey);
-          
-          const { data: order } = await supabase.from('orders').select('*').eq('id', orderId).single();
-          if (order && order.status === 'pending') {
-             const expectedAmount = Math.round(order.total * 100);
-             if (event.data.amount === expectedAmount && event.data.currency === 'KES') {
-               await supabase.from('orders').update({ 
-                 status: 'processing', 
-                 payment_status: 'success',
-                 payment_reference: reference
-               }).eq('id', orderId);
-               
-               const { data: items } = await supabase.from('order_items').select('*').eq('order_id', orderId);
-               if (items) {
-                 for (const item of items) {
-                   const { data: product } = await supabase.from('products').select('stock').eq('id', item.product_id).single();
-                   if (product) await supabase.from('products').update({ stock: Math.max(0, product.stock - item.quantity) }).eq('id', item.product_id);
-                 }
-               }
-               // SEND PROFESSIONAL ORDER CONFIRMATION EMAIL
-               try {
-                 const { data: userProfile } = await supabase.from('profiles').select('*').eq('id', order.user_id).single();
-                 
-                 let customerName = userProfile?.first_name ? `${userProfile.first_name} ${userProfile.last_name || ''}`.trim() : "Customer";
-                 let customerEmail = userProfile?.email;
-                 let deliveryAddress = "N/A";
-                 
-                 if (order.notes) {
-                   try {
-                     const parsedNotes = JSON.parse(order.notes);
-                     if (parsedNotes.shippingDetails) {
-                       deliveryAddress = parsedNotes.shippingDetails.fullAddress || parsedNotes.shippingDetails.location || "N/A";
-                     }
-                     if (parsedNotes.contactDetails) {
-                       if (!customerName || customerName === "Customer") {
-                         customerName = parsedNotes.contactDetails.fullName || customerName;
-                       }
-                       if (!customerEmail) {
-                         customerEmail = parsedNotes.contactDetails.userEmail || customerEmail;
-                       }
-                     }
-                   } catch(e) {}
-                 }
-
-                 if (customerEmail) {
-                   const appUrl = process.env.APP_URL || process.env.VITE_APP_URL || "https://odamarket.co.ke";
-                   
-                   const orderInfo = {
-                     customerName,
-                     customerEmail,
-                     orderNumber: "ODA-" + orderId.substring(0, 8).toUpperCase(),
-                     orderDate: new Date(order.created_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
-                     items: (items || []).map(i => ({ name: i.product_name || 'Product', quantity: i.quantity || 1, price: i.unit_price || 0 })),
-                     subtotal: order.subtotal || 0,
-                     deliveryFee: order.delivery_fee || 0,
-                     total: order.total || 0,
-                     paymentMethod: "Paystack",
-                     paymentStatus: "PAID",
-                     deliveryAddress,
-                     trackingUrl: `${appUrl}/track-order?id=${orderId}`,
-                     transactionReference: reference
-                   };
-                   
-                   // Fire and forget email dispatch to not block the webhook response
-                   sendOrderConfirmationEmail(orderInfo).catch(err => console.error("Email error:", err));
-                 } else {
-                   console.warn("[EMAIL EDGE FUNCTION] ⚠️ No email address found for order", orderId);
-                 }
-               } catch (emailDataError) {
-                 console.error("[EMAIL EDGE FUNCTION] ❌ Error gathering data for confirmation email:", emailDataError);
-               }
-
-             }
-          }
-        }
-      }
-      res.status(200).send("Webhook received");
-    } catch (err) {
-      console.error("Webhook error:", err);
-      res.status(500).send("Webhook Error");
-    }
-  });
+  app.post("/api/webhook/paystack", express.raw({ type: 'application/json' }), handlePaystackWebhook);
 
   app.use(express.json({ limit: "50mb" })); // Increase limit for file uploads
 

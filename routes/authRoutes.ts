@@ -604,12 +604,15 @@ router.post('/resend-confirmation-email', async (req, res) => {
 });
 
 /**
- * Admin endpoint to safely delete a user and cascade all child records
- * (e.g. delivery_addresses, reward_points, support_tickets, wishlists, cart_items, notifications)
+ * Admin endpoint to delete a user.
+ * Implements SOFT DELETE by default, safely deactivating the account,
+ * revoking access, banning the user in GoTrue, and preserving data integrity without
+ * foreign key constraint failures ("Database error deleting user").
+ * Also provides optional hardDelete=true with graceful fallback to soft-delete.
  */
 router.post('/admin/delete-user', async (req, res) => {
   try {
-    const { userId, email } = req.body;
+    const { userId, email, softDelete = true, hardDelete = false } = req.body;
     let targetUserId = userId;
 
     if (!targetUserId && email) {
@@ -624,9 +627,76 @@ router.post('/admin/delete-user', async (req, res) => {
       return res.status(400).json({ error: 'Target userId or valid email is required' });
     }
 
-    console.log(`[Auth:delete-user] Initiating safe deletion cascade for user: ${targetUserId}`);
+    const isSoftDelete = softDelete && !hardDelete;
 
-    // Pre-clean child tables to avoid FK constraint blocks if database lacks ON DELETE CASCADE
+    if (isSoftDelete) {
+      console.log(`[Auth:soft-delete] Initiating soft delete for user: ${targetUserId}`);
+      const nowIso = new Date().toISOString();
+
+      // 1. Fetch current user from Supabase Auth to preserve existing metadata
+      const { data: userData, error: getUserErr } = await supabaseAdmin.auth.admin.getUserById(targetUserId);
+      if (getUserErr) {
+        console.error(`[Auth:soft-delete] getUserById error for ${targetUserId}:`, getUserErr);
+        return res.status(404).json({ error: getUserErr.message });
+      }
+
+      const existingUser = userData.user;
+      const updatedAppMetadata = {
+        ...(existingUser.app_metadata || {}),
+        is_deleted: true,
+        deleted_at: nowIso,
+        status: 'deleted'
+      };
+      const updatedUserMetadata = {
+        ...(existingUser.user_metadata || {}),
+        is_deleted: true,
+        deleted_at: nowIso,
+        status: 'deleted'
+      };
+
+      // 2. Ban user for 100 years and set soft-delete flags in auth
+      const { error: banError } = await supabaseAdmin.auth.admin.updateUserById(targetUserId, {
+        ban_duration: '876600h', // 100 years
+        app_metadata: updatedAppMetadata,
+        user_metadata: updatedUserMetadata
+      });
+
+      if (banError) {
+        console.error(`[Auth:soft-delete] Failed to update user auth flags:`, banError);
+        return res.status(500).json({ error: banError.message });
+      }
+
+      // 3. Revoke any active sessions
+      try {
+        await supabaseAdmin.auth.admin.signOut(targetUserId);
+      } catch (signOutErr) {
+        console.warn(`[Auth:soft-delete] Notice: signOut error (non-fatal):`, signOutErr);
+      }
+
+      // 4. Update profile in public.profiles table (attempting soft-delete fields)
+      try {
+        await supabaseAdmin.from('profiles').update({
+          is_deleted: true,
+          deleted_at: nowIso,
+          updated_at: nowIso
+        } as any).eq('id', targetUserId);
+      } catch (profileUpdateErr) {
+        console.warn(`[Auth:soft-delete] Note: profiles table update (non-fatal):`, profileUpdateErr);
+      }
+
+      console.log(`[Auth:soft-delete] Successfully soft-deleted user ${targetUserId}`);
+      return res.status(200).json({
+        success: true,
+        softDeleted: true,
+        userId: targetUserId,
+        deletedAt: nowIso,
+        message: `User account deactivated and soft-deleted safely. Database references and order records are preserved.`
+      });
+    }
+
+    // HARD PURGE FLOW (Explicitly requested)
+    console.log(`[Auth:delete-user] Initiating hard deletion cascade for user: ${targetUserId}`);
+
     const cleanupOps = [
       supabaseAdmin.from('delivery_addresses').delete().eq('user_id', targetUserId),
       supabaseAdmin.from('reward_points').delete().eq('user_id', targetUserId),
@@ -651,15 +721,181 @@ router.post('/admin/delete-user', async (req, res) => {
     // Delete user from GoTrue / Supabase Auth
     const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(targetUserId);
     if (deleteError) {
-      console.error(`[Auth:delete-user] Supabase deleteUser error for ${targetUserId}:`, deleteError);
-      return res.status(500).json({ error: deleteError.message });
+      console.warn(`[Auth:delete-user] Hard delete error (${deleteError.message}). Falling back to safe soft-delete.`);
+      // Automatic fallback so operation never fails with foreign key violation
+      await supabaseAdmin.auth.admin.updateUserById(targetUserId, {
+        ban_duration: '876600h',
+        app_metadata: { is_deleted: true, deleted_at: new Date().toISOString(), status: 'deleted' },
+        user_metadata: { is_deleted: true, deleted_at: new Date().toISOString(), status: 'deleted' }
+      });
+      return res.status(200).json({
+        success: true,
+        softDeleted: true,
+        fallback: true,
+        message: `User is tied to existing database records. Safely deactivated and soft-deleted instead.`
+      });
     }
 
-    console.log(`[Auth:delete-user] Successfully deleted user ${targetUserId}`);
-    return res.status(200).json({ success: true, message: `User ${targetUserId} deleted successfully.` });
+    console.log(`[Auth:delete-user] Successfully purged user ${targetUserId}`);
+    return res.status(200).json({ success: true, hardDeleted: true, message: `User ${targetUserId} deleted successfully.` });
   } catch (err: any) {
     console.error('[Auth:delete-user] Unexpected error deleting user:', err);
     return res.status(500).json({ error: err.message || 'Failed to delete user' });
+  }
+});
+
+/**
+ * Admin endpoint to restore a soft-deleted user
+ */
+router.post('/admin/restore-user', async (req, res) => {
+  try {
+    const { userId, email } = req.body;
+    let targetUserId = userId;
+
+    if (!targetUserId && email) {
+      const { data: usersData } = await supabaseAdmin.auth.admin.listUsers();
+      const match = (usersData?.users as any[])?.find((u: any) => u.email?.toLowerCase() === email.toLowerCase());
+      if (match) {
+        targetUserId = match.id;
+      }
+    }
+
+    if (!targetUserId) {
+      return res.status(400).json({ error: 'Target userId or valid email is required' });
+    }
+
+    console.log(`[Auth:restore-user] Restoring user: ${targetUserId}`);
+
+    const { data: userData, error: getUserErr } = await supabaseAdmin.auth.admin.getUserById(targetUserId);
+    if (getUserErr) {
+      return res.status(404).json({ error: getUserErr.message });
+    }
+
+    const existingUser = userData.user;
+    const updatedAppMetadata = {
+      ...(existingUser.app_metadata || {}),
+      is_deleted: false,
+      deleted_at: null,
+      status: 'active'
+    };
+    const updatedUserMetadata = {
+      ...(existingUser.user_metadata || {}),
+      is_deleted: false,
+      deleted_at: null,
+      status: 'active'
+    };
+
+    // Remove ban and reset soft-delete metadata
+    const { error: restoreError } = await supabaseAdmin.auth.admin.updateUserById(targetUserId, {
+      ban_duration: 'none',
+      app_metadata: updatedAppMetadata,
+      user_metadata: updatedUserMetadata
+    });
+
+    if (restoreError) {
+      return res.status(500).json({ error: restoreError.message });
+    }
+
+    // Attempt profile restore
+    try {
+      await supabaseAdmin.from('profiles').update({
+        is_deleted: false,
+        deleted_at: null,
+        updated_at: new Date().toISOString()
+      } as any).eq('id', targetUserId);
+    } catch (profileErr) {
+      console.warn('[Auth:restore-user] Profile update notice:', profileErr);
+    }
+
+    return res.status(200).json({
+      success: true,
+      restored: true,
+      message: `User account restored and unbanned successfully.`
+    });
+  } catch (err: any) {
+    console.error('[Auth:restore-user] Unexpected error:', err);
+    return res.status(500).json({ error: err.message || 'Failed to restore user' });
+  }
+});
+
+/**
+ * Admin endpoint: List all users with status, soft-delete state, and roles
+ */
+router.get('/admin/all-users', async (req, res) => {
+  try {
+    const { data: usersData, error: usersError } = await supabaseAdmin.auth.admin.listUsers({
+      perPage: 1000
+    });
+
+    if (usersError) {
+      return res.status(500).json({ error: usersError.message });
+    }
+
+    const allUsers = usersData?.users || [];
+    const userIds = allUsers.map(u => u.id);
+    let profilesMap: Record<string, any> = {};
+
+    if (userIds.length > 0) {
+      const { data: profiles } = await supabaseAdmin
+        .from('profiles')
+        .select('id, email, first_name, last_name, phone_number, role, avatar_url, created_at')
+        .in('id', userIds);
+
+      if (profiles) {
+        profiles.forEach((p: any) => {
+          profilesMap[p.id] = p;
+        });
+      }
+    }
+
+    const formatted = allUsers.map(u => {
+      const profile = profilesMap[u.id] || {};
+      const isSoftDeleted = Boolean(
+        u.banned_until || 
+        u.app_metadata?.is_deleted || 
+        (u.user_metadata as any)?.is_deleted ||
+        profile.is_deleted
+      );
+      const isConfirmed = Boolean(u.email_confirmed_at);
+      const email = u.email || profile.email || 'No email';
+
+      return {
+        id: u.id,
+        email,
+        firstName: profile.first_name || (u.user_metadata as any)?.first_name || '',
+        lastName: profile.last_name || (u.user_metadata as any)?.last_name || '',
+        phoneNumber: profile.phone_number || u.phone || '',
+        role: profile.role || (u.user_metadata as any)?.role || 'customer',
+        isConfirmed,
+        emailConfirmedAt: u.email_confirmed_at,
+        isSoftDeleted,
+        bannedUntil: u.banned_until,
+        deletedAt: u.app_metadata?.deleted_at || (u.user_metadata as any)?.deleted_at || null,
+        createdAt: u.created_at,
+        lastSignInAt: u.last_sign_in_at,
+      };
+    });
+
+    formatted.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    const total = formatted.length;
+    const softDeletedCount = formatted.filter(u => u.isSoftDeleted).length;
+    const activeCount = formatted.filter(u => !u.isSoftDeleted && u.isConfirmed).length;
+    const unconfirmedCount = formatted.filter(u => !u.isSoftDeleted && !u.isConfirmed).length;
+
+    return res.status(200).json({
+      success: true,
+      users: formatted,
+      counts: {
+        total,
+        active: activeCount,
+        unconfirmed: unconfirmedCount,
+        softDeleted: softDeletedCount
+      }
+    });
+  } catch (err: any) {
+    console.error('[Auth:all-users] Error listing users:', err);
+    return res.status(500).json({ error: err.message || 'Failed to list users' });
   }
 });
 
@@ -783,6 +1019,14 @@ router.get('/admin/unconfirmed-users', async (req, res) => {
         timeSegment = 'from1to7d';
       }
 
+      const isSoftDeleted = Boolean(
+        u.banned_until ||
+        u.app_metadata?.is_deleted ||
+        (u.user_metadata as any)?.is_deleted ||
+        profile.is_deleted
+      );
+      const deletedAt = u.app_metadata?.deleted_at || (u.user_metadata as any)?.deleted_at || null;
+
       return {
         id: u.id,
         email,
@@ -797,7 +1041,9 @@ router.get('/admin/unconfirmed-users', async (req, res) => {
         firstName: profile.first_name || (u.user_metadata as any)?.first_name || '',
         lastName: profile.last_name || (u.user_metadata as any)?.last_name || '',
         phoneNumber: profile.phone_number || u.phone || '',
-        avatarUrl: profile.avatar_url || ''
+        avatarUrl: profile.avatar_url || '',
+        isSoftDeleted,
+        deletedAt
       };
     });
 

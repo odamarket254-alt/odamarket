@@ -116,6 +116,14 @@ export default function App() {
         }
         setUser(session?.user ?? null);
         if (session?.user) {
+          if (session.user.app_metadata?.is_deleted || session.user.user_metadata?.is_deleted) {
+            console.warn("[Auth] User account is deactivated/soft-deleted. Signing out.");
+            await supabase.auth.signOut().catch(() => {});
+            setUser(null);
+            setProfile(null);
+            setLoading(false);
+            return;
+          }
           setLoading(true);
           fetchProfile(session.user.id);
         } else {

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { createClient } from "@supabase/supabase-js";
 import { sendOrderSMS } from "../src/lib/sms.js";
+import { sendOrderConfirmationEmailForOrder } from "../emailService.js";
 import crypto from "crypto";
 
 const router = Router();
@@ -270,6 +271,15 @@ router.post("/verify", async (req, res) => {
       console.error("Order SMS error during verification:", smsError);
     }
 
+    // 7. Send Professional Order Confirmation Email via Resend (Strictly After Confirmed Payment)
+    try {
+      sendOrderConfirmationEmailForOrder(orderId).catch(emailErr => {
+        console.error("[Checkout Verify] Order confirmation email dispatch failed:", emailErr);
+      });
+    } catch (emailErr) {
+      console.error("[Checkout Verify] Error initiating confirmation email:", emailErr);
+    }
+
     return res.status(200).json({
       success: true,
       order: { ...finalOrder, status: 'processing', payment_status: 'success', payment_reference: reference },
@@ -279,6 +289,58 @@ router.post("/verify", async (req, res) => {
   } catch (err: any) {
     console.error("Verification error:", err);
     res.status(500).json({ error: err.message || "Internal server error" });
+  }
+});
+
+/**
+ * Admin endpoint to safely resend or retry an order confirmation email
+ */
+router.post("/admin/resend-confirmation-email", async (req, res) => {
+  try {
+    const { orderId } = req.body;
+    if (!orderId) {
+      return res.status(400).json({ error: "Missing orderId" });
+    }
+
+    // Authorization check
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const token = authHeader.replace("Bearer ", "");
+    const supabaseUrl = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "").trim().replace(/^["']|["']$/g, "");
+    const supabaseServiceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim().replace(/^["']|["']$/g, "");
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+    
+    if (userError || !user) {
+      return res.status(401).json({ error: "Invalid admin token" });
+    }
+
+    // Verify role in profiles
+    const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
+    const allowedRoles = ['admin', 'super_admin', 'moderator', 'support_agent'];
+    if (!profile || !allowedRoles.includes(profile.role)) {
+      return res.status(403).json({ error: "Insufficient permissions" });
+    }
+
+    const result = await sendOrderConfirmationEmailForOrder(orderId, { forceResend: true });
+    
+    if (!result.success) {
+      return res.status(400).json({ error: result.error || "Failed to dispatch email", details: result });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Confirmation email dispatched successfully to ${result.recipient}`,
+      resendId: result.resendId,
+      sentAt: result.sentAt
+    });
+  } catch (err: any) {
+    console.error("Admin resend email error:", err);
+    return res.status(500).json({ error: err.message || "Failed to resend confirmation email" });
   }
 });
 

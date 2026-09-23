@@ -5,10 +5,15 @@ import authRoutes from "../routes/authRoutes.js";
 import checkoutRoutes from "../routes/checkoutRoutes.js";
 import imageRoutes from "../routes/imageRoutes.js";
 import debugRoutes from "./debugRoutes.js";
+import { handlePaystackWebhook } from "../routes/paystackWebhook.js";
 import rateLimit from "express-rate-limit";
 
 const app = express();
 app.set("trust proxy", 1);
+
+// Mount Paystack webhook with raw parser before general express.json
+app.post("/api/webhook/paystack", express.raw({ type: 'application/json' }), handlePaystackWebhook);
+
 app.use(express.json({ limit: "50mb" }));
 
 const apiLimiter = rateLimit({

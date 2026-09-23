@@ -3,7 +3,7 @@ import { supabase } from '../../lib/supabase';
 import { 
   Search, Filter, MoreVertical, Eye, Download, Printer, 
   CheckCircle, Clock, XCircle, Truck, Inbox, Calendar as CalendarIcon,
-  ChevronDown, MessageCircle
+  ChevronDown, MessageCircle, Mail, Check, AlertCircle
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '../../lib/utils';
@@ -98,6 +98,34 @@ export default function AdminOrdersPage() {
     } catch (error) {
       console.error(error);
       toast.error("Failed to generate WhatsApp message");
+    }
+  };
+
+  const handleResendEmail = async (orderId: string) => {
+    try {
+      toast.loading("Sending order confirmation email...", { id: `email-${orderId}` });
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      const res = await fetch('/api/checkout/admin/resend-confirmation-email', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({ orderId })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to dispatch email");
+      }
+
+      toast.success(data.message || "Confirmation email sent successfully!", { id: `email-${orderId}` });
+      fetchOrders();
+    } catch (err: any) {
+      console.error("Resend email error:", err);
+      toast.error(err.message || "Error dispatching confirmation email", { id: `email-${orderId}` });
     }
   };
 
@@ -311,9 +339,11 @@ export default function AdminOrdersPage() {
                 orders.map((order) => {
                   let parsedContact: any = null;
                   let parsedShipping: any = null;
+                  let parsedNotes: any = null;
                   try {
                     if (order.notes) {
-                      const parsed = JSON.parse(order.notes);
+                      const parsed = typeof order.notes === 'string' ? JSON.parse(order.notes) : order.notes;
+                      parsedNotes = parsed;
                       if (parsed.shippingDetails) parsedShipping = parsed.shippingDetails;
                       if (parsed.contactDetails) parsedContact = parsed.contactDetails;
                     }
@@ -321,6 +351,9 @@ export default function AdminOrdersPage() {
                   
                   const cName = parsedContact?.fullName || parsedShipping?.recipientName || `${order.profiles?.first_name || ''} ${order.profiles?.last_name || ''}`.trim() || order.profiles?.full_name || "Name unavailable";
                   const cEmail = parsedContact?.userEmail || order.profiles?.email || "Email unavailable";
+                  const isEmailSent = Boolean(order.confirmation_email_sent_at || parsedNotes?.confirmation_email_sent_at || parsedNotes?.email_status === 'sent');
+                  const isEmailFailed = parsedNotes?.email_status === 'failed';
+                  const isOrderPaid = ['processing', 'paid', 'shipped', 'delivered'].includes(order.status) || order.payment_status === 'success';
                   
                   return (
                   <tr key={order.id} className={cn("hover:bg-[#FAF5EC] transition-colors group", selectedIds.includes(order.id) && "bg-[#F3F6F4]/50")}>
@@ -347,12 +380,29 @@ export default function AdminOrdersPage() {
                       </div>
                     </td>
                     <td className="py-3 px-4">
-                      <span className={cn(
-                        "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-wider",
-                        getStatusColor(order.status, order.payment_status)
-                      )}>
-                        {getDisplayStatus(order)}
-                      </span>
+                      <div className="flex flex-col items-start gap-1">
+                        <span className={cn(
+                          "inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold uppercase tracking-wider",
+                          getStatusColor(order.status, order.payment_status)
+                        )}>
+                          {getDisplayStatus(order)}
+                        </span>
+                        {isEmailSent && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-emerald-800 bg-emerald-50 border border-emerald-200 px-1.5 py-0.5 rounded" title={`Sent: ${order.confirmation_email_sent_at || parsedNotes?.confirmation_email_sent_at || ''}`}>
+                            <Check className="w-2.5 h-2.5 text-emerald-600" /> Email: Sent
+                          </span>
+                        )}
+                        {!isEmailSent && isEmailFailed && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-rose-800 bg-rose-50 border border-rose-200 px-1.5 py-0.5 rounded" title={parsedNotes?.email_error || 'Email dispatch failed'}>
+                            <AlertCircle className="w-2.5 h-2.5 text-rose-600" /> Email: Failed
+                          </span>
+                        )}
+                        {!isEmailSent && !isEmailFailed && isOrderPaid && (
+                          <span className="inline-flex items-center gap-1 text-[10px] font-medium text-amber-800 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+                            <Clock className="w-2.5 h-2.5 text-amber-600" /> Email: Queued
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="py-3 px-4 text-sm font-bold text-[#3A2418] text-right">
                       KSh {Number(order.total).toLocaleString()}
@@ -362,6 +412,15 @@ export default function AdminOrdersPage() {
                          <Link to={`/admin/dashboard/orders/${order.id}`} className="p-2 text-[#8B857D] hover:text-[#C65A28] hover:bg-[#E8DCC9] rounded-lg transition-colors" title="View details">
                            <Eye className="w-4 h-4" />
                          </Link>
+                         {isOrderPaid && (
+                           <button 
+                             onClick={() => handleResendEmail(order.id)} 
+                             className="p-2 text-[#8B857D] hover:text-[#C65A28] hover:bg-[#E8DCC9] rounded-lg transition-colors" 
+                             title="Resend confirmation email"
+                           >
+                             <Mail className="w-4 h-4" />
+                           </button>
+                         )}
                          {(order.status === 'processing' || order.status === 'paid' || order.status === 'shipped' || order.status === 'delivered') && (
                            <button onClick={() => handleWhatsApp(order.id)} className="p-2 text-[#8B857D] hover:text-[#25D366] hover:bg-[#25D366]/10 rounded-lg transition-colors" title="Send via WhatsApp">
                              <MessageCircle className="w-4 h-4" />

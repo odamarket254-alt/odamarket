@@ -14,7 +14,9 @@ import {
   ShieldCheck, 
   Check,
   ChevronDown,
-  Globe
+  Globe,
+  UserX,
+  RotateCcw
 } from 'lucide-react';
 
 export interface UnconfirmedUser {
@@ -32,6 +34,8 @@ export interface UnconfirmedUser {
   lastName: string;
   phoneNumber: string;
   avatarUrl: string;
+  isSoftDeleted?: boolean;
+  deletedAt?: string | null;
 }
 
 export interface UnconfirmedMetrics {
@@ -225,6 +229,90 @@ export default function UnconfirmedUsersWidget() {
       setActionNotice({
         type: 'error',
         message: err.message || 'Failed to dispatch verification email'
+      });
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  // Soft Delete Handler
+  const handleSoftDelete = async (user: UnconfirmedUser) => {
+    if (!window.confirm(`Soft delete "${user.email}"?\n\nThis safely deactivates the user and bans login without causing foreign key database errors.`)) {
+      return;
+    }
+
+    setProcessingId(user.id);
+    setActionNotice(null);
+
+    try {
+      const res = await fetch('/api/auth/admin/delete-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, softDelete: true })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to soft delete user');
+      }
+
+      setActionNotice({
+        type: 'success',
+        message: data.message || `User ${user.email} soft-deleted successfully.`
+      });
+
+      // Update local state
+      setUsers(prev => prev.map(u => {
+        if (u.id === user.id) {
+          return { ...u, isSoftDeleted: true, deletedAt: new Date().toISOString() };
+        }
+        return u;
+      }));
+    } catch (err: any) {
+      setActionNotice({
+        type: 'error',
+        message: err.message || 'Error soft-deleting user'
+      });
+    } finally {
+      setProcessingId(null);
+    }
+  };
+
+  // Restore Handler
+  const handleRestore = async (user: UnconfirmedUser) => {
+    if (!window.confirm(`Restore and unban user "${user.email}"?`)) {
+      return;
+    }
+
+    setProcessingId(user.id);
+    setActionNotice(null);
+
+    try {
+      const res = await fetch('/api/auth/admin/restore-user', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id })
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || 'Failed to restore user');
+      }
+
+      setActionNotice({
+        type: 'success',
+        message: data.message || `User ${user.email} restored successfully.`
+      });
+
+      // Update local state
+      setUsers(prev => prev.map(u => {
+        if (u.id === user.id) {
+          return { ...u, isSoftDeleted: false, deletedAt: null };
+        }
+        return u;
+      }));
+    } catch (err: any) {
+      setActionNotice({
+        type: 'error',
+        message: err.message || 'Error restoring user'
       });
     } finally {
       setProcessingId(null);
@@ -552,7 +640,12 @@ export default function UnconfirmedUsersWidget() {
                         </div>
                         <div>
                           <div className="font-semibold text-[#3A2418] flex items-center gap-1.5">
-                            <span>{u.email}</span>
+                            <span className={u.isSoftDeleted ? 'line-through text-[#8B857D]' : ''}>{u.email}</span>
+                            {u.isSoftDeleted && (
+                              <span className="px-1.5 py-0.2 rounded text-[10px] font-semibold bg-rose-100 text-rose-700 border border-rose-200">
+                                Soft Deleted
+                              </span>
+                            )}
                           </div>
                           <div className="text-[11px] text-[#8B857D] flex items-center gap-2 mt-0.5">
                             {u.firstName || u.lastName ? (
@@ -652,6 +745,31 @@ export default function UnconfirmedUsersWidget() {
                           <ShieldCheck className="w-3.5 h-3.5" />
                           <span>Verify</span>
                         </button>
+
+                        {/* 4. Soft Delete / Restore Action */}
+                        {u.isSoftDeleted ? (
+                          <button
+                            id={`btn-restore-unconfirmed-${u.id}`}
+                            onClick={() => handleRestore(u)}
+                            disabled={isProcessing}
+                            title="Restore account access and unban"
+                            className="p-1.5 rounded-md border border-emerald-300 bg-emerald-50 text-emerald-800 hover:bg-emerald-100 transition flex items-center gap-1 text-xs font-medium disabled:opacity-50"
+                          >
+                            <RotateCcw className="w-3.5 h-3.5" />
+                            <span className="hidden xl:inline">Restore</span>
+                          </button>
+                        ) : (
+                          <button
+                            id={`btn-soft-delete-unconfirmed-${u.id}`}
+                            onClick={() => handleSoftDelete(u)}
+                            disabled={isProcessing}
+                            title="Soft delete user (safely deactivates account without database errors)"
+                            className="p-1.5 rounded-md border border-rose-200 bg-[#FFFDF8] text-rose-700 hover:bg-rose-50 transition flex items-center gap-1 text-xs font-medium disabled:opacity-50"
+                          >
+                            <UserX className="w-3.5 h-3.5" />
+                            <span className="hidden xl:inline">Soft Delete</span>
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

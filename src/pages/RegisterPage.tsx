@@ -51,6 +51,7 @@ const addressSchema = z.object({
   street: z.string().min(2, "Street is required"),
   house_number: z.string().optional(),
   apartment: z.string().optional(),
+  delivery_instructions: z.string().optional(),
   lat: z.number().optional(),
   lng: z.number().optional(),
   formatted_address: z.string().optional(),

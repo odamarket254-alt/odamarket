@@ -1,5 +1,6 @@
 import { Resend } from 'resend';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { logEmailDiagnostics } from './src/lib/emailDiagnostics.js';
 
 // Lazy initialized Resend client
 let resendClient: Resend | null = null;
@@ -433,16 +434,7 @@ export async function sendOrderConfirmationEmailForOrder(
     }
 
     // Safe Server-Side Diagnostic Logging (never prints secrets or PII tokens)
-    console.log('[Resend Email Diagnostic]', {
-      environment: process.env.NODE_ENV || 'production',
-      resendConfigured: Boolean(process.env.RESEND_API_KEY),
-      fromConfigured: Boolean(process.env.RESEND_FROM_EMAIL),
-      supabaseConfigured: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
-      orderId: cleanOrderId,
-      orderStatus: order.status,
-      paymentStatus: order.payment_status,
-      emailTriggerReached: true
-    });
+    logEmailDiagnostics(`Order ${cleanOrderId} (status=${order.status}, payment=${order.payment_status})`);
 
     // 2. Strict Payment Verification Check:
     // Only send if payment has actually succeeded / order is confirmed

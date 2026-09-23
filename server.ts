@@ -12,6 +12,7 @@ import authRoutes from "./routes/authRoutes.js";
 import checkoutRoutes from "./routes/checkoutRoutes.js";
 import imageRoutes from "./routes/imageRoutes.js";
 import webhookRoutes from "./routes/webhookRoutes.js";
+import debugRoutes from "./api/debugRoutes.js";
 import rateLimit from "express-rate-limit";
 
 const allowedMimeTypes = ["image/jpeg", "image/png", "image/webp", "image/avif", "application/pdf", "image/svg+xml"];
@@ -103,6 +104,9 @@ async function startServer() {
 
   // AI Routes
   app.use("/api/ai", aiRoutes);
+
+  // Debug & Diagnostics Routes
+  app.use("/api/debug", debugRoutes);
 
   // Edge Function / Notification Endpoint
   app.post("/api/notify-verification", async (req, res) => {

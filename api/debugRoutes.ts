@@ -1,4 +1,5 @@
 import { Router } from "express";
+import { getEmailDiagnostics, logEmailDiagnostics } from "../src/lib/emailDiagnostics.js";
 
 const router = Router();
 
@@ -27,6 +28,23 @@ router.get("/env", (req, res) => {
       hasQuotes: serviceKey.startsWith('"') || serviceKey.endsWith('"')
     }
   });
+});
+
+/**
+ * GET /api/debug/email
+ * Diagnostic endpoint for verifying Resend email credentials without exposing secrets.
+ * Supports optional ?live=true query param to perform live domain verification check with Resend.
+ */
+router.get("/email", async (req, res) => {
+  try {
+    const liveCheck = req.query.live === "true" || req.query.live === "1";
+    logEmailDiagnostics(`HTTP GET /api/debug/email (liveCheck=${liveCheck})`);
+    const diagnostics = await getEmailDiagnostics(liveCheck);
+    return res.status(200).json(diagnostics);
+  } catch (err: any) {
+    console.error("[Email Diagnostics] Error generating report:", err);
+    return res.status(500).json({ error: err?.message || "Failed to generate email diagnostics" });
+  }
 });
 
 export default router;

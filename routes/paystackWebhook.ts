@@ -75,17 +75,22 @@ export async function handlePaystackWebhook(req: Request, res: Response) {
               }
 
               // Send order confirmation email via Resend (strictly idempotent)
-              sendOrderConfirmationEmailForOrder(orderId).catch(emailErr => {
+              // NOTE: In serverless environments (Vercel), must be awaited before returning 200 response
+              try {
+                await sendOrderConfirmationEmailForOrder(orderId);
+              } catch (emailErr) {
                 console.error("[Paystack Webhook] Order confirmation email dispatch failed:", emailErr);
-              });
+              }
             } else {
               console.error(`[Paystack Webhook] Currency/amount mismatch for order ${orderId}. Expected ${expectedAmountKobo} KES, got ${actualAmountKobo} ${actualCurrency}`);
             }
           } else if (order && (order.payment_status === 'success' || order.status !== 'pending')) {
             // Already processed by inline verify: ensure confirmation email is sent idempotently
-            sendOrderConfirmationEmailForOrder(orderId).catch(emailErr => {
+            try {
+              await sendOrderConfirmationEmailForOrder(orderId);
+            } catch (emailErr) {
               console.error("[Paystack Webhook] Order confirmation email verification failed:", emailErr);
-            });
+            }
           }
         }
       }

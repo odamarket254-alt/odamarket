@@ -73,6 +73,7 @@ export interface SendOrderEmailResult {
   sentAt?: string;
   recipient?: string;
   error?: string;
+  reason?: string;
 }
 
 /**
@@ -430,6 +431,18 @@ export async function sendOrderConfirmationEmailForOrder(
       console.error(`[Resend Email] Order ${cleanOrderId} not found:`, orderErr);
       return { success: false, error: `Order ${cleanOrderId} not found` };
     }
+
+    // Safe Server-Side Diagnostic Logging (never prints secrets or PII tokens)
+    console.log('[Resend Email Diagnostic]', {
+      environment: process.env.NODE_ENV || 'production',
+      resendConfigured: Boolean(process.env.RESEND_API_KEY),
+      fromConfigured: Boolean(process.env.RESEND_FROM_EMAIL),
+      supabaseConfigured: Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY),
+      orderId: cleanOrderId,
+      orderStatus: order.status,
+      paymentStatus: order.payment_status,
+      emailTriggerReached: true
+    });
 
     // 2. Strict Payment Verification Check:
     // Only send if payment has actually succeeded / order is confirmed

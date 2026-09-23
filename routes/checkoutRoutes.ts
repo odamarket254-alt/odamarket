@@ -272,12 +272,12 @@ router.post("/verify", async (req, res) => {
     }
 
     // 7. Send Professional Order Confirmation Email via Resend (Strictly After Confirmed Payment)
+    // NOTE: In serverless environments (Vercel), this MUST be awaited before returning the HTTP response;
+    // otherwise the runtime container terminates/freezes immediately and drops background promises.
     try {
-      sendOrderConfirmationEmailForOrder(orderId).catch(emailErr => {
-        console.error("[Checkout Verify] Order confirmation email dispatch failed:", emailErr);
-      });
+      await sendOrderConfirmationEmailForOrder(orderId);
     } catch (emailErr) {
-      console.error("[Checkout Verify] Error initiating confirmation email:", emailErr);
+      console.error("[Checkout Verify] Order confirmation email dispatch failed:", emailErr);
     }
 
     return res.status(200).json({

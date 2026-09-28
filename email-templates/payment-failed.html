@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Payment Unsuccessful - {{{order_id}}} | ODA Market</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #FAF5EC; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #FAF5EC; padding: 32px 12px;">
+    <tr>
+      <td align="center">
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 580px; background-color: #FFFFFF; border-radius: 16px; overflow: hidden; border: 1px solid #E8DCC9;">
+          <tr>
+            <td style="height: 6px; background: linear-gradient(90deg, #DC2626 0%, #EF4444 100%);"></td>
+          </tr>
+          <tr>
+            <td align="center" style="padding: 32px 24px 16px 24px;">
+              <h1 style="margin: 0; color: #D96A27; font-size: 28px; font-weight: 800;">ODA MARKET</h1>
+              <p style="margin: 5px 0 0 0; color: #8B857D; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;">Payment Notice</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 0 32px 24px 32px;">
+              <div style="background-color: #FEF2F2; border: 1px solid #FECACA; border-radius: 12px; padding: 20px; text-align: center;">
+                <h2 style="margin: 0 0 6px 0; color: #991B1B; font-size: 21px; font-weight: 800;">Payment Could Not Be Completed</h2>
+                <p style="margin: 0; color: #B91C1C; font-size: 14px;">Order {{{order_id}}} &bull; {{{order_total}}}</p>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 0 32px 24px 32px;">
+              <p style="margin: 0 0 12px 0; color: #3A2418; font-size: 15px;">Hello <strong>{{{customer_name}}}</strong>,</p>
+              <p style="margin: 0 0 16px 0; color: #5F5A54; font-size: 14px; line-height: 1.6;">
+                We noticed that the payment attempt for your order <strong>{{{order_id}}}</strong> (Reference: <code>{{{payment_reference}}}</code>) was not completed. No charges were finalized for this order.
+              </p>
+              <p style="margin: 0; color: #5F5A54; font-size: 14px; line-height: 1.6;">
+                Your items are still waiting for you—you can complete your order anytime from your ODA Market account.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding: 0 32px 32px 32px;">
+              <a href="{{{tracking_url}}}" target="_blank" style="display: inline-block; padding: 14px 34px; font-size: 15px; font-weight: 700; color: #FFFFFF; text-decoration: none; border-radius: 12px; background-color: #D96A27;">
+                Retry Payment / View Order &rarr;
+              </a>
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color: #FAF5EC; padding: 20px 30px; text-align: center; border-top: 1px solid #E8DCC9;">
+              <p style="margin: 0; color: #8B857D; font-size: 12px;">Need assistance? Contact info@odamarket.co.ke or call 0792867386</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

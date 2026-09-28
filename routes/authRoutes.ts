@@ -5,6 +5,10 @@ import path from 'path';
 import { sendOTP, formatPhone } from '../src/lib/sms.js';
 import { createClient } from '@supabase/supabase-js';
 import { runSupabaseAuthDiagnostics } from '../src/utils/supabaseAuthDiagnostics.js';
+import {
+  sendEmailVerificationEmail,
+  sendWelcomeEmail
+} from '../emailService.js';
 
 const router = express.Router();
 
@@ -426,20 +430,27 @@ router.post('/register-complete', async (req, res) => {
 
         const actionLink = linkData?.properties?.action_link;
         if (actionLink) {
-          const { Resend } = await import('resend');
-          const resend = new Resend(process.env.RESEND_API_KEY);
-          const emailRes = await resend.emails.send({
-            from: 'ODA Market <noreply@odamarket.co.ke>', 
-            to: accountData.email,
-            subject: 'Confirm your ODA Market account',
-            html: getConfirmationEmailHtml(actionLink, accountData.first_name)
+          const emailRes = await sendEmailVerificationEmail({
+            email: accountData.email,
+            confirmationUrl: actionLink,
+            firstName: accountData.first_name,
+            lastName: accountData.last_name,
+            userId
           });
-          if (!emailRes.error) {
+          if (emailRes.success) {
             emailSent = true;
-            console.log(`[Auth] Branded template confirmation email sent successfully to ${accountData.email}, id: ${emailRes?.data?.id}`);
+            console.log(`[Auth] Resend verification template sent successfully to ${accountData.email}, id: ${emailRes.resendId}`);
           } else {
-            console.warn("[Auth] Resend error:", emailRes.error);
+            console.warn("[Auth] Resend verification template error:", emailRes.error);
           }
+
+          // Also send Welcome template if configured
+          await sendWelcomeEmail({
+            email: accountData.email,
+            firstName: accountData.first_name,
+            lastName: accountData.last_name,
+            userId
+          });
         } else if (linkError) {
           console.warn("[Auth] generateLink error:", linkError.message);
         }
@@ -554,17 +565,14 @@ router.post('/resend-confirmation-email', async (req, res) => {
         });
         const actionLink = linkData?.properties?.action_link;
         if (actionLink) {
-          const { Resend } = await import('resend');
-          const resend = new Resend(process.env.RESEND_API_KEY);
-          const emailRes = await resend.emails.send({
-            from: 'ODA Market <noreply@odamarket.co.ke>',
-            to: email,
-            subject: 'Confirm your ODA Market account',
-            html: getConfirmationEmailHtml(actionLink)
+          const emailRes = await sendEmailVerificationEmail({
+            email,
+            confirmationUrl: actionLink,
+            forceResend: true
           });
-          if (!emailRes.error) {
+          if (emailRes.success) {
             emailSent = true;
-            console.log(`[Auth] Resend template confirmation email dispatched to ${email}, id: ${emailRes?.data?.id}`);
+            console.log(`[Auth] Resend verification template dispatched to ${email}, id: ${emailRes.resendId}`);
           } else {
             console.warn('[Auth] Resend error during resend:', emailRes.error);
           }
@@ -1186,45 +1194,17 @@ router.post('/admin/resend-verification-email', async (req, res) => {
 
     const actionLink = linkData?.properties?.action_link;
 
-    // If Resend API Key is available, dispatch custom branded email directly
+    // If Resend API Key is available, dispatch existing Resend Email Verification template
     let emailSent = false;
     if (process.env.RESEND_API_KEY && actionLink) {
       try {
-        const { Resend } = await import('resend');
-        const resend = new Resend(process.env.RESEND_API_KEY);
-        const displayName = firstName ? ` ${firstName}` : '';
-
-        await resend.emails.send({
-          from: 'ODA Market <noreply@odamarket.co.ke>',
-          to: email,
-          subject: 'Confirm Your ODA Market Account',
-          html: `
-            <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 28px; background-color: #FAF5EC; border-radius: 12px; border: 1px solid #E8DCC9;">
-              <div style="text-align: center; margin-bottom: 24px;">
-                <h1 style="color: #3A2418; font-size: 24px; margin: 0; font-weight: 700;">ODA MARKET</h1>
-                <p style="color: #C65A28; font-size: 13px; margin: 4px 0 0 0; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">Account Verification</p>
-              </div>
-              <div style="background-color: #FFFFFF; padding: 24px; border-radius: 8px; border: 1px solid #E8DCC9;">
-                <p style="color: #3A2418; font-size: 15px; line-height: 1.6; margin-top: 0;">
-                  Hello${displayName},
-                </p>
-                <p style="color: #5F5A54; font-size: 14px; line-height: 1.6;">
-                  We noticed your ODA Market registration email may not have reached your inbox. Click the button below to verify your account and complete your sign-in:
-                </p>
-                <div style="text-align: center; margin: 28px 0;">
-                  <a href="${actionLink}" style="display: inline-block; background-color: #C65A28; color: #FFFFFF; font-weight: 600; font-size: 15px; padding: 12px 28px; border-radius: 8px; text-decoration: none; box-shadow: 0 2px 4px rgba(198, 90, 40, 0.2);">
-                    Confirm My Account
-                  </a>
-                </div>
-                <p style="color: #8B857D; font-size: 12px; line-height: 1.5; margin-bottom: 0;">
-                  If the button above does not work, copy and paste this link into your browser:<br/>
-                  <a href="${actionLink}" style="color: #C65A28; word-break: break-all;">${actionLink}</a>
-                </p>
-              </div>
-            </div>
-          `
+        const verifyRes = await sendEmailVerificationEmail({
+          email,
+          confirmationUrl: actionLink,
+          firstName,
+          forceResend: true
         });
-        emailSent = true;
+        emailSent = verifyRes.success;
       } catch (sendErr) {
         console.error('[Auth:resend-verification-email] Resend error:', sendErr);
       }

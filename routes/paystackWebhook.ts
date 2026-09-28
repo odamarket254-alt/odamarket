@@ -1,7 +1,10 @@
 import { Request, Response } from 'express';
 import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
-import { sendOrderConfirmationEmailForOrder } from '../emailService.js';
+import {
+  sendOrderConfirmationEmailForOrder,
+  sendPaymentFailedEmailForOrder
+} from '../emailService.js';
 
 /**
  * Handles Paystack webhooks (e.g. charge.success)
@@ -90,6 +93,33 @@ export async function handlePaystackWebhook(req: Request, res: Response) {
               await sendOrderConfirmationEmailForOrder(orderId);
             } catch (emailErr) {
               console.error("[Paystack Webhook] Order confirmation email verification failed:", emailErr);
+            }
+          }
+        }
+      }
+    } else if (event.event === 'charge.failed') {
+      const reference = event.data?.reference || '';
+      const parts = reference.split('_');
+
+      if (parts.length >= 2 && parts[0] === 'ord') {
+        const orderId = parts[1];
+        const supabaseUrl = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "").trim().replace(/^["']|["']$/g, "");
+        const supabaseServiceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim().replace(/^["']|["']$/g, "");
+
+        if (supabaseUrl && supabaseServiceKey) {
+          const supabase = createClient(supabaseUrl, supabaseServiceKey);
+          const { data: order } = await supabase.from('orders').select('*').eq('id', orderId).single();
+
+          if (order && order.status === 'pending' && order.payment_status !== 'success') {
+            await supabase.from('orders').update({
+              payment_status: 'failed',
+              payment_reference: reference
+            }).eq('id', orderId);
+
+            try {
+              await sendPaymentFailedEmailForOrder(orderId, reference);
+            } catch (failEmailErr) {
+              console.error("[Paystack Webhook] Payment failed email dispatch error:", failEmailErr);
             }
           }
         }

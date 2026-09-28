@@ -35,3 +35,27 @@ COMMENT ON COLUMN public.orders.confirmation_email_status IS
 
 COMMENT ON COLUMN public.orders.confirmation_email_id IS 
 'Resend email ID for delivery tracking and logs';
+
+-- 4. Create order_email_events table for multi-event idempotency (order_confirmation, payment_success, payment_failed, order_ready, order_cancelled, welcome, email_verification, seller_new_order)
+CREATE TABLE IF NOT EXISTS public.order_email_events (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  order_id UUID REFERENCES public.orders(id) ON DELETE CASCADE,
+  user_id UUID DEFAULT NULL,
+  email_type TEXT NOT NULL,
+  recipient_email TEXT NOT NULL,
+  template_id TEXT DEFAULT NULL,
+  resend_id TEXT DEFAULT NULL,
+  status TEXT NOT NULL DEFAULT 'sent',
+  error_message TEXT DEFAULT NULL,
+  metadata JSONB DEFAULT '{}'::jsonb,
+  sent_at TIMESTAMPTZ DEFAULT now(),
+  created_at TIMESTAMPTZ DEFAULT now(),
+  UNIQUE (order_id, email_type, recipient_email)
+);
+
+CREATE INDEX IF NOT EXISTS idx_order_email_events_order_type
+ON public.order_email_events(order_id, email_type);
+
+CREATE INDEX IF NOT EXISTS idx_order_email_events_user_type
+ON public.order_email_events(user_id, email_type);
+

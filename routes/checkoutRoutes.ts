@@ -1,7 +1,11 @@
 import { Router } from "express";
 import { createClient } from "@supabase/supabase-js";
 import { sendOrderSMS } from "../src/lib/sms.js";
-import { sendOrderConfirmationEmailForOrder } from "../emailService.js";
+import {
+  sendOrderConfirmationEmailForOrder,
+  sendPaymentFailedEmailForOrder,
+  sendOrderStatusEmailForOrder
+} from "../emailService.js";
 import crypto from "crypto";
 
 const router = Router();
@@ -146,23 +150,6 @@ router.post("/verify", async (req, res) => {
       return res.status(400).json({ error: "Missing orderId" });
     }
 
-    if (reference) {
-      const paystackSecret = (process.env.PAYSTACK_SECRET_KEY || "").trim().replace(/^["']|["']$/g, "");
-      if (paystackSecret) {
-        const verifyRes = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
-          headers: {
-            "Authorization": `Bearer ${paystackSecret}`
-          }
-        });
-        const verifyData = await verifyRes.json();
-        if (!verifyData.status || verifyData.data.status !== "success") {
-          return res.status(400).json({ error: "Payment verification failed with Paystack" });
-        }
-      } else {
-        console.warn("Paystack secret key missing, skipping actual verification for preview environment.");
-      }
-    }
-
     const supabaseUrl = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "").trim().replace(/^["']|["']$/g, "");
     const supabaseServiceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim().replace(/^["']|["']$/g, "");
 
@@ -195,15 +182,19 @@ router.post("/verify", async (req, res) => {
 
     // Protect against double verification
     if (finalOrder.status !== 'pending' && finalOrder.status !== 'failed') {
-       // Already processed
-       const { data: items } = await supabase.from('order_items').select('*').eq('order_id', orderId);
-       return res.status(200).json({ success: true, order: finalOrder, profile: finalProfile, items: items || [], message: "Already processed" });
+      // Already processed (e.g., by Paystack webhook): ensure confirmation email was sent idempotently
+      try {
+        await sendOrderConfirmationEmailForOrder(orderId);
+      } catch (emailErr) {
+        console.error("[Checkout Verify] Idempotent confirmation email check error:", emailErr);
+      }
+      const { data: items } = await supabase.from('order_items').select('*').eq('order_id', orderId);
+      return res.status(200).json({ success: true, order: finalOrder, profile: finalProfile, items: items || [], message: "Already processed" });
     }
 
     // 2. Server-Side Verification
     if (!reference) {
       // Missing reference means payment didn't happen or was abandoned
-      // We can update the status to failed/abandoned, but we don't return success.
       await supabase.from('orders').update({ payment_status: 'abandoned' }).eq('id', orderId);
       return res.status(400).json({ error: "Missing Paystack reference. Payment abandoned or failed." });
     }
@@ -219,9 +210,14 @@ router.post("/verify", async (req, res) => {
     });
     const verifyData = await verifyRes.json();
 
-    if (!verifyData.status || verifyData.data.status !== "success") {
-      // Payment explicitly failed
+    if (!verifyData.status || verifyData.data?.status !== "success") {
+      // Payment explicitly failed or unverified
       await supabase.from('orders').update({ payment_status: 'failed', payment_reference: reference }).eq('id', orderId);
+      try {
+        await sendPaymentFailedEmailForOrder(orderId, reference);
+      } catch (failEmailErr) {
+        console.error("[Checkout Verify] Payment failed email dispatch error:", failEmailErr);
+      }
       return res.status(400).json({ error: "Payment verification failed with Paystack. Transaction not successful." });
     }
 
@@ -289,6 +285,38 @@ router.post("/verify", async (req, res) => {
   } catch (err: any) {
     console.error("Verification error:", err);
     res.status(500).json({ error: err.message || "Internal server error" });
+  }
+});
+
+/**
+ * Server-side endpoint to dispatch Resend template emails when an order status transitions
+ * (e.g. order_ready, order_cancelled, confirmed). Verifies the status in Supabase before sending.
+ */
+router.post("/order-status-email", async (req, res) => {
+  try {
+    const { orderId, newStatus } = req.body;
+    if (!orderId) {
+      return res.status(400).json({ error: "Missing orderId" });
+    }
+
+    const normStatus = String(newStatus || '').toLowerCase().trim();
+    let result: any = { success: true, skipped: true };
+
+    if (['ready_for_pickup', 'packed', 'ready', 'out_for_delivery', 'shipped'].includes(normStatus)) {
+      result = await sendOrderStatusEmailForOrder(orderId, 'order_ready');
+    } else if (normStatus === 'cancelled' || normStatus === 'refunded') {
+      result = await sendOrderStatusEmailForOrder(orderId, 'order_cancelled');
+    } else if (normStatus === 'confirmed' || normStatus === 'processing') {
+      result = await sendOrderConfirmationEmailForOrder(orderId);
+    }
+
+    return res.status(200).json({
+      success: true,
+      result
+    });
+  } catch (err: any) {
+    console.error("[Order Status Email] Error:", err);
+    return res.status(500).json({ error: err.message || "Failed to process order status email" });
   }
 });
 

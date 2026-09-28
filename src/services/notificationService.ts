@@ -224,6 +224,21 @@ export async function notifyOrderStatusChange({
     }
 
     console.log(`[NotificationService] Order notification created successfully for user ${userId}: "${title}"`);
+
+    // Trigger server-side Resend template email for order status transitions (Order Ready, Order Cancelled, Confirmed)
+    if (
+      typeof window !== 'undefined' &&
+      ['ready_for_pickup', 'packed', 'ready', 'out_for_delivery', 'shipped', 'cancelled', 'confirmed', 'processing'].includes(normNew)
+    ) {
+      fetch('/api/checkout/order-status-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, newStatus: normNew })
+      }).catch((err) => {
+        console.warn('[NotificationService] Non-fatal notice calling order-status-email:', err);
+      });
+    }
+
     return { success: true, id: createdRecord.id };
   } catch (err) {
     console.error('[NotificationService] Unexpected error in notifyOrderStatusChange:', err);

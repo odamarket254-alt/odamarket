@@ -1,16 +1,21 @@
 import { Resend } from 'resend';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import fs from 'fs';
+import path from 'path';
 import { logEmailDiagnostics } from './src/lib/emailDiagnostics.js';
 
 // Lazy initialized Resend client
 let resendClient: Resend | null = null;
+let cachedApiKey: string = '';
+
 function getResendClient(): Resend | null {
   const apiKey = (process.env.RESEND_API_KEY || '').trim().replace(/^["']|["']$/g, '');
-  if (!apiKey) {
+  if (!apiKey || apiKey.startsWith('YOUR_')) {
     return null;
   }
-  if (!resendClient) {
+  if (!resendClient || cachedApiKey !== apiKey) {
     resendClient = new Resend(apiKey);
+    cachedApiKey = apiKey;
   }
   return resendClient;
 }
@@ -20,7 +25,7 @@ let supabaseAdminClient: SupabaseClient | null = null;
 function getSupabaseAdmin(): SupabaseClient | null {
   const url = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || '').trim().replace(/^["']|["']$/g, '');
   const serviceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || '').trim().replace(/^["']|["']$/g, '');
-  if (!url || !serviceKey) {
+  if (!url || !serviceKey || url.includes('placeholder') || serviceKey.includes('placeholder')) {
     return null;
   }
   if (!supabaseAdminClient) {
@@ -34,12 +39,35 @@ function getSupabaseAdmin(): SupabaseClient | null {
   return supabaseAdminClient;
 }
 
+export type ResendEmailEventType =
+  | 'order_confirmation'
+  | 'payment_success'
+  | 'payment_failed'
+  | 'order_ready'
+  | 'order_cancelled'
+  | 'welcome'
+  | 'email_verification'
+  | 'seller_new_order';
+
+export const RESEND_TEMPLATE_ENV_KEYS: Record<ResendEmailEventType, string> = {
+  order_confirmation: 'RESEND_ORDER_CONFIRMATION_TEMPLATE_ID',
+  payment_success: 'RESEND_PAYMENT_SUCCESS_TEMPLATE_ID',
+  payment_failed: 'RESEND_PAYMENT_FAILED_TEMPLATE_ID',
+  order_ready: 'RESEND_ORDER_READY_TEMPLATE_ID',
+  order_cancelled: 'RESEND_ORDER_CANCELLED_TEMPLATE_ID',
+  welcome: 'RESEND_WELCOME_TEMPLATE_ID',
+  email_verification: 'RESEND_EMAIL_VERIFICATION_TEMPLATE_ID',
+  seller_new_order: 'RESEND_SELLER_NEW_ORDER_TEMPLATE_ID'
+};
+
 export interface OrderEmailItem {
   name: string;
   quantity: number;
   unitPrice: number;
   lineTotal: number;
   image?: string;
+  productId?: string;
+  supplierId?: string;
 }
 
 export interface OrderEmailData {
@@ -71,11 +99,38 @@ export interface SendOrderEmailResult {
   alreadySent?: boolean;
   orderId?: string;
   resendId?: string;
+  templateId?: string;
   sentAt?: string;
   recipient?: string;
   error?: string;
   reason?: string;
 }
+
+// In-flight deduplication lock to prevent race conditions when webhook and /verify execute simultaneously
+const inFlightDispatches = new Map<string, Promise<SendOrderEmailResult>>();
+
+// Short-lived cache for Resend template discovery and metadata (60 seconds TTL)
+interface CachedResendTemplate {
+  id: string;
+  name: string;
+  alias: string | null;
+  status: string;
+  from: string | null;
+  subject: string | null;
+  reply_to: string[] | string | null;
+  html: string;
+  text: string | null;
+  variables: Array<{
+    key: string;
+    type: 'string' | 'number';
+    fallback_value: string | number | null;
+  }>;
+  fetchedAt: number;
+}
+
+let cachedTemplateList: { items: Array<{ id: string; name: string; alias: string | null; status: string }>; fetchedAt: number } | null = null;
+const cachedTemplateDetails = new Map<string, CachedResendTemplate>();
+const TEMPLATE_CACHE_TTL_MS = 60 * 1000;
 
 /**
  * Format amounts into Kenyan Shillings (KSh)
@@ -88,19 +143,973 @@ export function formatCurrency(amount: number): string {
 /**
  * Validates whether an email string is real and deliverable (not empty, not placeholder/example.com)
  */
-function isValidCustomerEmail(email?: string | null): boolean {
+export function isValidCustomerEmail(email?: string | null): boolean {
   if (!email || typeof email !== 'string') return false;
   const trimmed = email.trim().toLowerCase();
   if (trimmed.length < 5 || !trimmed.includes('@') || !trimmed.includes('.')) return false;
   if (trimmed.endsWith('@example.com') || trimmed.endsWith('@placeholder.com') || trimmed.includes('test@test')) {
     return false;
   }
-  // Basic standard RFC email regex check
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed);
 }
 
 /**
+ * Validates whether a `from` header string follows `email@domain.com` or `Name <email@domain.com>`
+ * and rejects accidental API keys (`re_...`) or placeholders.
+ */
+export function isValidFromEmailFormat(fromVal?: string | null): boolean {
+  if (!fromVal || typeof fromVal !== 'string') return false;
+  const trimmed = fromVal.trim();
+  if (!trimmed || trimmed.startsWith('re_') || trimmed.startsWith('YOUR_')) return false;
+  const angleMatch = trimmed.match(/<([^<>]+)>$/);
+  const emailPart = angleMatch ? angleMatch[1].trim() : trimmed;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailPart);
+}
+
+/**
+ * Resolves a guaranteed-valid `from` email header string
+ */
+export function resolveValidFromEmail(
+  candidate?: string | null,
+  fallback: string = 'ODA Market <orders@odamarket.co.ke>'
+): string {
+  if (candidate) {
+    const cleaned = candidate.trim().replace(/^["']|["']$/g, '');
+    if (isValidFromEmailFormat(cleaned)) {
+      return cleaned;
+    }
+  }
+  const envFrom = (process.env.RESEND_FROM_EMAIL || '').trim().replace(/^["']|["']$/g, '');
+  if (isValidFromEmailFormat(envFrom)) {
+    return envFrom;
+  }
+  if (isValidFromEmailFormat(fallback)) {
+    return fallback;
+  }
+  return 'ODA Market <orders@odamarket.co.ke>';
+}
+
+/**
+ * Validates that a template ID / alias is not an accidentally pasted Resend API key (`re_...`) or placeholder
+ */
+export function isValidResendTemplateIdentifier(val?: string | null): boolean {
+  if (!val || typeof val !== 'string') return false;
+  const trimmed = val.trim().replace(/^["']|["']$/g, '');
+  if (!trimmed || trimmed.startsWith('YOUR_') || trimmed.startsWith('re_') || trimmed.includes('@')) {
+    return false;
+  }
+  return true;
+}
+
+/**
+ * Resolves the configured or discovered Resend Template ID / Alias for a given email event
+ */
+export async function resolveResendTemplateId(eventType: ResendEmailEventType): Promise<string | null> {
+  const envKey = RESEND_TEMPLATE_ENV_KEYS[eventType];
+  const rawEnvVal = (process.env[envKey] || '').trim().replace(/^["']|["']$/g, '');
+  const hasValidEnvTemplateId = isValidResendTemplateIdentifier(rawEnvVal);
+
+  // Query published templates in the Resend account to verify or auto-match by alias or name
+  const resend = getResendClient();
+  if (!resend) {
+    return hasValidEnvTemplateId ? rawEnvVal : null;
+  }
+
+  try {
+    const now = Date.now();
+    if (!cachedTemplateList || now - cachedTemplateList.fetchedAt > TEMPLATE_CACHE_TTL_MS) {
+      const listRes = await resend.templates.list({ limit: 100 });
+      if (!listRes.error && listRes.data?.data) {
+        cachedTemplateList = {
+          items: listRes.data.data.map(t => ({
+            id: t.id,
+            name: t.name,
+            alias: t.alias,
+            status: t.status
+          })),
+          fetchedAt: now
+        };
+      } else if (hasValidEnvTemplateId) {
+        // Sending-only API key cannot list templates; trust valid env template ID
+        return rawEnvVal;
+      }
+    }
+
+    const templates = (cachedTemplateList?.items || []).filter(t => t.status === 'published');
+
+    if (hasValidEnvTemplateId) {
+      // Check if the configured template ID/alias matches a published template in the account
+      const envMatch = templates.find(
+        t =>
+          t.id.toLowerCase() === rawEnvVal.toLowerCase() ||
+          (t.alias && t.alias.toLowerCase() === rawEnvVal.toLowerCase()) ||
+          t.name.toLowerCase() === rawEnvVal.toLowerCase()
+      );
+      if (envMatch) {
+        return envMatch.alias || envMatch.id;
+      }
+    }
+
+    if (templates.length === 0) return null;
+
+    const matchers: Record<ResendEmailEventType, (t: { id: string; name: string; alias: string | null }) => boolean> = {
+      email_verification: (t) => {
+        const a = (t.alias || '').toLowerCase();
+        const n = (t.name || '').toLowerCase();
+        return (
+          t.id === '2d5aeedf-970b-4b39-98a6-f6770235d481' ||
+          a === 'confirm-your-email-address-template' ||
+          a.includes('email-verification') ||
+          a.includes('verify-email') ||
+          a.includes('confirm-your-email') ||
+          (n.includes('confirm') && n.includes('email')) ||
+          (n.includes('verification') && n.includes('email'))
+        );
+      },
+      order_confirmation: (t) => {
+        const a = (t.alias || '').toLowerCase();
+        const n = (t.name || '').toLowerCase();
+        return (
+          a === 'order-confirmation' ||
+          a === 'order-confirmation-template' ||
+          a === 'order_confirmation' ||
+          (n.includes('order') && n.includes('confirm') && !n.includes('seller'))
+        );
+      },
+      payment_success: (t) => {
+        const a = (t.alias || '').toLowerCase();
+        const n = (t.name || '').toLowerCase();
+        return (
+          a.includes('payment-success') ||
+          a.includes('payment_success') ||
+          (n.includes('payment') && (n.includes('success') || n.includes('received') || n.includes('confirmed')))
+        );
+      },
+      payment_failed: (t) => {
+        const a = (t.alias || '').toLowerCase();
+        const n = (t.name || '').toLowerCase();
+        return (
+          a.includes('payment-failed') ||
+          a.includes('payment_failed') ||
+          (n.includes('payment') && n.includes('fail'))
+        );
+      },
+      order_ready: (t) => {
+        const a = (t.alias || '').toLowerCase();
+        const n = (t.name || '').toLowerCase();
+        return (
+          a.includes('order-ready') ||
+          a.includes('order_ready') ||
+          a.includes('ready-for-pickup') ||
+          (n.includes('order') && (n.includes('ready') || n.includes('pickup') || n.includes('dispatched')))
+        );
+      },
+      order_cancelled: (t) => {
+        const a = (t.alias || '').toLowerCase();
+        const n = (t.name || '').toLowerCase();
+        return (
+          a.includes('order-cancel') ||
+          a.includes('order_cancel') ||
+          (n.includes('order') && n.includes('cancel'))
+        );
+      },
+      welcome: (t) => {
+        const a = (t.alias || '').toLowerCase();
+        const n = (t.name || '').toLowerCase();
+        return (
+          a === 'welcome' ||
+          a === 'welcome-template' ||
+          a === 'welcome-email' ||
+          (n.includes('welcome') && !n.includes('confirm'))
+        );
+      },
+      seller_new_order: (t) => {
+        const a = (t.alias || '').toLowerCase();
+        const n = (t.name || '').toLowerCase();
+        return (
+          a.includes('seller-new-order') ||
+          a.includes('seller_new_order') ||
+          a.includes('new-seller-order') ||
+          (n.includes('seller') && n.includes('order'))
+        );
+      }
+    };
+
+    const matched = templates.find(matchers[eventType]);
+    return matched ? (matched.alias || matched.id) : null;
+  } catch (err) {
+    return null;
+  }
+}
+
+/**
+ * Fetches template details from Resend (cached for 60s)
+ */
+async function getResendTemplateDetails(templateIdOrAlias: string): Promise<CachedResendTemplate | null> {
+  const resend = getResendClient();
+  if (!resend || !templateIdOrAlias) return null;
+
+  const now = Date.now();
+  const cached = cachedTemplateDetails.get(templateIdOrAlias);
+  if (cached && now - cached.fetchedAt < TEMPLATE_CACHE_TTL_MS) {
+    return cached;
+  }
+
+  try {
+    const res = await resend.templates.get(templateIdOrAlias);
+    if (res.error || !res.data) {
+      return null;
+    }
+    const d = res.data;
+    const entry: CachedResendTemplate = {
+      id: d.id,
+      name: d.name,
+      alias: d.alias,
+      status: d.status,
+      from: d.from,
+      subject: d.subject,
+      reply_to: d.reply_to,
+      html: d.html || '',
+      text: d.text || null,
+      variables: (d.variables || []).map(v => ({
+        key: v.key,
+        type: v.type,
+        fallback_value: v.fallback_value
+      })),
+      fetchedAt: now
+    };
+    cachedTemplateDetails.set(templateIdOrAlias, entry);
+    cachedTemplateDetails.set(d.id, entry);
+    if (d.alias) cachedTemplateDetails.set(d.alias, entry);
+    return entry;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Normalizes a variable key for flexible matching between Resend templates and ODA Market data
+ * e.g., ".ConfirmationURL" -> "confirmationurl", "customer_name" -> "customername"
+ */
+function normalizeVarKey(key: string): string {
+  return key.trim().replace(/^\.+/, '').replace(/[\s_-]+/g, '').toLowerCase();
+}
+
+/**
+ * Substitutes {{ .Var }}, {{Var}}, and {{{Var}}} placeholders in a template string
+ * using the canonical variables map.
+ */
+export function interpolateTemplateString(
+  content: string,
+  variables: Record<string, string | number | undefined>,
+  numericMap: Record<string, number | undefined> = {}
+): string {
+  if (!content) return content;
+
+  // Build normalized lookup map
+  const normalizedLookup = new Map<string, string>();
+  for (const [k, v] of Object.entries(variables)) {
+    if (v !== undefined && v !== null) {
+      normalizedLookup.set(normalizeVarKey(k), String(v));
+    }
+  }
+  for (const [k, v] of Object.entries(numericMap)) {
+    const norm = normalizeVarKey(k);
+    if (!normalizedLookup.has(norm) && v !== undefined && v !== null) {
+      normalizedLookup.set(norm, String(v));
+    }
+  }
+
+  return content.replace(/\{\{\{?\s*([^{}]+?)\s*\}?\}\}/g, (fullMatch, rawVarName) => {
+    const trimmed = String(rawVarName).trim();
+    const cleaned = trimmed.replace(/^\.+/, '');
+    if (variables[trimmed] !== undefined) return String(variables[trimmed]);
+    if (variables[cleaned] !== undefined) return String(variables[cleaned]);
+    const norm = normalizeVarKey(cleaned);
+    if (normalizedLookup.has(norm)) {
+      return normalizedLookup.get(norm)!;
+    }
+    return fullMatch;
+  });
+}
+
+/**
+ * Dispatches an email using an existing Resend template.
+ * - Uses Resend's native `template: { id, variables }` API when the template defines Resend variables
+ *   or has no un-declared {{ ... }} placeholders.
+ * - Only passes variable keys that actually exist in the Resend template definition.
+ * - If the Resend template contains un-declared {{ .ConfirmationURL }} or {{variable}} placeholders
+ *   (where `variables` in Resend is empty), interpolates the variables into the live Resend template's
+ *   HTML/text/subject so no unreplaced placeholders ever reach the customer.
+ */
+export async function dispatchResendTemplateEmail(params: {
+  templateIdOrAlias: string;
+  to: string;
+  defaultSubject: string;
+  defaultFrom?: string;
+  replyTo?: string;
+  stringVariables: Record<string, string>;
+  numericVariables?: Record<string, number>;
+  idempotencyKey?: string;
+}): Promise<{ success: boolean; resendId?: string; templateId?: string; error?: string }> {
+  const resend = getResendClient();
+  if (!resend) {
+    return { success: false, error: 'RESEND_API_KEY is not configured on server' };
+  }
+
+  const {
+    templateIdOrAlias,
+    to,
+    defaultSubject,
+    defaultFrom,
+    replyTo = 'info@odamarket.co.ke',
+    stringVariables,
+    numericVariables = {},
+    idempotencyKey
+  } = params;
+
+  const rawEnvFrom = (process.env.RESEND_FROM_EMAIL || '').trim().replace(/^["']|["']$/g, '');
+  const validEnvFrom = isValidFromEmailFormat(rawEnvFrom) ? rawEnvFrom : '';
+  const fallbackFrom = resolveValidFromEmail(validEnvFrom || defaultFrom, 'ODA Market <orders@odamarket.co.ke>');
+
+  // 1. Inspect the template in Resend to determine its exact declared variables & placeholders
+  const templateDoc = await getResendTemplateDetails(templateIdOrAlias);
+
+  // Normalized lookup for matching templateDoc.variables
+  const normStringMap = new Map<string, string>();
+  for (const [k, v] of Object.entries(stringVariables)) {
+    if (v !== undefined && v !== null) {
+      normStringMap.set(normalizeVarKey(k), String(v));
+    }
+  }
+  const normNumberMap = new Map<string, number>();
+  for (const [k, v] of Object.entries(numericVariables)) {
+    if (v !== undefined && v !== null && !Number.isNaN(Number(v))) {
+      normNumberMap.set(normalizeVarKey(k), Number(v));
+    }
+  }
+
+  if (templateDoc) {
+    const resolvedFrom = resolveValidFromEmail(validEnvFrom || templateDoc.from, fallbackFrom);
+    const rawSubject = templateDoc.subject || defaultSubject;
+    const resolvedSubject = interpolateTemplateString(rawSubject, stringVariables, numericVariables);
+    const resolvedReplyTo = templateDoc.reply_to || replyTo;
+
+    // Map ONLY the variables that actually exist in this Resend template
+    const exactTemplateVariables: Record<string, string | number> = {};
+    const declaredKeysNormalized = new Set<string>();
+
+    for (const vDef of templateDoc.variables || []) {
+      const key = vDef.key;
+      const normKey = normalizeVarKey(key);
+      declaredKeysNormalized.add(normKey);
+
+      if (vDef.type === 'number') {
+        if (numericVariables[key] !== undefined) {
+          exactTemplateVariables[key] = numericVariables[key];
+        } else if (normNumberMap.has(normKey)) {
+          exactTemplateVariables[key] = normNumberMap.get(normKey)!;
+        } else if (vDef.fallback_value !== null && vDef.fallback_value !== undefined) {
+          exactTemplateVariables[key] = Number(vDef.fallback_value) || 0;
+        }
+      } else {
+        if (stringVariables[key] !== undefined) {
+          exactTemplateVariables[key] = stringVariables[key];
+        } else if (normStringMap.has(normKey)) {
+          exactTemplateVariables[key] = normStringMap.get(normKey)!;
+        } else if (vDef.fallback_value !== null && vDef.fallback_value !== undefined) {
+          exactTemplateVariables[key] = String(vDef.fallback_value);
+        }
+      }
+    }
+
+    // Check if the Resend template HTML contains any undeclared {{ ... }} placeholders
+    // (such as {{ .ConfirmationURL }} or {{customer_name}} when templateDoc.variables is empty)
+    const htmlPlaceholders = (templateDoc.html || '').match(/\{\{\{?\s*([^{}]+?)\s*\}?\}\}/g) || [];
+    const hasUndeclaredPlaceholders = htmlPlaceholders.some(ph => {
+      const inner = ph.replace(/^\{+|\}+$/g, '').trim();
+      if (inner.startsWith('.')) return true; // Go-template syntax like {{ .ConfirmationURL }} is not substituted by Resend native variables
+      return !declaredKeysNormalized.has(normalizeVarKey(inner));
+    });
+
+    if (!hasUndeclaredPlaceholders) {
+      // Use Resend's native `template: { id, variables }` API
+      const sendRes = await resend.emails.send(
+        {
+          from: resolvedFrom,
+          to: [to],
+          subject: resolvedSubject,
+          replyTo: resolvedReplyTo,
+          template: {
+            id: templateDoc.id,
+            ...(Object.keys(exactTemplateVariables).length > 0 ? { variables: exactTemplateVariables } : {})
+          }
+        },
+        idempotencyKey ? { idempotencyKey } : undefined
+      );
+
+      if (!sendRes.error) {
+        return {
+          success: true,
+          resendId: sendRes.data?.id || `resend_${Date.now()}`,
+          templateId: templateDoc.id
+        };
+      }
+      console.warn(`[Resend Template] Native template send returned error (${sendRes.error.message}), falling back to rendered Resend template HTML.`);
+    }
+
+    // If the template in Resend has undeclared {{ .ConfirmationURL }} / {{var}} placeholders,
+    // render them directly into the exact HTML & text fetched from the user's Resend template
+    const renderedHtml = interpolateTemplateString(templateDoc.html, stringVariables, numericVariables);
+    const renderedText = templateDoc.text
+      ? interpolateTemplateString(templateDoc.text, stringVariables, numericVariables)
+      : undefined;
+
+    const renderedSendRes = await resend.emails.send(
+      {
+        from: resolvedFrom,
+        to: [to],
+        subject: resolvedSubject,
+        replyTo: resolvedReplyTo,
+        html: renderedHtml,
+        ...(renderedText ? { text: renderedText } : {})
+      },
+      idempotencyKey ? { idempotencyKey } : undefined
+    );
+
+    if (renderedSendRes.error) {
+      return {
+        success: false,
+        templateId: templateDoc.id,
+        error: renderedSendRes.error.message || JSON.stringify(renderedSendRes.error)
+      };
+    }
+
+    return {
+      success: true,
+      resendId: renderedSendRes.data?.id || `resend_${Date.now()}`,
+      templateId: templateDoc.id
+    };
+  }
+
+  // 2. Fallback if templates.get() is unavailable (e.g. Sending-Only API Key):
+  // Call resend.emails.send with template: { id, variables } directly
+  const directRes = await resend.emails.send(
+    {
+      from: fallbackFrom,
+      to: [to],
+      subject: interpolateTemplateString(defaultSubject, stringVariables, numericVariables),
+      replyTo,
+      template: {
+        id: templateIdOrAlias,
+        variables: stringVariables
+      }
+    },
+    idempotencyKey ? { idempotencyKey } : undefined
+  );
+
+  if (!directRes.error) {
+    return {
+      success: true,
+      resendId: directRes.data?.id || `resend_${Date.now()}`,
+      templateId: templateIdOrAlias
+    };
+  }
+
+  // If Resend rejected unknown variable keys, retry with template ID only
+  if (directRes.error.name === 'validation_error' || directRes.error.statusCode === 422) {
+    const retryRes = await resend.emails.send(
+      {
+        from: fallbackFrom,
+        to: [to],
+        subject: interpolateTemplateString(defaultSubject, stringVariables, numericVariables),
+        replyTo,
+        template: {
+          id: templateIdOrAlias
+        }
+      },
+      idempotencyKey ? { idempotencyKey: `${idempotencyKey}-retry` } : undefined
+    );
+
+    if (!retryRes.error) {
+      return {
+        success: true,
+        resendId: retryRes.data?.id || `resend_${Date.now()}`,
+        templateId: templateIdOrAlias
+      };
+    }
+  }
+
+  return {
+    success: false,
+    templateId: templateIdOrAlias,
+    error: directRes.error.message || JSON.stringify(directRes.error)
+  };
+}
+
+/**
+ * Builds canonical template variables from real ODA Market order, buyer, payment, and seller data
+ */
+export function buildOrderTemplateVariables(
+  data: OrderEmailData,
+  sellerInfo?: { sellerName?: string; sellerEmail?: string }
+): {
+  stringVariables: Record<string, string>;
+  numericVariables: Record<string, number>;
+} {
+  const appUrl = (process.env.APP_URL || process.env.VITE_APP_URL || 'https://odamarket.co.ke').replace(/\/$/, '');
+  const deliveryDisplay = data.deliveryFee > 0 ? formatCurrency(data.deliveryFee) : 'Free';
+  const deliveryMethodLabel =
+    data.deliveryMethod === 'express'
+      ? 'Express Delivery (Same Day)'
+      : data.deliveryMethod === 'pickup'
+      ? 'Store Pickup'
+      : 'Standard Delivery';
+
+  const itemsTextSummary = (data.items || [])
+    .map(i => `${i.name} (x${i.quantity}) - ${formatCurrency(i.lineTotal)}`)
+    .join(', ');
+
+  const itemsMultiline = (data.items || [])
+    .map(i => `• ${i.name} — Qty: ${i.quantity} × ${formatCurrency(i.unitPrice)} = ${formatCurrency(i.lineTotal)}`)
+    .join('\n');
+
+  const itemsHtmlRows = (data.items || [])
+    .map(
+      item => `
+    <tr>
+      <td style="padding: 12px 0; border-bottom: 1px solid #F0E6D8; vertical-align: top;">
+        <strong style="color: #3A2418;">${item.name}</strong><br/>
+        <span style="font-size: 13px; color: #8B857D;">Qty: ${item.quantity} &times; ${formatCurrency(item.unitPrice)}</span>
+      </td>
+      <td align="right" style="padding: 12px 0; border-bottom: 1px solid #F0E6D8; vertical-align: top; font-weight: 700; color: #3A2418;">
+        ${formatCurrency(item.lineTotal)}
+      </td>
+    </tr>`
+    )
+    .join('');
+
+  const totalItemsQuantity = (data.items || []).reduce((acc, item) => acc + (Number(item.quantity) || 0), 0);
+  const firstName = (data.customerName || 'Customer').trim().split(/\s+/)[0] || 'Customer';
+  const resolvedSellerName = sellerInfo?.sellerName || data.storeName || 'ODA Market';
+  const resolvedSellerEmail = sellerInfo?.sellerEmail || 'info@odamarket.co.ke';
+
+  const stringVariables: Record<string, string> = {
+    customer_name: data.customerName || 'Valued Customer',
+    customerName: data.customerName || 'Valued Customer',
+    first_name: firstName,
+    firstName: firstName,
+    recipient_name: data.recipientName || data.customerName || 'Valued Customer',
+    customer_email: data.customerEmail,
+    customerEmail: data.customerEmail,
+    email: data.customerEmail,
+    customer_phone: data.customerPhone || '',
+    customerPhone: data.customerPhone || '',
+    phone: data.customerPhone || '',
+    order_id: data.orderNumber || data.orderId,
+    order_uuid: data.orderId,
+    orderId: data.orderId,
+    order_number: data.orderNumber,
+    orderNumber: data.orderNumber,
+    order_date: data.orderDate,
+    orderDate: data.orderDate,
+    order_total: formatCurrency(data.total),
+    orderTotal: formatCurrency(data.total),
+    total: formatCurrency(data.total),
+    subtotal: formatCurrency(data.subtotal),
+    order_subtotal: formatCurrency(data.subtotal),
+    delivery_fee: deliveryDisplay,
+    deliveryFee: deliveryDisplay,
+    discount_amount: formatCurrency(data.discountAmount || 0),
+    payment_reference: data.paymentReference || 'N/A',
+    paymentReference: data.paymentReference || 'N/A',
+    transaction_reference: data.paymentReference || 'N/A',
+    payment_method: data.paymentMethod || 'M-Pesa (Paystack)',
+    paymentMethod: data.paymentMethod || 'M-Pesa (Paystack)',
+    payment_status: data.paymentStatus || 'PAID',
+    paymentStatus: data.paymentStatus || 'PAID',
+    order_status: data.orderStatus || 'processing',
+    orderStatus: data.orderStatus || 'processing',
+    status: data.orderStatus || 'processing',
+    delivery_method: deliveryMethodLabel,
+    deliveryMethod: deliveryMethodLabel,
+    delivery_address: data.deliveryAddress || 'Nairobi, Kenya',
+    deliveryAddress: data.deliveryAddress || 'Nairobi, Kenya',
+    tracking_url: data.trackingUrl,
+    trackingUrl: data.trackingUrl,
+    order_url: data.trackingUrl,
+    items: itemsTextSummary,
+    order_items: itemsTextSummary,
+    items_list: itemsMultiline,
+    items_html: itemsHtmlRows,
+    items_count: String(totalItemsQuantity),
+    seller_name: resolvedSellerName,
+    sellerName: resolvedSellerName,
+    seller_email: resolvedSellerEmail,
+    store_name: resolvedSellerName,
+    storeName: resolvedSellerName,
+    seller_dashboard_url: `${appUrl}/admin/dashboard/orders`,
+    app_url: appUrl,
+    support_email: 'info@odamarket.co.ke',
+    support_phone: '0792867386'
+  };
+
+  const numericVariables: Record<string, number> = {
+    order_total: Number(data.total) || 0,
+    orderTotal: Number(data.total) || 0,
+    total: Number(data.total) || 0,
+    subtotal: Number(data.subtotal) || 0,
+    order_subtotal: Number(data.subtotal) || 0,
+    delivery_fee: Number(data.deliveryFee) || 0,
+    deliveryFee: Number(data.deliveryFee) || 0,
+    discount_amount: Number(data.discountAmount) || 0,
+    items_count: totalItemsQuantity
+  };
+
+  return { stringVariables, numericVariables };
+}
+
+/**
+ * Checks whether a specific email event has already been sent for an order/user
+ */
+async function checkEmailEventAlreadySent(
+  supabase: SupabaseClient,
+  order: any | null,
+  eventType: ResendEmailEventType,
+  recipientEmail?: string
+): Promise<{ alreadySent: boolean; sentAt?: string; resendId?: string }> {
+  const normRecipient = (recipientEmail || '').trim().toLowerCase();
+
+  // 1. Check dedicated order_email_events table if it exists
+  if (order?.id) {
+    try {
+      let query = supabase
+        .from('order_email_events')
+        .select('sent_at, resend_id, status')
+        .eq('order_id', order.id)
+        .eq('email_type', eventType)
+        .eq('status', 'sent');
+
+      if (normRecipient) {
+        query = query.eq('recipient_email', normRecipient);
+      }
+
+      const { data: existingEvent, error: tableErr } = await query.limit(1).maybeSingle();
+      if (!tableErr && existingEvent) {
+        return {
+          alreadySent: true,
+          sentAt: existingEvent.sent_at,
+          resendId: existingEvent.resend_id
+        };
+      }
+    } catch {
+      // Table may not exist yet; continue to order columns and notes checks
+    }
+  }
+
+  if (!order) {
+    return { alreadySent: false };
+  }
+
+  let parsedNotes: any = {};
+  if (order.notes) {
+    try {
+      parsedNotes = typeof order.notes === 'string' ? JSON.parse(order.notes) : order.notes;
+    } catch {
+      parsedNotes = {};
+    }
+  }
+
+  // 2. For order_confirmation, check dedicated columns and legacy notes keys
+  if (eventType === 'order_confirmation') {
+    const alreadySentAt = order.confirmation_email_sent_at || parsedNotes.confirmation_email_sent_at;
+    const isAlreadySent = Boolean(alreadySentAt || parsedNotes.email_status === 'sent' || order.confirmation_email_status === 'sent');
+    if (isAlreadySent) {
+      return {
+        alreadySent: true,
+        sentAt: alreadySentAt,
+        resendId: order.confirmation_email_id || parsedNotes.email_resend_id
+      };
+    }
+  }
+
+  // 3. Check structured email_events map inside orders.notes
+  const eventKey = eventType === 'seller_new_order' && normRecipient
+    ? `${eventType}:${normRecipient}`
+    : eventType;
+
+  const recordedEvent = parsedNotes.email_events?.[eventKey];
+  if (recordedEvent && recordedEvent.status === 'sent') {
+    return {
+      alreadySent: true,
+      sentAt: recordedEvent.sent_at,
+      resendId: recordedEvent.resend_id
+    };
+  }
+
+  return { alreadySent: false };
+}
+
+/**
+ * Records an email dispatch event idempotently in `order_email_events` (if available) and `orders.notes`
+ */
+async function recordOrderEmailEvent(params: {
+  supabase: SupabaseClient;
+  order: any;
+  eventType: ResendEmailEventType;
+  recipientEmail: string;
+  status: 'sent' | 'failed' | 'skipped';
+  resendId?: string;
+  templateId?: string;
+  errorMessage?: string;
+}): Promise<void> {
+  const { supabase, order, eventType, recipientEmail, status, resendId, templateId, errorMessage } = params;
+  const nowIso = new Date().toISOString();
+  const normRecipient = recipientEmail.trim().toLowerCase();
+
+  // 1. Attempt insert into public.order_email_events (non-fatal if table not yet migrated)
+  try {
+    await supabase.from('order_email_events').upsert(
+      {
+        order_id: order.id,
+        user_id: order.user_id || null,
+        email_type: eventType,
+        recipient_email: normRecipient,
+        template_id: templateId || null,
+        resend_id: resendId || null,
+        status,
+        error_message: errorMessage || null,
+        sent_at: nowIso
+      },
+      { onConflict: 'order_id,email_type,recipient_email' }
+    );
+  } catch {
+    // Ignore if table does not exist yet
+  }
+
+  // 2. Update orders.notes and (if order_confirmation) dedicated columns
+  let parsedNotes: any = {};
+  if (order.notes) {
+    try {
+      parsedNotes = typeof order.notes === 'string' ? JSON.parse(order.notes) : { ...order.notes };
+    } catch {
+      parsedNotes = {};
+    }
+  }
+
+  if (!parsedNotes.email_events || typeof parsedNotes.email_events !== 'object') {
+    parsedNotes.email_events = {};
+  }
+
+  const eventKey = eventType === 'seller_new_order' && normRecipient
+    ? `${eventType}:${normRecipient}`
+    : eventType;
+
+  parsedNotes.email_events[eventKey] = {
+    status,
+    sent_at: nowIso,
+    resend_id: resendId || null,
+    template_id: templateId || null,
+    recipient: normRecipient,
+    ...(errorMessage ? { error: errorMessage } : {})
+  };
+
+  if (eventType === 'order_confirmation') {
+    if (status === 'sent') {
+      parsedNotes.confirmation_email_sent_at = nowIso;
+      parsedNotes.email_status = 'sent';
+      parsedNotes.email_resend_id = resendId;
+      parsedNotes.email_recipient = normRecipient;
+      if (templateId) parsedNotes.email_template_id = templateId;
+
+      const { error: colUpdateError } = await supabase
+        .from('orders')
+        .update({
+          confirmation_email_sent_at: nowIso,
+          confirmation_email_status: 'sent',
+          confirmation_email_id: resendId,
+          notes: JSON.stringify(parsedNotes)
+        })
+        .eq('id', order.id);
+
+      if (colUpdateError) {
+        await supabase.from('orders').update({ notes: JSON.stringify(parsedNotes) }).eq('id', order.id);
+      }
+      return;
+    } else {
+      parsedNotes.email_status = status;
+      parsedNotes.email_error = errorMessage;
+      parsedNotes.email_attempted_at = nowIso;
+    }
+  }
+
+  await supabase.from('orders').update({ notes: JSON.stringify(parsedNotes) }).eq('id', order.id);
+}
+
+/**
+ * Helper to load full OrderEmailData + raw order record from Supabase
+ */
+async function loadOrderEmailContext(
+  supabase: SupabaseClient,
+  orderId: string
+): Promise<{
+  order?: any;
+  parsedNotes?: any;
+  emailData?: OrderEmailData;
+  rawItems?: any[];
+  error?: string;
+}> {
+  const { data: order, error: orderErr } = await supabase
+    .from('orders')
+    .select('*')
+    .eq('id', orderId)
+    .single();
+
+  if (orderErr || !order) {
+    return { error: `Order ${orderId} not found` };
+  }
+
+  let parsedNotes: any = {};
+  if (order.notes) {
+    try {
+      parsedNotes = typeof order.notes === 'string' ? JSON.parse(order.notes) : order.notes;
+    } catch {
+      parsedNotes = {};
+    }
+  }
+
+  let buyerEmail: string | null = null;
+  let customerName = 'Customer';
+  let customerPhone: string | undefined = undefined;
+
+  if (order.user_id) {
+    try {
+      const { data: authUser } = await supabase.auth.admin.getUserById(order.user_id);
+      if (authUser?.user?.email && isValidCustomerEmail(authUser.user.email)) {
+        buyerEmail = authUser.user.email.trim();
+      }
+    } catch {
+      // ignore
+    }
+
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('first_name, last_name, email, phone_number')
+        .eq('id', order.user_id)
+        .single();
+
+      if (profile) {
+        if (!buyerEmail && profile.email && isValidCustomerEmail(profile.email)) {
+          buyerEmail = profile.email.trim();
+        }
+        const profileFullName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim();
+        if (profileFullName) {
+          customerName = profileFullName;
+        }
+        if (profile.phone_number) {
+          customerPhone = profile.phone_number;
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  if (parsedNotes.contactDetails) {
+    if (!buyerEmail && parsedNotes.contactDetails.userEmail && isValidCustomerEmail(parsedNotes.contactDetails.userEmail)) {
+      buyerEmail = parsedNotes.contactDetails.userEmail.trim();
+    }
+    if (customerName === 'Customer' && parsedNotes.contactDetails.fullName) {
+      customerName = parsedNotes.contactDetails.fullName.trim();
+    }
+    if (!customerPhone && parsedNotes.contactDetails.userPhone) {
+      customerPhone = parsedNotes.contactDetails.userPhone;
+    }
+  }
+
+  if (parsedNotes.shippingDetails) {
+    if (customerName === 'Customer' && parsedNotes.shippingDetails.recipientName) {
+      customerName = parsedNotes.shippingDetails.recipientName.trim();
+    }
+    if (!customerPhone && parsedNotes.shippingDetails.recipientPhone) {
+      customerPhone = parsedNotes.shippingDetails.recipientPhone;
+    }
+  }
+
+  const { data: rawItems } = await supabase
+    .from('order_items')
+    .select('*')
+    .eq('order_id', orderId);
+
+  const items: OrderEmailItem[] = (rawItems || []).map((i: any) => {
+    const quantity = Number(i.quantity) || 1;
+    const unitPrice = Number(i.unit_price) || 0;
+    const lineTotal = Number(i.subtotal || i.total_price) || quantity * unitPrice;
+    return {
+      name: i.product_name || 'Grocery Item',
+      quantity,
+      unitPrice,
+      lineTotal,
+      image: i.product_image || undefined,
+      productId: i.product_id || undefined
+    };
+  });
+
+  let deliveryAddress = 'Nairobi, Kenya';
+  let deliveryMethod = 'standard';
+  const deliveryFee = Number(order.delivery_fee) || 0;
+
+  if (parsedNotes.shippingDetails) {
+    deliveryAddress =
+      parsedNotes.shippingDetails.fullAddress ||
+      parsedNotes.shippingDetails.location ||
+      deliveryAddress;
+  }
+  if (parsedNotes.deliveryMethod) {
+    deliveryMethod = parsedNotes.deliveryMethod;
+  }
+
+  const appUrl = (process.env.APP_URL || process.env.VITE_APP_URL || 'https://odamarket.co.ke').replace(/\/$/, '');
+  const trackingUrl = `${appUrl}/track-order?id=${orderId}`;
+  const orderNumber = order.order_number || parsedNotes.orderNumber || `ODA-${orderId.substring(0, 8).toUpperCase()}`;
+  const orderDate = new Date(order.created_at || Date.now()).toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+
+  const emailData: OrderEmailData = {
+    customerName,
+    customerEmail: buyerEmail || '',
+    customerPhone,
+    orderNumber,
+    orderId,
+    orderDate,
+    items,
+    subtotal: Number(order.subtotal) || Number(order.total) - deliveryFee,
+    deliveryFee,
+    discountAmount: Number(order.discount_amount) || 0,
+    total: Number(order.total) || 0,
+    deliveryMethod,
+    deliveryAddress,
+    recipientName: parsedNotes.shippingDetails?.recipientName || customerName,
+    paymentMethod: parsedNotes.paymentMethod || 'M-Pesa (Paystack)',
+    paymentStatus: order.payment_status === 'success' ? 'PAID' : (order.payment_status || 'PENDING').toUpperCase(),
+    paymentReference: order.payment_reference || parsedNotes.paymentReference,
+    orderStatus: order.status || 'processing',
+    storeName: 'ODA Market Verified Fulfillment',
+    trackingUrl
+  };
+
+  return { order, parsedNotes, emailData, rawItems: rawItems || [] };
+}
+
+/**
  * Builds responsive, email-client compatible HTML matching ODA Market brand guidelines
+ * (Used as safe fallback when RESEND_ORDER_CONFIRMATION_TEMPLATE_ID is not yet configured in Resend)
  */
 export function buildOrderConfirmationEmailHtml(data: OrderEmailData): string {
   const {
@@ -115,7 +1124,6 @@ export function buildOrderConfirmationEmailHtml(data: OrderEmailData): string {
     deliveryMethod,
     deliveryAddress,
     paymentMethod,
-    paymentStatus,
     paymentReference,
     orderStatus,
     storeName,
@@ -393,19 +1401,11 @@ export function buildOrderConfirmationEmailHtml(data: OrderEmailData): string {
 }
 
 /**
- * Main authoritative function to dispatch an order confirmation email via Resend
- * 
- * Flow:
- * 1. Checks that order exists and is paid/confirmed (payment_status === 'success' or status in [processing, paid, shipped, delivered])
- * 2. Idempotency: Checks whether confirmation email was already sent (unless forceResend is true)
- * 3. Resolves buyer's REAL email from Supabase Auth / profile
- * 4. Gathers order items and calculated totals from Supabase database
- * 5. Sends responsive branded HTML email via Resend
- * 6. Records dispatch timestamp and Resend message ID in orders table and notes
- * 7. Decoupled error handling: Resend failure never reverses or affects payment status
+ * 1. ORDER CONFIRMATION EMAIL (plus optional Payment Success & Seller New Order templates)
+ * Strictly requires verified payment before dispatching.
  */
 export async function sendOrderConfirmationEmailForOrder(
-  orderId: string, 
+  orderId: string,
   options: { forceResend?: boolean } = {}
 ): Promise<SendOrderEmailResult> {
   const cleanOrderId = (orderId || '').trim();
@@ -414,306 +1414,855 @@ export async function sendOrderConfirmationEmailForOrder(
     return { success: false, error: 'Missing orderId' };
   }
 
-  const supabase = getSupabaseAdmin();
-  if (!supabase) {
-    console.error('[Resend Email] Supabase admin client unavailable.');
-    return { success: false, error: 'Database configuration unavailable' };
+  const lockKey = `order_confirmation:${cleanOrderId}`;
+  if (!options.forceResend && inFlightDispatches.has(lockKey)) {
+    return inFlightDispatches.get(lockKey)!;
   }
 
-  try {
-    // 1. Fetch the order
-    const { data: order, error: orderErr } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('id', cleanOrderId)
-      .single();
-
-    if (orderErr || !order) {
-      console.error(`[Resend Email] Order ${cleanOrderId} not found:`, orderErr);
-      return { success: false, error: `Order ${cleanOrderId} not found` };
+  const task = (async (): Promise<SendOrderEmailResult> => {
+    const supabase = getSupabaseAdmin();
+    if (!supabase) {
+      console.error('[Resend Email] Supabase admin client unavailable.');
+      return { success: false, error: 'Database configuration unavailable' };
     }
 
-    // Safe Server-Side Diagnostic Logging (never prints secrets or PII tokens)
-    logEmailDiagnostics(`Order ${cleanOrderId} (status=${order.status}, payment=${order.payment_status})`);
-
-    // 2. Strict Payment Verification Check:
-    // Only send if payment has actually succeeded / order is confirmed
-    const isPaid = order.payment_status === 'success' || 
-                   ['processing', 'paid', 'shipped', 'delivered'].includes(order.status);
-
-    if (!isPaid) {
-      console.warn(`[Resend Email] Skipped: Order ${cleanOrderId} is not confirmed/paid (status: ${order.status}, payment_status: ${order.payment_status}).`);
-      return { 
-        success: false, 
-        skipped: true, 
-        reason: `Order is not paid (status: ${order.status}, payment_status: ${order.payment_status})` 
-      };
-    }
-
-    // 3. Idempotency Check: Prevent duplicate emails
-    let parsedNotes: any = {};
-    if (order.notes) {
-      try {
-        parsedNotes = typeof order.notes === 'string' ? JSON.parse(order.notes) : order.notes;
-      } catch (e) {
-        parsedNotes = {};
+    try {
+      const ctx = await loadOrderEmailContext(supabase, cleanOrderId);
+      if (ctx.error || !ctx.order || !ctx.emailData) {
+        console.error(`[Resend Email] Order ${cleanOrderId} not found.`);
+        return { success: false, error: ctx.error || `Order ${cleanOrderId} not found` };
       }
-    }
 
-    const alreadySentAt = order.confirmation_email_sent_at || parsedNotes.confirmation_email_sent_at;
-    const isAlreadySent = Boolean(alreadySentAt || parsedNotes.email_status === 'sent');
+      const { order, emailData } = ctx;
+      logEmailDiagnostics(`Order ${cleanOrderId} (status=${order.status}, payment=${order.payment_status})`);
 
-    if (isAlreadySent && !options.forceResend) {
-      console.log(`[Resend Email] ℹ️ Idempotency: Order ${cleanOrderId} confirmation email already sent at ${alreadySentAt || 'prior execution'}. Skipping.`);
+      // Strict Payment Verification Guard:
+      // NEVER send order confirmation if payment is pending, failed, cancelled, or abandoned
+      const isPaid =
+        order.payment_status === 'success' ||
+        ['processing', 'paid', 'confirmed', 'ready_for_pickup', 'out_for_delivery', 'shipped', 'delivered'].includes(order.status);
+
+      if (!isPaid || order.payment_status === 'failed' || order.payment_status === 'abandoned') {
+        console.warn(
+          `[Resend Email] Skipped: Order ${cleanOrderId} is not confirmed/paid (status: ${order.status}, payment_status: ${order.payment_status}).`
+        );
+        return {
+          success: false,
+          skipped: true,
+          reason: `Order is not paid (status: ${order.status}, payment_status: ${order.payment_status})`
+        };
+      }
+
+      // Idempotency Check
+      const idemp = await checkEmailEventAlreadySent(supabase, order, 'order_confirmation', emailData.customerEmail);
+      if (idemp.alreadySent && !options.forceResend) {
+        console.log(
+          `[Resend Email] ℹ️ Idempotency: Order ${cleanOrderId} confirmation email already sent at ${idemp.sentAt || 'prior execution'}. Skipping.`
+        );
+        return {
+          success: true,
+          skipped: true,
+          alreadySent: true,
+          orderId: cleanOrderId,
+          sentAt: idemp.sentAt,
+          resendId: idemp.resendId
+        };
+      }
+
+      if (!emailData.customerEmail || !isValidCustomerEmail(emailData.customerEmail)) {
+        console.warn(`[Resend Email] ⚠️ No valid customer email found for order ${cleanOrderId}. Buyer ID: ${order.user_id}`);
+        await recordOrderEmailEvent({
+          supabase,
+          order,
+          eventType: 'order_confirmation',
+          recipientEmail: emailData.customerEmail || 'invalid',
+          status: 'failed',
+          errorMessage: 'No valid customer email address found'
+        });
+        return {
+          success: false,
+          error: 'No valid customer email address found for this order'
+        };
+      }
+
+      const resend = getResendClient();
+      if (!resend) {
+        console.warn('[Resend Email] ⚠️ RESEND_API_KEY is not configured in environment. Skipping email dispatch.');
+        await recordOrderEmailEvent({
+          supabase,
+          order,
+          eventType: 'order_confirmation',
+          recipientEmail: emailData.customerEmail,
+          status: 'failed',
+          errorMessage: 'RESEND_API_KEY missing on server'
+        });
+        return {
+          success: false,
+          error: 'RESEND_API_KEY is not configured on server'
+        };
+      }
+
+      const templateId = await resolveResendTemplateId('order_confirmation');
+      const idempotencyKey = options.forceResend
+        ? `oda-order-confirmation-${cleanOrderId}-force-${Date.now()}`
+        : `oda-order-confirmation-${cleanOrderId}`;
+
+      let resendId = '';
+      let usedTemplateId: string | undefined = undefined;
+
+      if (templateId) {
+        const { stringVariables, numericVariables } = buildOrderTemplateVariables(emailData);
+        console.log(
+          `[Resend Email] 📤 Dispatching Order Confirmation via Resend Template (${templateId}) to ${emailData.customerEmail} for ${emailData.orderNumber}...`
+        );
+
+        const tplResult = await dispatchResendTemplateEmail({
+          templateIdOrAlias: templateId,
+          to: emailData.customerEmail,
+          defaultSubject: `Order Confirmed: ${emailData.orderNumber} - ODA Market`,
+          stringVariables,
+          numericVariables,
+          idempotencyKey
+        });
+
+        if (tplResult.success) {
+          resendId = tplResult.resendId || `resend_${Date.now()}`;
+          usedTemplateId = tplResult.templateId || templateId;
+        } else {
+          console.warn(
+            `[Resend Email] ⚠️ Template (${templateId}) dispatch notice for order ${cleanOrderId} (${tplResult.error}). Falling back to standard Order Confirmation email.`
+          );
+        }
+      }
+
+      if (!resendId) {
+        // Fallback if RESEND_ORDER_CONFIRMATION_TEMPLATE_ID is not yet published in Resend or template call failed
+        const fromSender = resolveValidFromEmail(
+          process.env.RESEND_FROM_EMAIL,
+          'ODA Market <orders@odamarket.co.ke>'
+        );
+        const html = buildOrderConfirmationEmailHtml(emailData);
+
+        console.log(
+          `[Resend Email] 📤 Dispatching order confirmation email to ${emailData.customerEmail} for ${emailData.orderNumber}...`
+        );
+
+        const resendResponse = await resend.emails.send(
+          {
+            from: fromSender,
+            to: [emailData.customerEmail],
+            replyTo: 'info@odamarket.co.ke',
+            subject: `Order Confirmed: ${emailData.orderNumber} - ODA Market`,
+            html
+          },
+          { idempotencyKey }
+        );
+
+        if (resendResponse.error) {
+          console.error(`[Resend Email] ❌ Resend API returned error for order ${cleanOrderId}:`, resendResponse.error);
+          await recordOrderEmailEvent({
+            supabase,
+            order,
+            eventType: 'order_confirmation',
+            recipientEmail: emailData.customerEmail,
+            status: 'failed',
+            errorMessage: resendResponse.error.message || JSON.stringify(resendResponse.error)
+          });
+          return {
+            success: false,
+            error: resendResponse.error.message || 'Resend error'
+          };
+        }
+
+        resendId = resendResponse.data?.id || `resend_${Date.now()}`;
+      }
+
+      const sentAtIso = new Date().toISOString();
+      console.log(
+        `[Resend Email] ✅ Successfully sent order confirmation to ${emailData.customerEmail}! (Resend ID: ${resendId})`
+      );
+
+      await recordOrderEmailEvent({
+        supabase,
+        order,
+        eventType: 'order_confirmation',
+        recipientEmail: emailData.customerEmail,
+        status: 'sent',
+        resendId,
+        templateId: usedTemplateId
+      });
+
+      // Trigger Payment Success template (if separately configured) and Seller New Order template (if configured)
+      try {
+        await sendPaymentSuccessEmailForOrder(cleanOrderId);
+      } catch (psErr) {
+        console.warn(`[Resend Email] Non-fatal notice on payment_success template:`, psErr);
+      }
+
+      try {
+        await sendSellerNewOrderEmailForOrder(cleanOrderId);
+      } catch (sellerErr) {
+        console.warn(`[Resend Email] Non-fatal notice on seller_new_order template:`, sellerErr);
+      }
+
       return {
         success: true,
-        skipped: true,
-        alreadySent: true,
         orderId: cleanOrderId,
-        sentAt: alreadySentAt,
-        resendId: order.confirmation_email_id || parsedNotes.email_resend_id
+        resendId,
+        templateId: usedTemplateId,
+        sentAt: sentAtIso,
+        recipient: emailData.customerEmail
       };
-    }
-
-    // 4. Resolve the buyer's REAL email from authenticated user / profile
-    let buyerEmail: string | null = null;
-    let customerName = 'Customer';
-    let customerPhone: string | undefined = undefined;
-
-    // A) Check Supabase Auth user record (authoritative)
-    if (order.user_id) {
-      try {
-        const { data: authUser } = await supabase.auth.admin.getUserById(order.user_id);
-        if (authUser?.user?.email && isValidCustomerEmail(authUser.user.email)) {
-          buyerEmail = authUser.user.email.trim();
-        }
-      } catch (authLookupErr) {
-        console.warn(`[Resend Email] Note: Auth user lookup failed for ${order.user_id}:`, authLookupErr);
-      }
-
-      // B) Check public.profiles
-      try {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('first_name, last_name, email, phone_number')
-          .eq('id', order.user_id)
-          .single();
-
-        if (profile) {
-          if (!buyerEmail && profile.email && isValidCustomerEmail(profile.email)) {
-            buyerEmail = profile.email.trim();
-          }
-          const profileFullName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim();
-          if (profileFullName) {
-            customerName = profileFullName;
-          }
-          if (profile.phone_number) {
-            customerPhone = profile.phone_number;
-          }
-        }
-      } catch (profLookupErr) {
-        console.warn(`[Resend Email] Profile lookup notice:`, profLookupErr);
-      }
-    }
-
-    // C) Check parsed notes from checkout contact details
-    if (parsedNotes.contactDetails) {
-      if (!buyerEmail && parsedNotes.contactDetails.userEmail && isValidCustomerEmail(parsedNotes.contactDetails.userEmail)) {
-        buyerEmail = parsedNotes.contactDetails.userEmail.trim();
-      }
-      if (customerName === 'Customer' && parsedNotes.contactDetails.fullName) {
-        customerName = parsedNotes.contactDetails.fullName.trim();
-      }
-      if (!customerPhone && parsedNotes.contactDetails.userPhone) {
-        customerPhone = parsedNotes.contactDetails.userPhone;
-      }
-    }
-
-    // D) Check shipping details
-    if (parsedNotes.shippingDetails) {
-      if (customerName === 'Customer' && parsedNotes.shippingDetails.recipientName) {
-        customerName = parsedNotes.shippingDetails.recipientName.trim();
-      }
-      if (!customerPhone && parsedNotes.shippingDetails.recipientPhone) {
-        customerPhone = parsedNotes.shippingDetails.recipientPhone;
-      }
-    }
-
-    // Validate email
-    if (!buyerEmail || !isValidCustomerEmail(buyerEmail)) {
-      console.warn(`[Resend Email] ⚠️ No valid customer email found for order ${cleanOrderId}. Buyer ID: ${order.user_id}`);
-      
-      // Record failed state in notes safely
-      parsedNotes.email_status = 'failed';
-      parsedNotes.email_error = 'No valid customer email address found';
-      await supabase.from('orders').update({ notes: JSON.stringify(parsedNotes) }).eq('id', cleanOrderId);
-
+    } catch (error: any) {
+      console.error(`[Resend Email] ❌ Unexpected exception sending confirmation email for order ${cleanOrderId}:`, error);
       return {
         success: false,
-        error: 'No valid customer email address found for this order'
+        error: error.message || 'Unexpected exception'
       };
     }
+  })();
 
-    // 5. Fetch order items
-    const { data: rawItems, error: itemsErr } = await supabase
-      .from('order_items')
-      .select('*')
-      .eq('order_id', cleanOrderId);
+  inFlightDispatches.set(lockKey, task);
+  try {
+    return await task;
+  } finally {
+    inFlightDispatches.delete(lockKey);
+  }
+}
 
-    if (itemsErr) {
-      console.warn(`[Resend Email] Notice fetching order items for ${cleanOrderId}:`, itemsErr);
-    }
+/**
+ * 2. PAYMENT SUCCESSFUL TEMPLATE EMAIL
+ * Dispatches only if RESEND_PAYMENT_SUCCESS_TEMPLATE_ID is configured (or discovered in Resend)
+ * and distinct from RESEND_ORDER_CONFIRMATION_TEMPLATE_ID, and strictly after payment is verified.
+ */
+export async function sendPaymentSuccessEmailForOrder(
+  orderId: string,
+  options: { forceResend?: boolean } = {}
+): Promise<SendOrderEmailResult> {
+  const cleanOrderId = (orderId || '').trim();
+  if (!cleanOrderId) return { success: false, error: 'Missing orderId' };
 
-    const items: OrderEmailItem[] = (rawItems || []).map((i: any) => {
-      const quantity = Number(i.quantity) || 1;
-      const unitPrice = Number(i.unit_price) || 0;
-      const lineTotal = Number(i.subtotal || i.total_price) || (quantity * unitPrice);
-      return {
-        name: i.product_name || 'Grocery Item',
-        quantity,
-        unitPrice,
-        lineTotal,
-        image: i.product_image || undefined
-      };
-    });
+  const templateId = await resolveResendTemplateId('payment_success');
+  const orderConfirmTemplateId = await resolveResendTemplateId('order_confirmation');
 
-    // 6. Gather shipping and metadata
-    let deliveryAddress = 'Nairobi, Kenya';
-    let deliveryMethod = 'standard';
-    let deliveryFee = Number(order.delivery_fee) || 0;
-
-    if (parsedNotes.shippingDetails) {
-      deliveryAddress = parsedNotes.shippingDetails.fullAddress || 
-                        parsedNotes.shippingDetails.location || 
-                        deliveryAddress;
-    }
-    if (parsedNotes.deliveryMethod) {
-      deliveryMethod = parsedNotes.deliveryMethod;
-    }
-
-    const appUrl = (process.env.APP_URL || process.env.VITE_APP_URL || 'https://odamarket.co.ke').replace(/\/$/, '');
-    const trackingUrl = `${appUrl}/track-order?id=${cleanOrderId}`;
-    const orderNumber = order.order_number || parsedNotes.orderNumber || `ODA-${cleanOrderId.substring(0, 8).toUpperCase()}`;
-    const orderDate = new Date(order.created_at || Date.now()).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
-
-    const emailData: OrderEmailData = {
-      customerName,
-      customerEmail: buyerEmail,
-      customerPhone,
-      orderNumber,
-      orderId: cleanOrderId,
-      orderDate,
-      items,
-      subtotal: Number(order.subtotal) || Number(order.total) - deliveryFee,
-      deliveryFee,
-      discountAmount: Number(order.discount_amount) || 0,
-      total: Number(order.total) || 0,
-      deliveryMethod,
-      deliveryAddress,
-      paymentMethod: parsedNotes.paymentMethod || 'M-Pesa (Paystack)',
-      paymentStatus: 'PAID',
-      paymentReference: order.payment_reference || parsedNotes.paymentReference,
-      orderStatus: order.status || 'processing',
-      storeName: 'ODA Market Verified Fulfillment',
-      trackingUrl
-    };
-
-    // 7. Verify Resend Configuration
-    const resend = getResendClient();
-    if (!resend) {
-      console.warn('[Resend Email] ⚠️ RESEND_API_KEY is not configured in environment. Skipping email dispatch.');
-      
-      parsedNotes.email_status = 'pending_configuration';
-      parsedNotes.email_error = 'RESEND_API_KEY missing on server';
-      await supabase.from('orders').update({ notes: JSON.stringify(parsedNotes) }).eq('id', cleanOrderId);
-
-      return {
-        success: false,
-        error: 'RESEND_API_KEY is not configured on server'
-      };
-    }
-
-    const fromSender = (process.env.RESEND_FROM_EMAIL || '').trim().replace(/^["']|["']$/g, '') || 'ODA Market <orders@odamarket.co.ke>';
-    const html = buildOrderConfirmationEmailHtml(emailData);
-
-    console.log(`[Resend Email] 📤 Dispatching order confirmation email to ${buyerEmail} for ${orderNumber}...`);
-
-    // 8. Dispatch Email via Resend
-    const resendResponse = await resend.emails.send({
-      from: fromSender,
-      to: [buyerEmail],
-      replyTo: 'info@odamarket.co.ke',
-      subject: `Order Confirmed: ${orderNumber} - ODA Market`,
-      html
-    });
-
-    if (resendResponse.error) {
-      console.error(`[Resend Email] ❌ Resend API returned error for order ${cleanOrderId}:`, resendResponse.error);
-      
-      // Decoupled: Record failure in order notes safely without impacting order/payment status
-      parsedNotes.email_status = 'failed';
-      parsedNotes.email_error = resendResponse.error.message || JSON.stringify(resendResponse.error);
-      parsedNotes.email_attempted_at = new Date().toISOString();
-      await supabase.from('orders').update({ notes: JSON.stringify(parsedNotes) }).eq('id', cleanOrderId);
-
-      return {
-        success: false,
-        error: resendResponse.error.message || 'Resend error'
-      };
-    }
-
-    const resendId = resendResponse.data?.id || 'resend_' + Date.now();
-    const sentAtIso = new Date().toISOString();
-    console.log(`[Resend Email] ✅ Successfully sent order confirmation to ${buyerEmail}! (Resend ID: ${resendId})`);
-
-    // 9. Record Success Idempotently in Database
-    parsedNotes.confirmation_email_sent_at = sentAtIso;
-    parsedNotes.email_status = 'sent';
-    parsedNotes.email_resend_id = resendId;
-    parsedNotes.email_recipient = buyerEmail;
-
-    // Try updating dedicated columns if available in database
-    const { error: colUpdateError } = await supabase
-      .from('orders')
-      .update({
-        confirmation_email_sent_at: sentAtIso,
-        confirmation_email_status: 'sent',
-        confirmation_email_id: resendId,
-        notes: JSON.stringify(parsedNotes)
-      })
-      .eq('id', cleanOrderId);
-
-    // If dedicated columns don't exist yet, fallback to updating notes
-    if (colUpdateError) {
-      await supabase
-        .from('orders')
-        .update({ notes: JSON.stringify(parsedNotes) })
-        .eq('id', cleanOrderId);
-    }
-
+  if (!templateId || (orderConfirmTemplateId && templateId === orderConfirmTemplateId)) {
     return {
       success: true,
-      orderId: cleanOrderId,
-      resendId,
-      sentAt: sentAtIso,
-      recipient: buyerEmail
-    };
-
-  } catch (error: any) {
-    console.error(`[Resend Email] ❌ Unexpected exception sending confirmation email for order ${cleanOrderId}:`, error);
-    
-    // Decoupled: Ensure failure does NOT alter or reverse payment
-    return {
-      success: false,
-      error: error.message || 'Unexpected exception'
+      skipped: true,
+      reason: 'RESEND_PAYMENT_SUCCESS_TEMPLATE_ID not separately configured'
     };
   }
+
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return { success: false, error: 'Database configuration unavailable' };
+
+  const ctx = await loadOrderEmailContext(supabase, cleanOrderId);
+  if (ctx.error || !ctx.order || !ctx.emailData) {
+    return { success: false, error: ctx.error || 'Order not found' };
+  }
+
+  const { order, emailData } = ctx;
+  const isPaid =
+    order.payment_status === 'success' ||
+    ['processing', 'paid', 'confirmed', 'ready_for_pickup', 'out_for_delivery', 'shipped', 'delivered'].includes(order.status);
+
+  if (!isPaid || order.payment_status === 'failed' || order.payment_status === 'abandoned') {
+    return {
+      success: false,
+      skipped: true,
+      reason: `Order ${cleanOrderId} is not paid`
+    };
+  }
+
+  const idemp = await checkEmailEventAlreadySent(supabase, order, 'payment_success', emailData.customerEmail);
+  if (idemp.alreadySent && !options.forceResend) {
+    return {
+      success: true,
+      skipped: true,
+      alreadySent: true,
+      orderId: cleanOrderId,
+      sentAt: idemp.sentAt,
+      resendId: idemp.resendId
+    };
+  }
+
+  if (!isValidCustomerEmail(emailData.customerEmail)) {
+    return { success: false, error: 'Invalid customer email' };
+  }
+
+  const { stringVariables, numericVariables } = buildOrderTemplateVariables(emailData);
+  const res = await dispatchResendTemplateEmail({
+    templateIdOrAlias: templateId,
+    to: emailData.customerEmail,
+    defaultSubject: `Payment Received: ${emailData.orderNumber} - ODA Market`,
+    stringVariables,
+    numericVariables,
+    idempotencyKey: options.forceResend
+      ? `oda-payment-success-${cleanOrderId}-${Date.now()}`
+      : `oda-payment-success-${cleanOrderId}`
+  });
+
+  await recordOrderEmailEvent({
+    supabase,
+    order,
+    eventType: 'payment_success',
+    recipientEmail: emailData.customerEmail,
+    status: res.success ? 'sent' : 'failed',
+    resendId: res.resendId,
+    templateId: res.templateId || templateId,
+    errorMessage: res.error
+  });
+
+  return {
+    success: res.success,
+    orderId: cleanOrderId,
+    resendId: res.resendId,
+    templateId: res.templateId || templateId,
+    recipient: emailData.customerEmail,
+    error: res.error
+  };
+}
+
+/**
+ * 3. PAYMENT FAILED TEMPLATE EMAIL
+ * Dispatches when a Paystack transaction explicitly fails (never marks order paid).
+ */
+export async function sendPaymentFailedEmailForOrder(
+  orderId: string,
+  paymentReference?: string,
+  options: { forceResend?: boolean } = {}
+): Promise<SendOrderEmailResult> {
+  const cleanOrderId = (orderId || '').trim();
+  if (!cleanOrderId) return { success: false, error: 'Missing orderId' };
+
+  const templateId = await resolveResendTemplateId('payment_failed');
+  if (!templateId) {
+    return {
+      success: true,
+      skipped: true,
+      reason: 'RESEND_PAYMENT_FAILED_TEMPLATE_ID not configured'
+    };
+  }
+
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return { success: false, error: 'Database configuration unavailable' };
+
+  const ctx = await loadOrderEmailContext(supabase, cleanOrderId);
+  if (ctx.error || !ctx.order || !ctx.emailData) {
+    return { success: false, error: ctx.error || 'Order not found' };
+  }
+
+  const { order, emailData } = ctx;
+  // Never send a payment failed email for an order that has already succeeded
+  if (order.payment_status === 'success' || ['processing', 'paid', 'shipped', 'delivered'].includes(order.status)) {
+    return {
+      success: false,
+      skipped: true,
+      reason: 'Order payment already succeeded'
+    };
+  }
+
+  const idemp = await checkEmailEventAlreadySent(supabase, order, 'payment_failed', emailData.customerEmail);
+  if (idemp.alreadySent && !options.forceResend) {
+    return {
+      success: true,
+      skipped: true,
+      alreadySent: true,
+      orderId: cleanOrderId,
+      sentAt: idemp.sentAt,
+      resendId: idemp.resendId
+    };
+  }
+
+  if (!isValidCustomerEmail(emailData.customerEmail)) {
+    return { success: false, error: 'Invalid customer email' };
+  }
+
+  emailData.paymentStatus = 'FAILED';
+  emailData.orderStatus = 'payment_failed';
+  if (paymentReference) {
+    emailData.paymentReference = paymentReference;
+  }
+
+  const { stringVariables, numericVariables } = buildOrderTemplateVariables(emailData);
+  const res = await dispatchResendTemplateEmail({
+    templateIdOrAlias: templateId,
+    to: emailData.customerEmail,
+    defaultSubject: `Payment Unsuccessful for Order ${emailData.orderNumber} - ODA Market`,
+    stringVariables,
+    numericVariables,
+    idempotencyKey: options.forceResend
+      ? `oda-payment-failed-${cleanOrderId}-${Date.now()}`
+      : `oda-payment-failed-${cleanOrderId}`
+  });
+
+  await recordOrderEmailEvent({
+    supabase,
+    order,
+    eventType: 'payment_failed',
+    recipientEmail: emailData.customerEmail,
+    status: res.success ? 'sent' : 'failed',
+    resendId: res.resendId,
+    templateId: res.templateId || templateId,
+    errorMessage: res.error
+  });
+
+  return {
+    success: res.success,
+    orderId: cleanOrderId,
+    resendId: res.resendId,
+    templateId: res.templateId || templateId,
+    recipient: emailData.customerEmail,
+    error: res.error
+  };
+}
+
+/**
+ * 4 & 5. ORDER READY & ORDER CANCELLED TEMPLATE EMAILS
+ * Verified against actual database order status before sending.
+ */
+export async function sendOrderStatusEmailForOrder(
+  orderId: string,
+  eventType: 'order_ready' | 'order_cancelled',
+  options: { forceResend?: boolean } = {}
+): Promise<SendOrderEmailResult> {
+  const cleanOrderId = (orderId || '').trim();
+  if (!cleanOrderId) return { success: false, error: 'Missing orderId' };
+
+  const templateId = await resolveResendTemplateId(eventType);
+  if (!templateId) {
+    console.log(`[Resend Email] ℹ️ Skipped ${eventType} email for order ${cleanOrderId}: ${RESEND_TEMPLATE_ENV_KEYS[eventType]} not configured.`);
+    return {
+      success: true,
+      skipped: true,
+      reason: `${RESEND_TEMPLATE_ENV_KEYS[eventType]} not configured`
+    };
+  }
+
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return { success: false, error: 'Database configuration unavailable' };
+
+  const ctx = await loadOrderEmailContext(supabase, cleanOrderId);
+  if (ctx.error || !ctx.order || !ctx.emailData) {
+    return { success: false, error: ctx.error || 'Order not found' };
+  }
+
+  const { order, emailData } = ctx;
+  const normStatus = (order.status || '').toLowerCase().trim();
+
+  if (eventType === 'order_ready') {
+    const readyStatuses = ['ready_for_pickup', 'packed', 'ready', 'out_for_delivery', 'shipped'];
+    if (!readyStatuses.includes(normStatus)) {
+      return {
+        success: false,
+        skipped: true,
+        reason: `Order status in DB (${normStatus}) does not match order_ready`
+      };
+    }
+  } else if (eventType === 'order_cancelled') {
+    if (normStatus !== 'cancelled' && normStatus !== 'refunded') {
+      return {
+        success: false,
+        skipped: true,
+        reason: `Order status in DB (${normStatus}) is not cancelled`
+      };
+    }
+  }
+
+  const idemp = await checkEmailEventAlreadySent(supabase, order, eventType, emailData.customerEmail);
+  if (idemp.alreadySent && !options.forceResend) {
+    return {
+      success: true,
+      skipped: true,
+      alreadySent: true,
+      orderId: cleanOrderId,
+      sentAt: idemp.sentAt,
+      resendId: idemp.resendId
+    };
+  }
+
+  if (!isValidCustomerEmail(emailData.customerEmail)) {
+    return { success: false, error: 'Invalid customer email' };
+  }
+
+  const { stringVariables, numericVariables } = buildOrderTemplateVariables(emailData);
+  const defaultSubject =
+    eventType === 'order_ready'
+      ? `Your Order ${emailData.orderNumber} is Ready - ODA Market`
+      : `Order Cancelled: ${emailData.orderNumber} - ODA Market`;
+
+  const res = await dispatchResendTemplateEmail({
+    templateIdOrAlias: templateId,
+    to: emailData.customerEmail,
+    defaultSubject,
+    stringVariables,
+    numericVariables,
+    idempotencyKey: options.forceResend
+      ? `oda-${eventType}-${cleanOrderId}-${Date.now()}`
+      : `oda-${eventType}-${cleanOrderId}`
+  });
+
+  await recordOrderEmailEvent({
+    supabase,
+    order,
+    eventType,
+    recipientEmail: emailData.customerEmail,
+    status: res.success ? 'sent' : 'failed',
+    resendId: res.resendId,
+    templateId: res.templateId || templateId,
+    errorMessage: res.error
+  });
+
+  return {
+    success: res.success,
+    orderId: cleanOrderId,
+    resendId: res.resendId,
+    templateId: res.templateId || templateId,
+    recipient: emailData.customerEmail,
+    error: res.error
+  };
+}
+
+/**
+ * 6. SELLER NEW ORDER TEMPLATE EMAIL
+ * Resolves seller(s) for the ordered products and sends the Seller New Order Resend template idempotently.
+ */
+export async function sendSellerNewOrderEmailForOrder(
+  orderId: string,
+  options: { forceResend?: boolean } = {}
+): Promise<SendOrderEmailResult> {
+  const cleanOrderId = (orderId || '').trim();
+  if (!cleanOrderId) return { success: false, error: 'Missing orderId' };
+
+  const templateId = await resolveResendTemplateId('seller_new_order');
+  if (!templateId) {
+    return {
+      success: true,
+      skipped: true,
+      reason: 'RESEND_SELLER_NEW_ORDER_TEMPLATE_ID not configured'
+    };
+  }
+
+  const supabase = getSupabaseAdmin();
+  if (!supabase) return { success: false, error: 'Database configuration unavailable' };
+
+  const ctx = await loadOrderEmailContext(supabase, cleanOrderId);
+  if (ctx.error || !ctx.order || !ctx.emailData) {
+    return { success: false, error: ctx.error || 'Order not found' };
+  }
+
+  const { order, emailData, rawItems } = ctx;
+  const isPaid =
+    order.payment_status === 'success' ||
+    ['processing', 'paid', 'confirmed', 'ready_for_pickup', 'out_for_delivery', 'shipped', 'delivered'].includes(order.status);
+
+  if (!isPaid) {
+    return {
+      success: false,
+      skipped: true,
+      reason: 'Order is not paid'
+    };
+  }
+
+  // Look up supplier_id from products for the ordered items
+  const productIds = (rawItems || []).map((i: any) => i.product_id).filter(Boolean);
+  const sellerMap = new Map<string, { sellerName: string; sellerEmail: string; items: OrderEmailItem[] }>();
+
+  if (productIds.length > 0) {
+    const { data: products } = await supabase
+      .from('products')
+      .select('id, name, supplier_id')
+      .in('id', productIds);
+
+    const supplierIds = [...new Set((products || []).map((p: any) => p.supplier_id).filter(Boolean))];
+    const profilesById = new Map<string, any>();
+
+    if (supplierIds.length > 0) {
+      const { data: sellerProfiles } = await supabase
+        .from('profiles')
+        .select('id, email, first_name, last_name')
+        .in('id', supplierIds);
+
+      for (const sp of sellerProfiles || []) {
+        profilesById.set(sp.id, sp);
+      }
+    }
+
+    const productSupplierMap = new Map<string, string>();
+    for (const p of products || []) {
+      if (p.supplier_id) productSupplierMap.set(p.id, p.supplier_id);
+    }
+
+    for (const item of emailData.items) {
+      const supId = item.productId ? productSupplierMap.get(item.productId) : undefined;
+      const prof = supId ? profilesById.get(supId) : undefined;
+      if (prof && isValidCustomerEmail(prof.email)) {
+        const emailKey = prof.email.trim().toLowerCase();
+        const sellerName = `${prof.first_name || ''} ${prof.last_name || ''}`.trim() || 'ODA Market Seller';
+        if (!sellerMap.has(emailKey)) {
+          sellerMap.set(emailKey, { sellerName, sellerEmail: emailKey, items: [] });
+        }
+        sellerMap.get(emailKey)!.items.push(item);
+      }
+    }
+  }
+
+  // Fallback to configured seller/fulfillment email if products don't have distinct supplier_id profiles
+  const fallbackSellerEmail = (process.env.RESEND_SELLER_NOTIFICATION_EMAIL || '').trim().replace(/^["']|["']$/g, '');
+  if (sellerMap.size === 0 && isValidCustomerEmail(fallbackSellerEmail)) {
+    sellerMap.set(fallbackSellerEmail.toLowerCase(), {
+      sellerName: 'ODA Market Fulfillment Team',
+      sellerEmail: fallbackSellerEmail.toLowerCase(),
+      items: emailData.items
+    });
+  }
+
+  if (sellerMap.size === 0) {
+    return {
+      success: true,
+      skipped: true,
+      reason: 'No seller email associated with order items'
+    };
+  }
+
+  let lastResendId: string | undefined = undefined;
+  for (const [, seller] of sellerMap.entries()) {
+    const idemp = await checkEmailEventAlreadySent(supabase, order, 'seller_new_order', seller.sellerEmail);
+    if (idemp.alreadySent && !options.forceResend) {
+      continue;
+    }
+
+    const sellerOrderData: OrderEmailData = {
+      ...emailData,
+      items: seller.items.length > 0 ? seller.items : emailData.items,
+      storeName: seller.sellerName
+    };
+
+    const { stringVariables, numericVariables } = buildOrderTemplateVariables(sellerOrderData, {
+      sellerName: seller.sellerName,
+      sellerEmail: seller.sellerEmail
+    });
+
+    const res = await dispatchResendTemplateEmail({
+      templateIdOrAlias: templateId,
+      to: seller.sellerEmail,
+      defaultSubject: `New Paid Order ${emailData.orderNumber} - ODA Market`,
+      stringVariables,
+      numericVariables,
+      idempotencyKey: options.forceResend
+        ? `oda-seller-order-${cleanOrderId}-${seller.sellerEmail}-${Date.now()}`
+        : `oda-seller-order-${cleanOrderId}-${seller.sellerEmail}`
+    });
+
+    await recordOrderEmailEvent({
+      supabase,
+      order,
+      eventType: 'seller_new_order',
+      recipientEmail: seller.sellerEmail,
+      status: res.success ? 'sent' : 'failed',
+      resendId: res.resendId,
+      templateId: res.templateId || templateId,
+      errorMessage: res.error
+    });
+
+    if (res.resendId) lastResendId = res.resendId;
+  }
+
+  return {
+    success: true,
+    orderId: cleanOrderId,
+    resendId: lastResendId,
+    templateId
+  };
+}
+
+/**
+ * 7. EMAIL VERIFICATION TEMPLATE DISPATCH
+ * Uses the existing Resend verification template (RESEND_EMAIL_VERIFICATION_TEMPLATE_ID or
+ * auto-discovered `confirm-your-email-address-template` / `2d5aeedf-970b-4b39-98a6-f6770235d481`).
+ */
+export async function sendEmailVerificationEmail(params: {
+  email: string;
+  confirmationUrl: string;
+  firstName?: string;
+  lastName?: string;
+  userId?: string;
+  forceResend?: boolean;
+}): Promise<SendOrderEmailResult> {
+  const { email, confirmationUrl, firstName = '', lastName = '' } = params;
+  if (!isValidCustomerEmail(email)) {
+    return { success: false, error: 'Invalid recipient email address' };
+  }
+
+  const resend = getResendClient();
+  if (!resend) {
+    return { success: false, error: 'RESEND_API_KEY is not configured on server' };
+  }
+
+  const appUrl = (process.env.APP_URL || process.env.VITE_APP_URL || 'https://odamarket.co.ke').replace(/\/$/, '');
+  const fullName = `${firstName} ${lastName}`.trim() || 'Valued Customer';
+
+  const stringVariables: Record<string, string> = {
+    ConfirmationURL: confirmationUrl,
+    confirmation_url: confirmationUrl,
+    confirmationUrl: confirmationUrl,
+    verification_url: confirmationUrl,
+    verificationUrl: confirmationUrl,
+    action_url: confirmationUrl,
+    actionUrl: confirmationUrl,
+    customer_name: fullName,
+    customerName: fullName,
+    first_name: firstName.trim() || 'Valued Customer',
+    firstName: firstName.trim() || 'Valued Customer',
+    last_name: lastName.trim(),
+    lastName: lastName.trim(),
+    customer_email: email.trim(),
+    email: email.trim(),
+    app_url: appUrl,
+    login_url: `${appUrl}/login`,
+    support_email: 'info@odamarket.co.ke',
+    support_phone: '0792867386'
+  };
+
+  const templateId = await resolveResendTemplateId('email_verification');
+  if (templateId) {
+    console.log(`[Resend Email] 📤 Dispatching Email Verification via Resend Template (${templateId}) to ${email}...`);
+    const tplRes = await dispatchResendTemplateEmail({
+      templateIdOrAlias: templateId,
+      to: email.trim(),
+      defaultSubject: 'Confirm your email address',
+      defaultFrom: '"odamarket" <team@odamarket.co.ke>',
+      stringVariables
+    });
+
+    if (tplRes.success) {
+      console.log(`[Resend Email] ✅ Sent Email Verification template (${tplRes.templateId}) to ${email} (ID: ${tplRes.resendId})`);
+      return {
+        success: true,
+        resendId: tplRes.resendId,
+        templateId: tplRes.templateId,
+        recipient: email.trim(),
+        sentAt: new Date().toISOString()
+      };
+    }
+    console.warn(`[Resend Email] Template dispatch notice for ${email}: ${tplRes.error}. Using local template fallback.`);
+  }
+
+  // Fallback to email-templates/email-confirmation.html on disk if template API unavailable
+  let fallbackHtml = '';
+  try {
+    const templatePath = path.join(process.cwd(), 'email-templates', 'email-confirmation.html');
+    if (fs.existsSync(templatePath)) {
+      fallbackHtml = fs.readFileSync(templatePath, 'utf8').replace(/\{\{\s*\.ConfirmationURL\s*\}\}/g, confirmationUrl);
+    }
+  } catch {
+    // ignore
+  }
+
+  if (!fallbackHtml) {
+    fallbackHtml = `<p>Welcome to ODA Market! Please confirm your email address: <a href="${confirmationUrl}">${confirmationUrl}</a></p>`;
+  }
+
+  const fromSender = resolveValidFromEmail(
+    process.env.RESEND_FROM_EMAIL,
+    '"odamarket" <team@odamarket.co.ke>'
+  );
+
+  const sendRes = await resend.emails.send({
+    from: fromSender,
+    to: [email.trim()],
+    subject: 'Confirm your email address',
+    html: fallbackHtml
+  });
+
+  if (sendRes.error) {
+    return { success: false, error: sendRes.error.message };
+  }
+
+  return {
+    success: true,
+    resendId: sendRes.data?.id,
+    recipient: email.trim(),
+    sentAt: new Date().toISOString()
+  };
+}
+
+/**
+ * 8. WELCOME TEMPLATE EMAIL
+ * Dispatches when RESEND_WELCOME_TEMPLATE_ID is configured (or discovered in Resend).
+ */
+const sentWelcomeEmailsCache = new Set<string>();
+
+export async function sendWelcomeEmail(params: {
+  email: string;
+  firstName?: string;
+  lastName?: string;
+  userId?: string;
+  forceResend?: boolean;
+}): Promise<SendOrderEmailResult> {
+  const { email, firstName = '', lastName = '', userId, forceResend = false } = params;
+  if (!isValidCustomerEmail(email)) {
+    return { success: false, error: 'Invalid email address' };
+  }
+
+  const templateId = await resolveResendTemplateId('welcome');
+  if (!templateId) {
+    return {
+      success: true,
+      skipped: true,
+      reason: 'RESEND_WELCOME_TEMPLATE_ID not configured'
+    };
+  }
+
+  const normEmail = email.trim().toLowerCase();
+  const cacheKey = `welcome:${userId || normEmail}`;
+  if (!forceResend && sentWelcomeEmailsCache.has(cacheKey)) {
+    return {
+      success: true,
+      skipped: true,
+      alreadySent: true,
+      recipient: normEmail
+    };
+  }
+
+  const appUrl = (process.env.APP_URL || process.env.VITE_APP_URL || 'https://odamarket.co.ke').replace(/\/$/, '');
+  const fullName = `${firstName} ${lastName}`.trim() || 'Valued Customer';
+
+  const stringVariables: Record<string, string> = {
+    customer_name: fullName,
+    customerName: fullName,
+    first_name: firstName.trim() || 'Valued Customer',
+    firstName: firstName.trim() || 'Valued Customer',
+    last_name: lastName.trim(),
+    lastName: lastName.trim(),
+    customer_email: normEmail,
+    email: normEmail,
+    app_url: appUrl,
+    login_url: `${appUrl}/login`,
+    shop_url: `${appUrl}/products`,
+    support_email: 'info@odamarket.co.ke',
+    support_phone: '0792867386'
+  };
+
+  const res = await dispatchResendTemplateEmail({
+    templateIdOrAlias: templateId,
+    to: normEmail,
+    defaultSubject: 'Welcome to ODA Market!',
+    stringVariables,
+    idempotencyKey: forceResend ? `oda-welcome-${normEmail}-${Date.now()}` : `oda-welcome-${userId || normEmail}`
+  });
+
+  if (res.success) {
+    sentWelcomeEmailsCache.add(cacheKey);
+  }
+
+  return {
+    success: res.success,
+    resendId: res.resendId,
+    templateId: res.templateId || templateId,
+    recipient: normEmail,
+    error: res.error
+  };
 }
 
 /**
@@ -723,40 +2272,57 @@ export async function sendOrderConfirmationEmail(orderInfo: any) {
   if (orderInfo?.orderId) {
     return sendOrderConfirmationEmailForOrder(orderInfo.orderId);
   }
-  // If raw order info passed without orderId
   const resend = getResendClient();
   if (!resend) return { success: false, error: 'RESEND_API_KEY not configured' };
 
   try {
-    const fromSender = (process.env.RESEND_FROM_EMAIL || '').trim().replace(/^["']|["']$/g, '') || 'ODA Market <orders@odamarket.co.ke>';
+    const emailData: OrderEmailData = {
+      customerName: orderInfo.customerName || 'Customer',
+      customerEmail: orderInfo.customerEmail,
+      orderNumber: orderInfo.orderNumber || 'ODA-ORDER',
+      orderId: orderInfo.orderId || 'order',
+      orderDate: orderInfo.orderDate || new Date().toLocaleDateString(),
+      items: (orderInfo.items || []).map((i: any) => ({
+        name: i.name,
+        quantity: i.quantity,
+        unitPrice: i.price,
+        lineTotal: i.price * i.quantity
+      })),
+      subtotal: orderInfo.subtotal || 0,
+      deliveryFee: orderInfo.deliveryFee || 0,
+      total: orderInfo.total || 0,
+      deliveryMethod: orderInfo.deliveryMethod || 'standard',
+      deliveryAddress: orderInfo.deliveryAddress || 'Nairobi, Kenya',
+      paymentMethod: orderInfo.paymentMethod || 'Paystack',
+      paymentStatus: 'PAID',
+      paymentReference: orderInfo.transactionReference,
+      orderStatus: 'processing',
+      trackingUrl: orderInfo.trackingUrl || `https://odamarket.co.ke/track-order`
+    };
+
+    const templateId = await resolveResendTemplateId('order_confirmation');
+    if (templateId) {
+      const { stringVariables, numericVariables } = buildOrderTemplateVariables(emailData);
+      const tplRes = await dispatchResendTemplateEmail({
+        templateIdOrAlias: templateId,
+        to: orderInfo.customerEmail,
+        defaultSubject: `Order Confirmed: ${emailData.orderNumber} - ODA Market`,
+        stringVariables,
+        numericVariables
+      });
+      return { success: tplRes.success, data: { id: tplRes.resendId }, error: tplRes.error };
+    }
+
+    const fromSender = resolveValidFromEmail(
+      process.env.RESEND_FROM_EMAIL,
+      'ODA Market <orders@odamarket.co.ke>'
+    );
     const response = await resend.emails.send({
       from: fromSender,
       to: [orderInfo.customerEmail],
       replyTo: 'info@odamarket.co.ke',
-      subject: `Order Confirmed: ${orderInfo.orderNumber} - ODA Market`,
-      html: buildOrderConfirmationEmailHtml({
-        customerName: orderInfo.customerName || 'Customer',
-        customerEmail: orderInfo.customerEmail,
-        orderNumber: orderInfo.orderNumber || 'ODA-ORDER',
-        orderId: orderInfo.orderId || 'order',
-        orderDate: orderInfo.orderDate || new Date().toLocaleDateString(),
-        items: (orderInfo.items || []).map((i: any) => ({
-          name: i.name,
-          quantity: i.quantity,
-          unitPrice: i.price,
-          lineTotal: i.price * i.quantity
-        })),
-        subtotal: orderInfo.subtotal || 0,
-        deliveryFee: orderInfo.deliveryFee || 0,
-        total: orderInfo.total || 0,
-        deliveryMethod: orderInfo.deliveryMethod || 'standard',
-        deliveryAddress: orderInfo.deliveryAddress || 'Nairobi, Kenya',
-        paymentMethod: orderInfo.paymentMethod || 'Paystack',
-        paymentStatus: 'PAID',
-        paymentReference: orderInfo.transactionReference,
-        orderStatus: 'processing',
-        trackingUrl: orderInfo.trackingUrl || `https://odamarket.co.ke/track-order`
-      })
+      subject: `Order Confirmed: ${emailData.orderNumber} - ODA Market`,
+      html: buildOrderConfirmationEmailHtml(emailData)
     });
     return { success: true, data: response };
   } catch (err: any) {

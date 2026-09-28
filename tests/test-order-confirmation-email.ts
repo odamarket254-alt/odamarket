@@ -1,4 +1,11 @@
-import { buildOrderConfirmationEmailHtml, formatCurrency, sendOrderConfirmationEmailForOrder } from '../emailService.js';
+import {
+  buildOrderConfirmationEmailHtml,
+  buildOrderTemplateVariables,
+  interpolateTemplateString,
+  resolveResendTemplateId,
+  formatCurrency,
+  sendOrderConfirmationEmailForOrder
+} from '../emailService.js';
 import { handlePaystackWebhook } from '../routes/paystackWebhook.js';
 import crypto from 'crypto';
 
@@ -69,6 +76,34 @@ async function runTests() {
 
   // TEST 15: Security check: RESEND_API_KEY does not start with VITE_ or public prefix
   assert(!process.env.VITE_RESEND_API_KEY, 'TEST 15: RESEND_API_KEY is server-side only and never prefixed with VITE_');
+
+  // TEST 16: Resend Template Variable Mapping
+  const { stringVariables, numericVariables } = buildOrderTemplateVariables(testData, {
+    sellerName: 'Nairobi Farm Fresh',
+    sellerEmail: 'seller@odamarket.co.ke'
+  });
+  assert(stringVariables.customer_name === 'Jane Wanjiku', 'TEST 16: Resend template maps customer_name accurately');
+  assert(stringVariables.order_id === 'ODA-TEST1001', 'TEST 17: Resend template maps order_id accurately');
+  assert(stringVariables.order_total === 'KSh 1,150' && numericVariables.order_total === 1150, 'TEST 18: Resend template maps order_total string & number');
+  assert(stringVariables.payment_reference === 'ord_test_ref_998877', 'TEST 19: Resend template maps payment_reference accurately');
+  assert(stringVariables.order_status === 'processing', 'TEST 20: Resend template maps order_status accurately');
+  assert(stringVariables.seller_name === 'Nairobi Farm Fresh', 'TEST 21: Resend template maps seller_name accurately');
+  assert(stringVariables.items.includes('Fresh Sukuma Wiki (Bunch)'), 'TEST 22: Resend template maps ordered items summary');
+
+  // TEST 23: Placeholder substitution supports {{{VAR}}}, {{var}}, and {{ .ConfirmationURL }}
+  const sampleTpl = 'Hello {{{customer_name}}}, order {{order_id}} total {{ order_total }}. Confirm: {{ .ConfirmationURL }}';
+  const renderedTpl = interpolateTemplateString(sampleTpl, {
+    ...stringVariables,
+    ConfirmationURL: 'https://odamarket.co.ke/verify?token=abc'
+  });
+  assert(
+    renderedTpl === 'Hello Jane Wanjiku, order ODA-TEST1001 total KSh 1,150. Confirm: https://odamarket.co.ke/verify?token=abc',
+    'TEST 23: interpolateTemplateString replaces {{{var}}}, {{var}}, and {{ .ConfirmationURL }}'
+  );
+
+  // TEST 24: Auto-discovery or env resolution for existing Resend Email Verification template
+  const resolvedVerifyTpl = await resolveResendTemplateId('email_verification');
+  assert(Boolean(resolvedVerifyTpl), `TEST 24: Resolved existing Resend email_verification template (${resolvedVerifyTpl})`);
 
   console.log(`\nTEST SUMMARY: ${passed} passed, ${failed} failed.`);
   if (failed > 0) process.exit(1);

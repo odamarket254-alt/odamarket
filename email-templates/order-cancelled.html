@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Order Cancelled - {{{order_id}}} | ODA Market</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #FAF5EC; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;">
+  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #FAF5EC; padding: 32px 12px;">
+    <tr>
+      <td align="center">
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 580px; background-color: #FFFFFF; border-radius: 16px; overflow: hidden; border: 1px solid #E8DCC9;">
+          <tr>
+            <td style="height: 6px; background: #6B7280;"></td>
+          </tr>
+          <tr>
+            <td align="center" style="padding: 32px 24px 16px 24px;">
+              <h1 style="margin: 0; color: #D96A27; font-size: 28px; font-weight: 800;">ODA MARKET</h1>
+              <p style="margin: 5px 0 0 0; color: #8B857D; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;">Order Status Update</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 0 32px 24px 32px;">
+              <div style="background-color: #F9FAFB; border: 1px solid #E5E7EB; border-radius: 12px; padding: 20px; text-align: center;">
+                <h2 style="margin: 0 0 6px 0; color: #1F2937; font-size: 21px; font-weight: 800;">Order {{{order_id}}} Cancelled</h2>
+                <p style="margin: 0; color: #4B5563; font-size: 14px;">Status: {{{order_status}}}</p>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 0 32px 24px 32px;">
+              <p style="margin: 0 0 12px 0; color: #3A2418; font-size: 15px;">Hello <strong>{{{customer_name}}}</strong>,</p>
+              <p style="margin: 0 0 16px 0; color: #5F5A54; font-size: 14px; line-height: 1.6;">
+                Your order <strong>{{{order_id}}}</strong> (Total: <strong>{{{order_total}}}</strong>) has been marked as <strong>{{{order_status}}}</strong>.
+              </p>
+              <p style="margin: 0; color: #5F5A54; font-size: 14px; line-height: 1.6;">
+                If you paid for this order and are due a refund, or if you have any questions regarding this cancellation, please reply to this email or contact our support team at <strong>0792867386</strong>.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding: 0 32px 32px 32px;">
+              <a href="{{{tracking_url}}}" target="_blank" style="display: inline-block; padding: 14px 34px; font-size: 15px; font-weight: 700; color: #FFFFFF; text-decoration: none; border-radius: 12px; background-color: #D96A27;">
+                View Order History &rarr;
+              </a>
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color: #FAF5EC; padding: 20px 30px; text-align: center; border-top: 1px solid #E8DCC9;">
+              <p style="margin: 0; color: #8B857D; font-size: 12px;">&copy; 2026 ODA Market &bull; info@odamarket.co.ke &bull; 0792867386</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

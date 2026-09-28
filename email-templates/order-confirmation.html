@@ -1,0 +1,119 @@
+OCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Order Confirmed - {{{order_id}}} | ODA Market</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #FAF5EC; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #FAF5EC; padding: 32px 12px;">
+    <tr>
+      <td align="center">
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #FFFFFF; border-radius: 16px; overflow: hidden; border: 1px solid #E8DCC9; box-shadow: 0 10px 30px rgba(58, 36, 24, 0.08);">
+          <tr>
+            <td style="height: 6px; background: linear-gradient(90deg, #D96A27 0%, #F49C64 100%);"></td>
+          </tr>
+          <tr>
+            <td align="center" style="padding: 32px 24px 20px 24px; text-align: center;">
+              <h1 style="margin: 0; color: #D96A27; font-size: 28px; font-weight: 800; letter-spacing: -0.5px;">ODA MARKET</h1>
+              <p style="margin: 5px 0 0 0; color: #8B857D; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;">Fresh Groceries Delivered</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 0 32px 24px 32px;">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 12px; padding: 20px; text-align: center;">
+                <tr>
+                  <td align="center">
+                    <div style="display: inline-block; width: 44px; height: 44px; line-height: 44px; background-color: #16A34A; color: #FFFFFF; border-radius: 50%; font-size: 22px; font-weight: bold; margin-bottom: 8px;">&#10003;</div>
+                    <h2 style="margin: 4px 0 6px 0; color: #166534; font-size: 22px; font-weight: 800;">Order Confirmed</h2>
+                    <p style="margin: 0; color: #15803D; font-size: 14px; font-weight: 500;">Payment Received via {{{payment_method}}}</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 0 32px 20px 32px;">
+              <p style="margin: 0 0 12px 0; color: #3A2418; font-size: 16px; font-weight: 600;">Hello {{{customer_name}}},</p>
+              <p style="margin: 0; color: #5F5A54; font-size: 15px; line-height: 1.6;">
+                Thank you for shopping with <strong>ODA Market</strong>! Your payment has been verified and your order <strong>{{{order_id}}}</strong> is now being prepared by our fulfillment team.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 0 32px 24px 32px;">
+              <div style="background-color: #FFFDF8; border: 1px solid #E8DCC9; border-radius: 12px; padding: 18px 20px;">
+                <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                  <tr>
+                    <td style="padding: 5px 0; font-size: 13px; color: #8B857D;">Order ID:</td>
+                    <td align="right" style="padding: 5px 0; font-size: 13px; font-weight: 700; color: #D96A27; font-family: monospace;">{{{order_id}}}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 5px 0; font-size: 13px; color: #8B857D;">Order Date:</td>
+                    <td align="right" style="padding: 5px 0; font-size: 13px; font-weight: 600; color: #3A2418;">{{{order_date}}}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 5px 0; font-size: 13px; color: #8B857D;">Payment Reference:</td>
+                    <td align="right" style="padding: 5px 0; font-size: 12px; font-weight: 500; color: #5F5A54; font-family: monospace;">{{{payment_reference}}}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 5px 0; font-size: 13px; color: #8B857D;">Order Status:</td>
+                    <td align="right" style="padding: 5px 0; font-size: 13px; font-weight: 700; color: #16A34A; text-transform: uppercase;">{{{order_status}}}</td>
+                  </tr>
+                </table>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 0 32px 20px 32px;">
+              <h3 style="margin: 0 0 12px 0; font-size: 16px; font-weight: 700; color: #3A2418; border-bottom: 2px solid #E8DCC9; padding-bottom: 8px;">Ordered Items</h3>
+              <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                {{{items_html}}}
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 0 32px 24px 32px;">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #FAF5EC; border-radius: 12px; padding: 18px 20px; border: 1px solid #E8DCC9;">
+                <tr>
+                  <td style="padding: 5px 0; font-size: 14px; color: #5F5A54;">Subtotal:</td>
+                  <td align="right" style="padding: 5px 0; font-size: 14px; font-weight: 600; color: #3A2418;">{{{subtotal}}}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 5px 0; font-size: 14px; color: #5F5A54;">Delivery ({{{delivery_method}}}):</td>
+                  <td align="right" style="padding: 5px 0; font-size: 14px; font-weight: 600; color: #3A2418;">{{{delivery_fee}}}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 12px 0 0 0; font-size: 17px; font-weight: 800; color: #D96A27; border-top: 1px solid #E8DCC9;">Total Paid:</td>
+                  <td align="right" style="padding: 12px 0 0 0; font-size: 18px; font-weight: 800; color: #D96A27; border-top: 1px solid #E8DCC9;">{{{order_total}}}</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 0 32px 24px 32px;">
+              <div style="background-color: #FFFDF8; border: 1px solid #E8DCC9; border-radius: 12px; padding: 16px 20px;">
+                <p style="margin: 0 0 6px 0; font-size: 13px; color: #3A2418;"><strong>Delivery Address:</strong> {{{delivery_address}}}</p>
+                <p style="margin: 0; font-size: 13px; color: #5F5A54;"><strong>Customer Phone:</strong> {{{customer_phone}}}</p>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding: 0 32px 32px 32px;">
+              <a href="{{{tracking_url}}}" target="_blank" style="display: inline-block; padding: 16px 38px; font-size: 16px; font-weight: 700; color: #FFFFFF; text-decoration: none; border-radius: 12px; background-color: #D96A27;">
+                Track My Order &rarr;
+              </a>
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color: #FAF5EC; padding: 24px 30px; text-align: center; border-top: 1px solid #E8DCC9;">
+              <p style="margin: 0 0 6px 0; color: #3A2418; font-size: 12px; font-weight: 700;">&copy; 2026 ODA Market. All rights reserved.</p>
+              <p style="margin: 0; color: #8B857D; font-size: 12px;">Need help? Contact <a href="mailto:info@odamarket.co.ke" style="color: #D96A27; text-decoration: none;">info@odamarket.co.ke</a> or call 0792867386</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

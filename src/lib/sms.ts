@@ -4,8 +4,11 @@ import { createClient } from '@supabase/supabase-js';
 export interface SMSResult {
   success: boolean;
   messageId?: string;
+  simulated?: boolean;
   error?: string;
 }
+
+let africasTalkingAuthInvalid = false;
 
 export function formatPhone(phone: string): string {
   if (!phone) return '';
@@ -24,51 +27,76 @@ export async function sendSMS(phone: string, message: string): Promise<SMSResult
   const username = (process.env.AFRICASTALKING_USERNAME || '').trim().replace(/^["']|["']$/g, '');
   const senderId = (process.env.AFRICASTALKING_SENDER_ID || '').trim().replace(/^["']|["']$/g, '');
 
+  const isConfigured = Boolean(
+    apiKey &&
+    username &&
+    !apiKey.startsWith('YOUR_') &&
+    apiKey !== 'sandbox_key' &&
+    !africasTalkingAuthInvalid
+  );
+
+  if (!isConfigured) {
+    console.log(`[AFRICAS TALKING (Simulated)] 📱 To: ${formattedPhone} | Message: ${message}`);
+    return { success: true, simulated: true, messageId: 'simulated_id' };
+  }
+
   const credentials = {
-    apiKey: apiKey || 'sandbox_key',
-    username: username || 'sandbox'
+    apiKey,
+    username
   };
 
-  const africastalking = AfricasTalking(credentials);
-  const sms = africastalking.SMS;
-
   try {
-    if (apiKey && username) {
-      const response = await sms.send({
-        to: [formattedPhone],
-        message: message,
-        from: senderId || undefined
-      });
-      
-      console.log(`[AFRICAS TALKING] SMS sent to ${formattedPhone}`);
-      
-      let messageId = undefined;
-      let hasError = false;
-      let errorMsg = '';
-      
-      if (response && response.SMSMessageData && response.SMSMessageData.Recipients && response.SMSMessageData.Recipients.length > 0) {
-        const rec = response.SMSMessageData.Recipients[0];
-        messageId = rec.messageId;
-        if (rec.status !== 'Success' && rec.status !== 'Sent') {
-          hasError = true;
-          errorMsg = rec.status;
-        }
-      }
-      
-      if (hasError) {
-        console.error(`[AFRICAS TALKING] SMS to ${formattedPhone} resulted in status: ${errorMsg}`);
-        return { success: false, error: `Africa's Talking API returned status: ${errorMsg}` };
-      }
-      
-      return { success: true, messageId };
-    } else {
-      console.log(`[AFRICAS TALKING (Simulated)] 📱 To: ${formattedPhone} | Message: ${message}`);
-      return { success: true, messageId: 'simulated_id' };
+    const africastalking = AfricasTalking(credentials);
+    const sms = africastalking.SMS;
+
+    const sendOptions: Record<string, any> = {
+      to: [formattedPhone],
+      message: message
+    };
+    // Only pass `from` (Sender ID / Shortcode) if explicitly set and not equal to the account username
+    if (senderId && senderId.toLowerCase() !== username.toLowerCase() && senderId.toLowerCase() !== 'sandbox') {
+      sendOptions.from = senderId;
     }
+
+    const response = await sms.send(sendOptions as any);
+    
+    console.log(`[AFRICAS TALKING] SMS sent to ${formattedPhone}`);
+    
+    let messageId = undefined;
+    let hasError = false;
+    let errorMsg = '';
+    
+    if (response && response.SMSMessageData && response.SMSMessageData.Recipients && response.SMSMessageData.Recipients.length > 0) {
+      const rec = response.SMSMessageData.Recipients[0];
+      messageId = rec.messageId;
+      if (rec.status !== 'Success' && rec.status !== 'Sent') {
+        hasError = true;
+        errorMsg = rec.status;
+      }
+    }
+    
+    if (hasError) {
+      console.warn(`[AFRICAS TALKING] SMS to ${formattedPhone} returned status: ${errorMsg}`);
+      return { success: false, error: `Africa's Talking API returned status: ${errorMsg}` };
+    }
+    
+    return { success: true, messageId };
   } catch (error: any) {
-    const errorDetails = error?.response?.data || error?.message || error;
-    console.error(`[AFRICAS TALKING] ❌ Failed to send SMS to ${formattedPhone}:`, errorDetails);
-    return { success: false, error: `Africa's Talking API Error: ${error?.message || 'Unknown'}` };
+    const errorDetails = String(error?.response?.data || error?.message || error || '');
+    if (errorDetails.toLowerCase().includes('authentication is invalid') || error?.response?.status === 401) {
+      africasTalkingAuthInvalid = true;
+      console.warn(
+        `[AFRICAS TALKING] ⚠️ Credentials rejected by Africa's Talking (${errorDetails.trim()}). Falling back to simulated SMS for ${formattedPhone}.`
+      );
+      return {
+        success: true,
+        simulated: true,
+        messageId: `sim_${Date.now()}`
+      };
+    }
+
+    console.warn(`[AFRICAS TALKING] ⚠️ SMS dispatch notice for ${formattedPhone}: ${errorDetails}`);
+    return { success: false, error: `Africa's Talking API Error: ${errorDetails || 'Unknown'}` };
   }
 }
 

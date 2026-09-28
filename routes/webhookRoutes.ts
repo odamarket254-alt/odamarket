@@ -2,6 +2,10 @@ import express from 'express';
 import fs from 'fs';
 import path from 'path';
 import { createClient } from '@supabase/supabase-js';
+import {
+  sendEmailVerificationEmail,
+  sendWelcomeEmail
+} from '../emailService.js';
 
 const router = express.Router();
 
@@ -130,26 +134,32 @@ router.post('/profile-created', async (req, res) => {
 
     const finalLink = actionLink || `${origin}/login?confirmed=true`;
 
-    // 2. Dispatch the branded confirmation email via Resend
+    // 2. Dispatch the Email Verification and Welcome templates via Resend
     let resendMessageId: string | null = null;
     if (process.env.RESEND_API_KEY) {
       try {
-        const { Resend } = await import('resend');
-        const resend = new Resend(process.env.RESEND_API_KEY);
-
-        const emailResult = await resend.emails.send({
-          from: 'ODA Market <noreply@odamarket.co.ke>',
-          to: email,
-          subject: 'Confirm your ODA Market account',
-          html: getConfirmationEmailHtml(finalLink, firstName)
+        const verifyRes = await sendEmailVerificationEmail({
+          email,
+          confirmationUrl: finalLink,
+          firstName,
+          lastName: record.last_name || '',
+          userId
         });
 
-        if (emailResult.error) {
-          console.error('[Webhook:profile-created] Resend error:', emailResult.error);
+        if (!verifyRes.success) {
+          console.error('[Webhook:profile-created] Resend verification error:', verifyRes.error);
         } else {
-          resendMessageId = emailResult.data?.id || null;
-          console.log(`[Webhook:profile-created] Successfully dispatched branded confirmation email to ${email} (ID: ${resendMessageId})`);
+          resendMessageId = verifyRes.resendId || null;
+          console.log(`[Webhook:profile-created] Successfully dispatched email verification template to ${email} (ID: ${resendMessageId})`);
         }
+
+        // Also trigger Welcome template if RESEND_WELCOME_TEMPLATE_ID is configured
+        await sendWelcomeEmail({
+          email,
+          firstName,
+          lastName: record.last_name || '',
+          userId
+        });
       } catch (sendErr) {
         console.error('[Webhook:profile-created] Resend dispatch exception:', sendErr);
       }

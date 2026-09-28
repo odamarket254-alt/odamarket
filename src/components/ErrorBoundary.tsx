@@ -42,6 +42,29 @@ export class ErrorBoundary extends React.Component<Props, State> {
       window.location.href = "/login";
       return;
     }
+
+    // Auto-recover once if a stale Vite pre-bundled chunk caused a duplicate React instance or chunk load error
+    const msg = error?.message || "";
+    const isChunkOrHookMismatch =
+      msg.includes("reading 'useContext'") ||
+      msg.includes("reading 'useState'") ||
+      msg.includes("reading 'useEffect'") ||
+      msg.includes("Invalid hook call") ||
+      msg.includes("Failed to fetch dynamically imported module") ||
+      msg.includes("Importing a module script failed");
+
+    if (isChunkOrHookMismatch) {
+      try {
+        const reloadKey = "oda_chunk_reload_ts";
+        const lastReload = Number(window.sessionStorage.getItem(reloadKey) || "0");
+        const now = Date.now();
+        if (!lastReload || now - lastReload > 10000) {
+          window.sessionStorage.setItem(reloadKey, String(now));
+          window.location.reload();
+          return;
+        }
+      } catch (e) {}
+    }
     
     this.setState({ errorInfo });
   }

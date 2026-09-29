@@ -206,7 +206,13 @@ export function isValidResendTemplateIdentifier(val?: string | null): boolean {
  */
 export async function resolveResendTemplateId(eventType: ResendEmailEventType): Promise<string | null> {
   const envKey = RESEND_TEMPLATE_ENV_KEYS[eventType];
-  const rawEnvVal = (process.env[envKey] || '').trim().replace(/^["']|["']$/g, '');
+  const primaryEnvVal = (process.env[envKey] || '').trim().replace(/^["']|["']$/g, '');
+  const genericEnvVal = (eventType === 'welcome' || eventType === 'email_verification')
+    ? (process.env.RESEND_TEMPLATE_ID || '').trim().replace(/^["']|["']$/g, '')
+    : '';
+  const rawEnvVal = isValidResendTemplateIdentifier(primaryEnvVal)
+    ? primaryEnvVal
+    : genericEnvVal;
   const hasValidEnvTemplateId = isValidResendTemplateIdentifier(rawEnvVal);
 
   // Query published templates in the Resend account to verify or auto-match by alias or name
@@ -2076,9 +2082,11 @@ export async function sendSellerNewOrderEmailForOrder(
   };
 }
 
+const sentVerificationEmailsCache = new Set<string>();
+
 /**
  * 7. EMAIL VERIFICATION TEMPLATE DISPATCH
- * Uses the existing Resend verification template (RESEND_EMAIL_VERIFICATION_TEMPLATE_ID or
+ * Uses the existing Resend verification template (RESEND_EMAIL_VERIFICATION_TEMPLATE_ID / RESEND_TEMPLATE_ID or
  * auto-discovered `confirm-your-email-address-template` / `2d5aeedf-970b-4b39-98a6-f6770235d481`).
  */
 export async function sendEmailVerificationEmail(params: {
@@ -2089,180 +2097,637 @@ export async function sendEmailVerificationEmail(params: {
   userId?: string;
   forceResend?: boolean;
 }): Promise<SendOrderEmailResult> {
-  const { email, confirmationUrl, firstName = '', lastName = '' } = params;
+  const { email, confirmationUrl, firstName = '', lastName = '', userId, forceResend = false } = params;
   if (!isValidCustomerEmail(email)) {
     return { success: false, error: 'Invalid recipient email address' };
   }
 
-  const resend = getResendClient();
-  if (!resend) {
-    return { success: false, error: 'RESEND_API_KEY is not configured on server' };
+  const normEmail = email.trim().toLowerCase();
+  const lockKey = `verify:${normEmail}`;
+  if (!forceResend && inFlightDispatches.has(lockKey)) {
+    return inFlightDispatches.get(lockKey)!;
   }
 
-  const appUrl = (process.env.APP_URL || process.env.VITE_APP_URL || 'https://odamarket.co.ke').replace(/\/$/, '');
-  const fullName = `${firstName} ${lastName}`.trim() || 'Valued Customer';
+  const task = (async (): Promise<SendOrderEmailResult> => {
+    const resend = getResendClient();
+    if (!resend) {
+      return { success: false, error: 'RESEND_API_KEY is not configured on server' };
+    }
 
-  const stringVariables: Record<string, string> = {
-    ConfirmationURL: confirmationUrl,
-    confirmation_url: confirmationUrl,
-    confirmationUrl: confirmationUrl,
-    verification_url: confirmationUrl,
-    verificationUrl: confirmationUrl,
-    action_url: confirmationUrl,
-    actionUrl: confirmationUrl,
-    customer_name: fullName,
-    customerName: fullName,
-    first_name: firstName.trim() || 'Valued Customer',
-    firstName: firstName.trim() || 'Valued Customer',
-    last_name: lastName.trim(),
-    lastName: lastName.trim(),
-    customer_email: email.trim(),
-    email: email.trim(),
-    app_url: appUrl,
-    login_url: `${appUrl}/login`,
-    support_email: 'info@odamarket.co.ke',
-    support_phone: '0792867386'
-  };
+    const emailCacheKey = `verify:${normEmail}`;
+    const userCacheKey = userId ? `verify:${userId}` : emailCacheKey;
+    if (!forceResend && (sentVerificationEmailsCache.has(emailCacheKey) || sentVerificationEmailsCache.has(userCacheKey))) {
+      return {
+        success: true,
+        skipped: true,
+        alreadySent: true,
+        recipient: normEmail
+      };
+    }
 
-  const templateId = await resolveResendTemplateId('email_verification');
-  if (templateId) {
-    console.log(`[Resend Email] 📤 Dispatching Email Verification via Resend Template (${templateId}) to ${email}...`);
+    const appUrl = (process.env.APP_URL || process.env.VITE_APP_URL || 'https://odamarket.co.ke').replace(/\/$/, '');
+    const fullName = `${firstName} ${lastName}`.trim() || 'Valued Customer';
+    const resolvedFirstName = firstName.trim() || fullName.split(' ')[0] || 'Valued Customer';
+
+    const stringVariables: Record<string, string> = {
+      ConfirmationURL: confirmationUrl,
+      confirmation_url: confirmationUrl,
+      confirmationUrl: confirmationUrl,
+      verification_url: confirmationUrl,
+      verificationUrl: confirmationUrl,
+      action_url: confirmationUrl,
+      actionUrl: confirmationUrl,
+      name: fullName,
+      customer_name: fullName,
+      customerName: fullName,
+      first_name: resolvedFirstName,
+      firstName: resolvedFirstName,
+      last_name: lastName.trim(),
+      lastName: lastName.trim(),
+      customer_email: normEmail,
+      email: normEmail,
+      app_url: appUrl,
+      login_url: `${appUrl}/login`,
+      support_email: 'info@odamarket.co.ke',
+      support_phone: '0792867386'
+    };
+
+    const templateId = (await resolveResendTemplateId('email_verification')) || '2d5aeedf-970b-4b39-98a6-f6770235d481';
+    console.log(`[Resend Email] 📤 Dispatching Email Verification via Resend Template (${templateId}) to ${normEmail}...`);
+
     const tplRes = await dispatchResendTemplateEmail({
       templateIdOrAlias: templateId,
-      to: email.trim(),
+      to: normEmail,
       defaultSubject: 'Confirm your email address',
       defaultFrom: '"odamarket" <team@odamarket.co.ke>',
-      stringVariables
+      stringVariables,
+      idempotencyKey: forceResend
+        ? `oda-verify-${normEmail}-${Date.now()}`
+        : `oda-verify-${normEmail}`
     });
 
     if (tplRes.success) {
-      console.log(`[Resend Email] ✅ Sent Email Verification template (${tplRes.templateId}) to ${email} (ID: ${tplRes.resendId})`);
+      sentVerificationEmailsCache.add(emailCacheKey);
+      sentVerificationEmailsCache.add(userCacheKey);
+      const sentAt = new Date().toISOString();
+
+      // Record resend_confirmation_sent_at in Supabase Auth user_metadata to prevent duplicate confirmation emails
+      if (userId) {
+        const supabase = getSupabaseAdmin();
+        if (supabase) {
+          try {
+            const { data: uData } = await supabase.auth.admin.getUserById(userId);
+            const existingMeta = uData?.user?.user_metadata || {};
+            await supabase.auth.admin.updateUserById(userId, {
+              user_metadata: {
+                ...existingMeta,
+                resend_confirmation_sent_at: sentAt,
+                resend_confirmation_id: tplRes.resendId
+              }
+            });
+          } catch {
+            // Non-fatal
+          }
+        }
+      }
+
+      console.log(`[Resend Email] ✅ Sent Email Verification template (${tplRes.templateId}) to ${normEmail} (ID: ${tplRes.resendId})`);
       return {
         success: true,
         resendId: tplRes.resendId,
         templateId: tplRes.templateId,
-        recipient: email.trim(),
-        sentAt: new Date().toISOString()
+        recipient: normEmail,
+        sentAt
       };
     }
-    console.warn(`[Resend Email] Template dispatch notice for ${email}: ${tplRes.error}. Using local template fallback.`);
-  }
 
-  // Fallback to email-templates/email-confirmation.html on disk if template API unavailable
-  let fallbackHtml = '';
+    console.error(`[Resend Email] ❌ Email Verification template failed for ${normEmail}: ${tplRes.error}`);
+    return {
+      success: false,
+      templateId: tplRes.templateId || templateId,
+      recipient: normEmail,
+      error: tplRes.error
+    };
+  })();
+
+  inFlightDispatches.set(lockKey, task);
   try {
-    const templatePath = path.join(process.cwd(), 'email-templates', 'email-confirmation.html');
-    if (fs.existsSync(templatePath)) {
-      fallbackHtml = fs.readFileSync(templatePath, 'utf8').replace(/\{\{\s*\.ConfirmationURL\s*\}\}/g, confirmationUrl);
-    }
-  } catch {
-    // ignore
+    return await task;
+  } finally {
+    inFlightDispatches.delete(lockKey);
   }
-
-  if (!fallbackHtml) {
-    fallbackHtml = `<p>Welcome to ODA Market! Please confirm your email address: <a href="${confirmationUrl}">${confirmationUrl}</a></p>`;
-  }
-
-  const fromSender = resolveValidFromEmail(
-    process.env.RESEND_FROM_EMAIL,
-    '"odamarket" <team@odamarket.co.ke>'
-  );
-
-  const sendRes = await resend.emails.send({
-    from: fromSender,
-    to: [email.trim()],
-    subject: 'Confirm your email address',
-    html: fallbackHtml
-  });
-
-  if (sendRes.error) {
-    return { success: false, error: sendRes.error.message };
-  }
-
-  return {
-    success: true,
-    resendId: sendRes.data?.id,
-    recipient: email.trim(),
-    sentAt: new Date().toISOString()
-  };
 }
 
 /**
- * 8. WELCOME TEMPLATE EMAIL
- * Dispatches when RESEND_WELCOME_TEMPLATE_ID is configured (or discovered in Resend).
+ * 8. RESEND AUTOMATION ("Welcome series" triggered by `user.created`) & WELCOME TEMPLATE
+ *
+ * Flow:
+ *   NEW ODA MARKET USER REGISTERS
+ *   ↓
+ *   Verify user exists in Supabase Auth & check idempotency
+ *   ↓
+ *   Sync contact in Resend (POST https://api.resend.com/contacts)
+ *   ↓
+ *   Emit `user.created` event (POST https://api.resend.com/events/send)
+ *   ↓
+ *   Resend Automation ("Welcome series") triggers & sends Welcome template
  */
 const sentWelcomeEmailsCache = new Set<string>();
+let cachedWelcomeAutomationId: string | null = null;
+let cachedWelcomeAutomationCheckedAt = 0;
+
+function getRawResendApiKey(): string {
+  return (process.env.RESEND_API_KEY || '').trim().replace(/^["']|["']$/g, '');
+}
+
+/**
+ * Ensures the `user.created` event and the enabled `Welcome series` automation exist in Resend.
+ * Resolves the template ID by checking if the configured template ID (or `34a080c9-b17d-4187-ad80-5af20266e535`)
+ * exists in the Resend account, and automatically falls back to the account's published Welcome Template
+ * (`f8242719-8b3b-488e-8954-b1408c069f30`) if the example placeholder ID is not in the account.
+ */
+export async function ensureWelcomeSeriesAutomation(preferredTemplateId?: string): Promise<{
+  success: boolean;
+  automationId?: string;
+  automationName?: string;
+  eventName: string;
+  templateId?: string;
+  status?: string;
+  created?: boolean;
+  error?: string;
+}> {
+  const apiKey = getRawResendApiKey();
+  if (!apiKey || apiKey.startsWith('YOUR_')) {
+    return {
+      success: false,
+      eventName: 'user.created',
+      error: 'RESEND_API_KEY is not configured on server'
+    };
+  }
+
+  // Resolve the valid published Welcome template in this Resend account
+  let resolvedTemplateId = await resolveResendTemplateId('welcome');
+  if (preferredTemplateId && isValidResendTemplateIdentifier(preferredTemplateId)) {
+    const details = await getResendTemplateDetails(preferredTemplateId);
+    if (details && details.status === 'published') {
+      resolvedTemplateId = details.id;
+    }
+  }
+  if (resolvedTemplateId) {
+    const details = await getResendTemplateDetails(resolvedTemplateId);
+    if (details?.id) {
+      resolvedTemplateId = details.id;
+    }
+  }
+  if (!resolvedTemplateId) {
+    resolvedTemplateId = 'f8242719-8b3b-488e-8954-b1408c069f30';
+  }
+
+  const now = Date.now();
+  if (cachedWelcomeAutomationId && now - cachedWelcomeAutomationCheckedAt < TEMPLATE_CACHE_TTL_MS) {
+    return {
+      success: true,
+      automationId: cachedWelcomeAutomationId,
+      automationName: 'Welcome series',
+      eventName: 'user.created',
+      templateId: resolvedTemplateId,
+      status: 'enabled',
+      created: false
+    };
+  }
+
+  try {
+    // 1. Ensure `user.created` event definition exists in Resend
+    const eventsListRes = await fetch('https://api.resend.com/events', {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${apiKey}` }
+    });
+    if (eventsListRes.ok) {
+      const eventsData: any = await eventsListRes.json().catch(() => ({}));
+      const existingEvent = (eventsData?.data || []).find((e: any) => e.name === 'user.created');
+      if (!existingEvent) {
+        await fetch('https://api.resend.com/events', {
+          method: 'POST',
+          headers: {
+            Authorization: `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ name: 'user.created' })
+        });
+      }
+    }
+
+    // 2. Check existing automations for an enabled "Welcome series" triggered by `user.created`
+    const autoListRes = await fetch('https://api.resend.com/automations', {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${apiKey}` }
+    });
+
+    if (autoListRes.ok) {
+      const autoListData: any = await autoListRes.json().catch(() => ({}));
+      const candidates = (autoListData?.data || []).filter(
+        (a: any) => a.status === 'enabled' && a.name?.toLowerCase() === 'welcome series'
+      );
+
+      for (const candidate of candidates) {
+        const detailRes = await fetch(`https://api.resend.com/automations/${candidate.id}`, {
+          method: 'GET',
+          headers: { Authorization: `Bearer ${apiKey}` }
+        });
+        if (detailRes.ok) {
+          const detail: any = await detailRes.json().catch(() => ({}));
+          const hasUserCreatedTrigger = (detail?.steps || []).some(
+            (s: any) => s.type === 'trigger' && s.config?.event_name === 'user.created'
+          );
+          if (hasUserCreatedTrigger) {
+            cachedWelcomeAutomationId = detail.id;
+            cachedWelcomeAutomationCheckedAt = now;
+            return {
+              success: true,
+              automationId: detail.id,
+              automationName: detail.name,
+              eventName: 'user.created',
+              templateId: resolvedTemplateId,
+              status: detail.status,
+              created: false
+            };
+          }
+        }
+      }
+    }
+
+    // 3. Create the "Welcome series" automation triggered by `user.created`
+    const fromSender = resolveValidFromEmail(
+      process.env.RESEND_FROM_EMAIL,
+      'ODA Market <info@odamarket.co.ke>'
+    );
+
+    const createRes = await fetch('https://api.resend.com/automations', {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name: 'Welcome series',
+        status: 'enabled',
+        steps: [
+          {
+            key: 'start',
+            type: 'trigger',
+            config: { event_name: 'user.created' }
+          },
+          {
+            key: 'welcome',
+            type: 'send_email',
+            config: {
+              from: fromSender,
+              template: {
+                id: resolvedTemplateId,
+                variables: {
+                  name: { var: 'event.name' },
+                  customer_name: { var: 'event.customer_name' },
+                  shop_url: { var: 'event.shop_url' }
+                }
+              }
+            }
+          }
+        ],
+        connections: [
+          { from: 'start', to: 'welcome' }
+        ]
+      })
+    });
+
+    const createData: any = await createRes.json().catch(() => ({}));
+    if (!createRes.ok) {
+      return {
+        success: false,
+        eventName: 'user.created',
+        templateId: resolvedTemplateId,
+        error: createData?.message || `Failed to create automation (HTTP ${createRes.status})`
+      };
+    }
+
+    cachedWelcomeAutomationId = createData.id;
+    cachedWelcomeAutomationCheckedAt = now;
+    return {
+      success: true,
+      automationId: createData.id,
+      automationName: 'Welcome series',
+      eventName: 'user.created',
+      templateId: resolvedTemplateId,
+      status: 'enabled',
+      created: true
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      eventName: 'user.created',
+      templateId: resolvedTemplateId,
+      error: err?.message || 'Unexpected error configuring Resend automation'
+    };
+  }
+}
 
 export async function sendWelcomeEmail(params: {
   email: string;
+  name?: string;
   firstName?: string;
   lastName?: string;
   userId?: string;
   forceResend?: boolean;
 }): Promise<SendOrderEmailResult> {
-  const { email, firstName = '', lastName = '', userId, forceResend = false } = params;
+  const { email, name = '', firstName = '', lastName = '', userId, forceResend = false } = params;
   if (!isValidCustomerEmail(email)) {
     return { success: false, error: 'Invalid email address' };
   }
 
-  const templateId = await resolveResendTemplateId('welcome');
-  if (!templateId) {
-    return {
-      success: true,
-      skipped: true,
-      reason: 'RESEND_WELCOME_TEMPLATE_ID not configured'
-    };
-  }
-
   const normEmail = email.trim().toLowerCase();
-  const cacheKey = `welcome:${userId || normEmail}`;
-  if (!forceResend && sentWelcomeEmailsCache.has(cacheKey)) {
+  const lockKey = `welcome:${normEmail}`;
+  if (!forceResend && inFlightDispatches.has(lockKey)) {
+    return inFlightDispatches.get(lockKey)!;
+  }
+
+  const task = (async (): Promise<SendOrderEmailResult> => {
+    const apiKey = getRawResendApiKey();
+    if (!apiKey || apiKey.startsWith('YOUR_')) {
+      return {
+        success: false,
+        error: 'RESEND_API_KEY is not configured on server'
+      };
+    }
+
+    const templateId = (await resolveResendTemplateId('welcome')) || 'f8242719-8b3b-488e-8954-b1408c069f30';
+
+    const emailCacheKey = `welcome:${normEmail}`;
+    const userCacheKey = userId ? `welcome:${userId}` : emailCacheKey;
+    if (!forceResend && (sentWelcomeEmailsCache.has(emailCacheKey) || sentWelcomeEmailsCache.has(userCacheKey))) {
+      return {
+        success: true,
+        skipped: true,
+        alreadySent: true,
+        recipient: normEmail,
+        templateId
+      };
+    }
+
+    const appUrl = (process.env.APP_URL || process.env.VITE_APP_URL || 'https://odamarket.co.ke').replace(/\/$/, '');
+    const fullName = name.trim() || `${firstName} ${lastName}`.trim() || 'Valued Customer';
+    const resolvedFirstName = firstName.trim() || fullName.split(' ')[0] || 'Valued Customer';
+    const resolvedLastName = lastName.trim() || fullName.split(' ').slice(1).join(' ');
+
+    // 1. Ensure the "Welcome series" automation (trigger: `user.created`) is active in Resend
+    const autoSetup = await ensureWelcomeSeriesAutomation();
+
+    // 2. Sync the newly registered user to Resend Contacts so `contact.*` fields are populated
+    try {
+      await fetch('https://api.resend.com/contacts', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          email: normEmail,
+          first_name: resolvedFirstName,
+          last_name: resolvedLastName || undefined,
+          unsubscribed: false
+        })
+      });
+    } catch {
+      // Non-fatal if contact already exists or key has restricted scope
+    }
+
+    // 3. Emit the `user.created` event to Resend (`POST https://api.resend.com/events/send`)
+    // This triggers the "Welcome series" Resend Automation for this user's email
+    console.log(`[Resend Automation] 📤 Emitting "user.created" event to Resend for ${normEmail}...`);
+    try {
+      const eventRes = await fetch('https://api.resend.com/events/send', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          event: 'user.created',
+          email: normEmail,
+          payload: {
+            user_id: userId || '',
+            email: normEmail,
+            name: fullName,
+            customer_name: fullName,
+            first_name: resolvedFirstName,
+            last_name: resolvedLastName,
+            shop_url: `${appUrl}/products`,
+            login_url: `${appUrl}/login`
+          }
+        })
+      });
+
+      const eventData: any = await eventRes.json().catch(() => ({}));
+      if (eventRes.ok) {
+        sentWelcomeEmailsCache.add(emailCacheKey);
+        sentWelcomeEmailsCache.add(userCacheKey);
+        console.log(
+          `[Resend Automation] ✅ "user.created" event accepted by Resend for ${normEmail} (Automation: ${autoSetup.automationId || 'Welcome series'}, Template: ${autoSetup.templateId || templateId})`
+        );
+        return {
+          success: true,
+          resendId: autoSetup.automationId || eventData?.event || 'user.created',
+          templateId: autoSetup.templateId || templateId,
+          recipient: normEmail,
+          sentAt: new Date().toISOString()
+        };
+      }
+
+      console.warn(
+        `[Resend Automation] Notice: /events/send returned HTTP ${eventRes.status} (${eventData?.message || 'unknown'}). Falling back to direct template send.`
+      );
+    } catch (evErr: any) {
+      console.warn(`[Resend Automation] Notice: /events/send exception (${evErr?.message}). Falling back to direct template send.`);
+    }
+
+    // 4. Fallback if /events/send is unavailable: send template directly via /emails
+    const stringVariables: Record<string, string> = {
+      name: fullName,
+      customer_name: fullName,
+      customerName: fullName,
+      first_name: resolvedFirstName,
+      firstName: resolvedFirstName,
+      last_name: resolvedLastName,
+      lastName: resolvedLastName,
+      customer_email: normEmail,
+      email: normEmail,
+      app_url: appUrl,
+      login_url: `${appUrl}/login`,
+      shop_url: `${appUrl}/products`,
+      support_email: 'info@odamarket.co.ke',
+      support_phone: '0792867386'
+    };
+
+    const res = await dispatchResendTemplateEmail({
+      templateIdOrAlias: templateId,
+      to: normEmail,
+      defaultSubject: 'Welcome to ODA Market!',
+      defaultFrom: 'ODA Market <info@odamarket.co.ke>',
+      stringVariables,
+      idempotencyKey: forceResend
+        ? `oda-registration-${normEmail}-${Date.now()}`
+        : `oda-registration-${normEmail}`
+    });
+
+    if (res.success) {
+      sentWelcomeEmailsCache.add(emailCacheKey);
+      sentWelcomeEmailsCache.add(userCacheKey);
+      console.log(`[Resend Email] ✅ Registration template (${res.templateId || templateId}) sent to ${normEmail} (Resend ID: ${res.resendId})`);
+    } else {
+      console.error(`[Resend Email] ❌ Registration template failed for ${normEmail}:`, res.error);
+    }
+
     return {
-      success: true,
-      skipped: true,
-      alreadySent: true,
-      recipient: normEmail
+      success: res.success,
+      resendId: res.resendId,
+      templateId: res.templateId || templateId,
+      recipient: normEmail,
+      sentAt: res.success ? new Date().toISOString() : undefined,
+      error: res.error
+    };
+  })();
+
+  inFlightDispatches.set(lockKey, task);
+  try {
+    return await task;
+  } finally {
+    inFlightDispatches.delete(lockKey);
+  }
+}
+
+/**
+ * Verifies that a newly registered user actually exists in Supabase Auth/profiles
+ * and triggers the `user.created` Resend Automation ("Welcome series")
+ * safely and idempotently without ever breaking user registration.
+ */
+export async function sendRegistrationEmail(params: {
+  userId?: string;
+  email?: string;
+  name?: string;
+  firstName?: string;
+  lastName?: string;
+  forceResend?: boolean;
+}): Promise<SendOrderEmailResult> {
+  try {
+    const supabase = getSupabaseAdmin();
+    let verifiedEmail = (params.email || '').trim().toLowerCase();
+    let verifiedFirstName = (params.firstName || '').trim();
+    let verifiedLastName = (params.lastName || '').trim();
+    let verifiedFullName = (params.name || '').trim();
+    let verifiedUserId = (params.userId || '').trim();
+    let existingUserMetadata: Record<string, any> = {};
+
+    if (supabase) {
+      if (verifiedUserId) {
+        const { data: authData, error: authErr } = await supabase.auth.admin.getUserById(verifiedUserId);
+        if (authErr || !authData?.user) {
+          console.warn(`[Resend Registration] Skipped: User ID ${verifiedUserId} was not found in Supabase Auth.`);
+          return {
+            success: false,
+            skipped: true,
+            reason: 'User was not found in Supabase Auth'
+          };
+        }
+        const u = authData.user;
+        if (u.email) verifiedEmail = u.email.trim().toLowerCase();
+        existingUserMetadata = u.user_metadata || {};
+        if (!verifiedFirstName && existingUserMetadata.first_name) verifiedFirstName = String(existingUserMetadata.first_name).trim();
+        if (!verifiedLastName && existingUserMetadata.last_name) verifiedLastName = String(existingUserMetadata.last_name).trim();
+        if (!verifiedFullName && existingUserMetadata.full_name) verifiedFullName = String(existingUserMetadata.full_name).trim();
+      } else if (verifiedEmail) {
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('id, email, first_name, last_name')
+          .eq('email', verifiedEmail)
+          .maybeSingle();
+        if (prof) {
+          verifiedUserId = prof.id;
+          if (!verifiedFirstName && prof.first_name) verifiedFirstName = prof.first_name;
+          if (!verifiedLastName && prof.last_name) verifiedLastName = prof.last_name;
+          const { data: authData } = await supabase.auth.admin.getUserById(verifiedUserId);
+          if (authData?.user?.user_metadata) {
+            existingUserMetadata = authData.user.user_metadata;
+          }
+        } else {
+          // Check Supabase Auth users list
+          const { data: listData } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+          const matchedUser = (listData?.users || []).find(
+            (u: any) => (u.email || '').toLowerCase() === verifiedEmail
+          );
+          if (!matchedUser) {
+            console.warn(`[Resend Registration] Skipped: Email ${verifiedEmail} is not registered in Supabase Auth.`);
+            return {
+              success: false,
+              skipped: true,
+              reason: 'Email is not registered in Supabase Auth'
+            };
+          }
+          verifiedUserId = matchedUser.id;
+          existingUserMetadata = matchedUser.user_metadata || {};
+          if (!verifiedFirstName && existingUserMetadata.first_name) verifiedFirstName = String(existingUserMetadata.first_name).trim();
+          if (!verifiedLastName && existingUserMetadata.last_name) verifiedLastName = String(existingUserMetadata.last_name).trim();
+          if (!verifiedFullName && existingUserMetadata.full_name) verifiedFullName = String(existingUserMetadata.full_name).trim();
+        }
+      }
+    }
+
+    if (!isValidCustomerEmail(verifiedEmail)) {
+      return { success: false, error: 'No valid registered user email address found' };
+    }
+
+    // Persistent cross-instance deduplication check on Supabase Auth user_metadata
+    if (!params.forceResend && existingUserMetadata?.resend_user_created_sent_at) {
+      console.log(
+        `[Resend Registration] Skipped duplicate user.created event for ${verifiedEmail} (already triggered at ${existingUserMetadata.resend_user_created_sent_at})`
+      );
+      return {
+        success: true,
+        skipped: true,
+        alreadySent: true,
+        recipient: verifiedEmail,
+        sentAt: existingUserMetadata.resend_user_created_sent_at
+      };
+    }
+
+    const result = await sendWelcomeEmail({
+      userId: verifiedUserId || undefined,
+      email: verifiedEmail,
+      name: verifiedFullName || `${verifiedFirstName} ${verifiedLastName}`.trim(),
+      firstName: verifiedFirstName,
+      lastName: verifiedLastName,
+      forceResend: params.forceResend
+    });
+
+    // Persist `resend_user_created_sent_at` on the Supabase Auth user record so duplicate webhooks/requests never re-trigger
+    if (result.success && !result.alreadySent && supabase && verifiedUserId) {
+      try {
+        await supabase.auth.admin.updateUserById(verifiedUserId, {
+          user_metadata: {
+            ...existingUserMetadata,
+            resend_user_created_sent_at: result.sentAt || new Date().toISOString()
+          }
+        });
+      } catch (metaErr) {
+        console.warn('[Resend Registration] Non-fatal notice persisting resend_user_created_sent_at:', metaErr);
+      }
+    }
+
+    return result;
+  } catch (err: any) {
+    console.error('[Resend Registration] Safe error handler caught exception:', err?.message || err);
+    return {
+      success: false,
+      error: err?.message || 'Registration email dispatch failed'
     };
   }
-
-  const appUrl = (process.env.APP_URL || process.env.VITE_APP_URL || 'https://odamarket.co.ke').replace(/\/$/, '');
-  const fullName = `${firstName} ${lastName}`.trim() || 'Valued Customer';
-
-  const stringVariables: Record<string, string> = {
-    customer_name: fullName,
-    customerName: fullName,
-    first_name: firstName.trim() || 'Valued Customer',
-    firstName: firstName.trim() || 'Valued Customer',
-    last_name: lastName.trim(),
-    lastName: lastName.trim(),
-    customer_email: normEmail,
-    email: normEmail,
-    app_url: appUrl,
-    login_url: `${appUrl}/login`,
-    shop_url: `${appUrl}/products`,
-    support_email: 'info@odamarket.co.ke',
-    support_phone: '0792867386'
-  };
-
-  const res = await dispatchResendTemplateEmail({
-    templateIdOrAlias: templateId,
-    to: normEmail,
-    defaultSubject: 'Welcome to ODA Market!',
-    stringVariables,
-    idempotencyKey: forceResend ? `oda-welcome-${normEmail}-${Date.now()}` : `oda-welcome-${userId || normEmail}`
-  });
-
-  if (res.success) {
-    sentWelcomeEmailsCache.add(cacheKey);
-  }
-
-  return {
-    success: res.success,
-    resendId: res.resendId,
-    templateId: res.templateId || templateId,
-    recipient: normEmail,
-    error: res.error
-  };
 }
 
 /**

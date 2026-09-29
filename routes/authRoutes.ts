@@ -7,7 +7,9 @@ import { createClient } from '@supabase/supabase-js';
 import { runSupabaseAuthDiagnostics } from '../src/utils/supabaseAuthDiagnostics.js';
 import {
   sendEmailVerificationEmail,
-  sendWelcomeEmail
+  sendWelcomeEmail,
+  sendRegistrationEmail,
+  ensureWelcomeSeriesAutomation
 } from '../emailService.js';
 
 const router = express.Router();
@@ -252,6 +254,18 @@ router.post('/verify-otp', async (req, res) => {
       });
       if (authError) throw authError;
       finalUserId = authData.user.id;
+
+      // Trigger registration template email safely (never fails OTP verification if Resend fails)
+      try {
+        await sendRegistrationEmail({
+          userId: finalUserId,
+          email: accountData.email,
+          firstName: accountData.first_name,
+          lastName: accountData.last_name
+        });
+      } catch (regEmailErr) {
+        console.warn('[Auth:verify-otp] Non-fatal registration email notice:', regEmailErr);
+      }
     } else if (userId) {
       await supabaseAdmin.auth.admin.updateUserById(userId, {
         phone_confirm: true,
@@ -346,49 +360,132 @@ function getConfirmationEmailHtml(actionLink: string, firstName?: string): strin
 
 router.post('/register-complete', async (req, res) => {
   try {
-    const { accountData, addressData } = req.body;
-    const formattedPhone = formatPhone(accountData.phone);
-    
-    // Check email
-    if (accountData.email) {
-      const { data: byEmail } = await supabaseAdmin.from('profiles').select('id').eq('email', accountData.email).maybeSingle();
-      if (byEmail) {
-        return res.status(400).json({ error: 'Email is already registered.' });
+    const { accountData, addressData, redirectTo } = req.body;
+    if (!accountData?.email || !accountData?.password) {
+      return res.status(400).json({ error: 'Email and password are required.' });
+    }
+
+    const normalizedEmail = accountData.email.trim().toLowerCase();
+    const formattedPhone = formatPhone(accountData.phone || '');
+
+    // Check if phone is already registered by another profile
+    if (formattedPhone) {
+      const { data: byPhone } = await supabaseAdmin
+        .from('profiles')
+        .select('id, email')
+        .eq('phone', formattedPhone)
+        .maybeSingle();
+      if (byPhone && (byPhone.email || '').toLowerCase() !== normalizedEmail) {
+        return res.status(400).json({ error: 'Phone number is already registered by another account.' });
       }
     }
-    
-    // Create user with email_confirm: false so Supabase requires email verification
-    const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
-      email: accountData.email,
-      password: accountData.password,
+
+    const origin = req.headers.origin || process.env.APP_URL || 'https://odamarket.co.ke';
+    const redirectUrl = redirectTo && typeof redirectTo === 'string' && redirectTo.startsWith('http')
+      ? redirectTo
+      : `${origin}/login?confirmed=true`;
+
+    const firstName = (accountData.first_name || '').trim();
+    const lastName = (accountData.last_name || '').trim();
+    const fullName = `${firstName} ${lastName}`.trim() || 'Valued Customer';
+
+    const userMetadata = {
+      first_name: firstName,
+      last_name: lastName,
+      full_name: fullName,
       phone: formattedPhone,
-      email_confirm: false,
-      phone_confirm: false,
-      user_metadata: {
-        first_name: accountData.first_name,
-        last_name: accountData.last_name,
-        full_name: `${accountData.first_name} ${accountData.last_name}`,
-        phone: formattedPhone,
-        phone_verified: false,
-        role: 'customer'
+      phone_verified: false,
+      role: 'customer',
+      county: addressData?.county || '',
+      town_city: addressData?.town || addressData?.town_city || '',
+      street_building: addressData?.street || addressData?.street_building || '',
+      estate: addressData?.estate || '',
+      house_number: addressData?.house_number || '',
+      apartment: addressData?.apartment || '',
+      resend_confirmation_handled_by: 'register-complete'
+    };
+
+    let userId: string | null = null;
+    let actionLink: string | null = null;
+
+    // 1. Create the unconfirmed user AND generate the official Supabase signup verification link atomically
+    //    via Admin generateLink(type: 'signup'). This NEVER triggers Supabase's default confirmation email!
+    const { data: signupLinkData, error: signupLinkError } = await supabaseAdmin.auth.admin.generateLink({
+      type: 'signup',
+      email: normalizedEmail,
+      password: accountData.password,
+      options: {
+        redirectTo: redirectUrl,
+        data: userMetadata
       }
     });
 
-    if (authError) {
-       return res.status(400).json({ error: authError.message });
-    }
-    const userId = authData.user.id;
+    if (!signupLinkError && signupLinkData?.user) {
+      userId = signupLinkData.user.id;
+      actionLink = signupLinkData.properties?.action_link || null;
+    } else {
+      // Check if an unconfirmed user with this email already exists from a previous incomplete attempt
+      const { data: listData } = await supabaseAdmin.auth.admin.listUsers({ perPage: 1000 });
+      const existingUser = (listData?.users || []).find(
+        (u: any) => (u.email || '').toLowerCase() === normalizedEmail
+      );
 
-    // Save address if provided
+      if (!existingUser) {
+        return res.status(400).json({ error: signupLinkError?.message || 'Failed to create account.' });
+      }
+
+      if (existingUser.email_confirmed_at) {
+        return res.status(400).json({ error: 'Email is already registered.' });
+      }
+
+      userId = existingUser.id;
+      await supabaseAdmin.auth.admin.updateUserById(userId, {
+        password: accountData.password,
+        user_metadata: {
+          ...(existingUser.user_metadata || {}),
+          ...userMetadata
+        }
+      });
+
+      const { data: magicLinkData, error: magicLinkErr } = await supabaseAdmin.auth.admin.generateLink({
+        type: 'magiclink',
+        email: normalizedEmail,
+        options: {
+          redirectTo: redirectUrl
+        }
+      });
+      if (!magicLinkErr && magicLinkData?.properties?.action_link) {
+        actionLink = magicLinkData.properties.action_link;
+      }
+    }
+
+    if (!userId) {
+      return res.status(400).json({ error: 'Failed to create user in Supabase Auth.' });
+    }
+
+    // Ensure profile row has updated name & phone
+    try {
+      await supabaseAdmin.from('profiles').upsert({
+        id: userId,
+        email: normalizedEmail,
+        first_name: firstName,
+        last_name: lastName,
+        phone: formattedPhone,
+        role: 'customer'
+      } as any, { onConflict: 'id' });
+    } catch {
+      // Non-fatal if trigger already populated profile
+    }
+
+    // 2. Save delivery address if provided
     if (addressData) {
-      const fullName = [accountData.first_name, accountData.last_name].filter(Boolean).join(' ').trim() || 'Valued Customer';
       const phone = accountData.phone || formattedPhone || '';
       const county = addressData.county || '';
       const townCity = addressData.town || addressData.town_city || '';
       const areaLocation = addressData.estate || addressData.area_location || addressData.town || county || '';
 
       const streetParts = [
-        addressData.street,
+        addressData.street || addressData.street_building,
         addressData.apartment ? `Apt ${addressData.apartment}` : '',
         addressData.house_number ? `House ${addressData.house_number}` : '',
         addressData.formatted_address && !addressData.street ? addressData.formatted_address : ''
@@ -396,6 +493,7 @@ router.post('/register-complete', async (req, res) => {
 
       const streetBuilding = streetParts.join(', ') || addressData.formatted_address || 'Delivery Address';
 
+      await supabaseAdmin.from('delivery_addresses').delete().eq('user_id', userId);
       const { error: addressError } = await supabaseAdmin.from('delivery_addresses').insert({
         user_id: userId,
         full_name: fullName,
@@ -408,81 +506,37 @@ router.post('/register-complete', async (req, res) => {
         is_default: true,
       });
       if (addressError) {
-        console.error("Failed to save address:", addressError);
+        console.warn('[Auth:register-complete] Address insert notice:', addressError.message);
       }
     }
 
-    const origin = req.headers.origin || process.env.APP_URL || 'https://odamarket.co.ke';
-    const redirectUrl = `${origin}/login?confirmed=true`;
-    let emailSent = false;
+    // 3. Send ONLY the Resend Confirmation Email Template (never falls back to Supabase default mailer)
+    const verificationUrl = actionLink || redirectUrl;
+    const emailRes = await sendEmailVerificationEmail({
+      email: normalizedEmail,
+      confirmationUrl: verificationUrl,
+      firstName,
+      lastName,
+      userId
+    });
 
-    // 1. Send the branded HTML template directly via Resend if configured
-    if (process.env.RESEND_API_KEY) {
-      try {
-        const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-          type: 'signup',
-          email: accountData.email,
-          password: accountData.password,
-          options: {
-            redirectTo: redirectUrl
-          }
-        });
-
-        const actionLink = linkData?.properties?.action_link;
-        if (actionLink) {
-          const emailRes = await sendEmailVerificationEmail({
-            email: accountData.email,
-            confirmationUrl: actionLink,
-            firstName: accountData.first_name,
-            lastName: accountData.last_name,
-            userId
-          });
-          if (emailRes.success) {
-            emailSent = true;
-            console.log(`[Auth] Resend verification template sent successfully to ${accountData.email}, id: ${emailRes.resendId}`);
-          } else {
-            console.warn("[Auth] Resend verification template error:", emailRes.error);
-          }
-
-          // Also send Welcome template if configured
-          await sendWelcomeEmail({
-            email: accountData.email,
-            firstName: accountData.first_name,
-            lastName: accountData.last_name,
-            userId
-          });
-        } else if (linkError) {
-          console.warn("[Auth] generateLink error:", linkError.message);
-        }
-      } catch (e) {
-        console.warn("[Auth] Resend sending exception:", e);
-      }
+    if (!emailRes.success) {
+      console.error('[Auth:register-complete] Resend confirmation template error:', emailRes.error);
+    } else {
+      console.log(`[Auth:register-complete] ✅ Sent Resend confirmation template (${emailRes.templateId}) to ${normalizedEmail} (ID: ${emailRes.resendId})`);
     }
 
-    // 2. If Resend was not configured or failed, fallback to Supabase native mailer
-    if (!emailSent) {
-      try {
-        const { data: resendData, error: resendError } = await supabaseAnon.auth.resend({
-          type: 'signup',
-          email: accountData.email,
-          options: {
-            emailRedirectTo: redirectUrl
-          }
-        });
-        if (resendError) {
-          console.warn("[Auth] Supabase native auth.resend fallback notice:", resendError.message);
-        } else {
-          console.log("[Auth] Supabase native confirmation email fallback dispatched to:", accountData.email);
-        }
-      } catch (sbErr) {
-        console.warn("[Auth] Supabase native resend fallback exception:", sbErr);
-      }
-    }
-
-    res.status(200).json({ success: true, userId: userId, email: accountData.email });
-  } catch (error) {
+    return res.status(200).json({
+      success: true,
+      userId,
+      email: normalizedEmail,
+      emailSent: emailRes.success,
+      resendId: emailRes.resendId,
+      templateId: emailRes.templateId
+    });
+  } catch (error: any) {
     console.error('Failed to complete registration:', error);
-    res.status(500).json({ error: 'Failed to create account.' });
+    return res.status(500).json({ error: error?.message || 'Failed to create account.' });
   }
 });
 
@@ -542,69 +596,104 @@ router.post('/save-address', async (req, res) => {
   }
 });
 
+/**
+ * Server-side endpoint to send the existing Resend registration template (POST https://api.resend.com/emails)
+ * after confirming the Supabase user was actually created.
+ * Never exposes RESEND_API_KEY to the browser and never causes registration to fail if Resend errors.
+ */
+router.post('/send-registration-email', async (req, res) => {
+  try {
+    const { userId, email, name, firstName, lastName } = req.body || {};
+    if (!userId && !email) {
+      return res.status(400).json({ success: false, error: 'userId or email is required' });
+    }
+
+    const result = await sendRegistrationEmail({
+      userId,
+      email,
+      name,
+      firstName,
+      lastName
+    });
+
+    return res.status(200).json({
+      success: result.success,
+      skipped: result.skipped,
+      alreadySent: result.alreadySent,
+      event: 'user.created',
+      automation: 'Welcome series',
+      resendId: result.resendId,
+      templateId: result.templateId,
+      recipient: result.recipient,
+      error: result.error
+    });
+  } catch (err: any) {
+    console.error('[Auth:send-registration-email] Safe error handler:', err?.message || err);
+    return res.status(200).json({
+      success: false,
+      error: err?.message || 'Failed to send registration email'
+    });
+  }
+});
+
+/**
+ * Ensures the `user.created` event and `Welcome series` automation exist and are enabled in Resend.
+ */
+router.post('/setup-resend-automation', async (req, res) => {
+  try {
+    const { templateId } = req.body || {};
+    const result = await ensureWelcomeSeriesAutomation(templateId);
+    return res.status(result.success ? 200 : 400).json(result);
+  } catch (err: any) {
+    return res.status(500).json({
+      success: false,
+      error: err?.message || 'Failed to configure Resend automation'
+    });
+  }
+});
+
 router.post('/resend-confirmation-email', async (req, res) => {
   try {
-    const { email } = req.body;
+    const { email, redirectTo } = req.body;
     if (!email) {
       return res.status(400).json({ error: 'Email is required' });
     }
 
+    const normalizedEmail = email.trim().toLowerCase();
     const origin = req.headers.origin || process.env.APP_URL || 'https://odamarket.co.ke';
-    const redirectUrl = `${origin}/login?confirmed=true`;
-    let emailSent = false;
+    const redirectUrl = redirectTo && typeof redirectTo === 'string' && redirectTo.startsWith('http')
+      ? redirectTo
+      : `${origin}/login?confirmed=true`;
 
-    // 1. Send the branded HTML template directly via Resend
-    if (process.env.RESEND_API_KEY) {
-      try {
-        const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-          type: 'magiclink',
-          email: email,
-          options: {
-            redirectTo: redirectUrl
-          }
-        });
-        const actionLink = linkData?.properties?.action_link;
-        if (actionLink) {
-          const emailRes = await sendEmailVerificationEmail({
-            email,
-            confirmationUrl: actionLink,
-            forceResend: true
-          });
-          if (emailRes.success) {
-            emailSent = true;
-            console.log(`[Auth] Resend verification template dispatched to ${email}, id: ${emailRes.resendId}`);
-          } else {
-            console.warn('[Auth] Resend error during resend:', emailRes.error);
-          }
-        } else if (linkError) {
-          console.warn('[Auth] generateLink error during resend:', linkError.message);
-        }
-      } catch (err) {
-        console.warn('[Auth] Resend backup send error:', err);
+    const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+      type: 'magiclink',
+      email: normalizedEmail,
+      options: {
+        redirectTo: redirectUrl
       }
+    });
+
+    const actionLink = linkData?.properties?.action_link;
+    if (!actionLink || linkError) {
+      return res.status(400).json({ error: linkError?.message || 'Could not generate verification link for this email.' });
     }
 
-    // 2. Fallback to Supabase native mailer
-    if (!emailSent) {
-      try {
-        const { error: resendError } = await supabaseAnon.auth.resend({
-          type: 'signup',
-          email: email,
-          options: {
-            emailRedirectTo: redirectUrl
-          }
-        });
-        if (!resendError) {
-          console.log(`[Auth] Supabase native resend dispatched to ${email}`);
-        } else {
-          console.warn('[Auth] Supabase native resend warning:', resendError.message);
-        }
-      } catch (e) {
-        console.warn('[Auth] Supabase native resend exception:', e);
-      }
+    const emailRes = await sendEmailVerificationEmail({
+      email: normalizedEmail,
+      confirmationUrl: actionLink,
+      forceResend: true
+    });
+
+    if (!emailRes.success) {
+      return res.status(500).json({ error: emailRes.error || 'Failed to send confirmation email via Resend.' });
     }
 
-    return res.status(200).json({ success: true, message: 'Confirmation email sent.' });
+    return res.status(200).json({
+      success: true,
+      message: 'Confirmation email sent.',
+      resendId: emailRes.resendId,
+      templateId: emailRes.templateId
+    });
   } catch (error) {
     console.error('Failed to resend confirmation email:', error);
     res.status(500).json({ error: 'Failed to resend confirmation email.' });

@@ -4,7 +4,9 @@ import {
   interpolateTemplateString,
   resolveResendTemplateId,
   formatCurrency,
-  sendOrderConfirmationEmailForOrder
+  sendOrderConfirmationEmailForOrder,
+  sendRegistrationEmail,
+  ensureWelcomeSeriesAutomation
 } from '../emailService.js';
 import { handlePaystackWebhook } from '../routes/paystackWebhook.js';
 import crypto from 'crypto';
@@ -104,6 +106,28 @@ async function runTests() {
   // TEST 24: Auto-discovery or env resolution for existing Resend Email Verification template
   const resolvedVerifyTpl = await resolveResendTemplateId('email_verification');
   assert(Boolean(resolvedVerifyTpl), `TEST 24: Resolved existing Resend email_verification template (${resolvedVerifyTpl})`);
+
+  // TEST 25: Auto-discovery or env resolution for existing Resend Welcome / Registration template
+  const resolvedWelcomeTpl = await resolveResendTemplateId('welcome');
+  assert(Boolean(resolvedWelcomeTpl), `TEST 25: Resolved existing Resend welcome/registration template (${resolvedWelcomeTpl})`);
+
+  // TEST 26: Registration email must NOT send if user does not exist in Supabase Auth
+  const fakeRegRes = await sendRegistrationEmail({
+    userId: '00000000-0000-0000-0000-000000000000',
+    email: 'nonexistent-user-999999@odamarket.co.ke',
+    name: 'Unregistered User'
+  });
+  assert(
+    fakeRegRes.success === false && fakeRegRes.skipped === true,
+    'TEST 26: sendRegistrationEmail skips sending if Supabase user was not actually created'
+  );
+
+  // TEST 27: Resend Automation ("Welcome series" triggered by `user.created`) is verified and enabled
+  const autoCheck = await ensureWelcomeSeriesAutomation('34a080c9-b17d-4187-ad80-5af20266e535');
+  assert(
+    autoCheck.success === true && autoCheck.eventName === 'user.created' && Boolean(autoCheck.automationId),
+    `TEST 27: Resend Automation "${autoCheck.automationName}" (${autoCheck.automationId}) is active for event "${autoCheck.eventName}" with template ${autoCheck.templateId}`
+  );
 
   console.log(`\nTEST SUMMARY: ${passed} passed, ${failed} failed.`);
   if (failed > 0) process.exit(1);

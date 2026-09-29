@@ -151,30 +151,27 @@ export default function RegisterPage() {
     }
     setIsResendingEmail(true);
     try {
-      // 1. Send the branded HTML email template from the server
+      const isProduction = typeof window !== 'undefined' &&
+        (window.location.hostname === 'odamarket.co.ke' || window.location.hostname === 'www.odamarket.co.ke');
+      const emailRedirectTo = isProduction
+        ? 'https://odamarket.co.ke/login?confirmed=true'
+        : `${window.location.origin}/login?confirmed=true`;
+
+      // Send the Resend confirmation template from the server (never falls back to default Supabase mailer)
       const res = await fetch('/api/auth/resend-confirmation-email', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: accountData.email }),
+        body: JSON.stringify({
+          email: accountData.email.trim().toLowerCase(),
+          redirectTo: emailRedirectTo,
+        }),
       });
       const data = await res.json().catch(() => null);
 
-      if (res.ok) {
+      if (res.ok && data?.success) {
         toast.success('Confirmation email sent! Please check your inbox and spam folder.');
       } else {
-        // Fallback to client-side Supabase resend if server route fails
-        const { error: sbError } = await supabase.auth.resend({
-          type: 'signup',
-          email: accountData.email,
-          options: {
-            emailRedirectTo: `${window.location.origin}/login?confirmed=true`
-          }
-        });
-        if (sbError) {
-          throw new Error(data?.error || sbError.message || 'Failed to resend confirmation email');
-        } else {
-          toast.success('Confirmation email dispatched! Please check your inbox.');
-        }
+        throw new Error(data?.error || 'Failed to resend confirmation email');
       }
     } catch (err: any) {
       toast.error(err.message || 'Failed to resend email');
@@ -211,86 +208,42 @@ export default function RegisterPage() {
         ? 'https://odamarket.co.ke/login?confirmed=true'
         : `${window.location.origin}/login?confirmed=true`;
 
-      const userMetadata = {
-        first_name: accountData.first_name.trim(),
-        last_name: accountData.last_name.trim(),
-        full_name: `${accountData.first_name.trim()} ${accountData.last_name.trim()}`,
-        phone: formattedPhone,
-        role: 'customer',
-        county: data.county,
-        town_city: data.town,
-        street_building: data.street,
-        estate: data.estate || '',
-        house_number: data.house_number || '',
-        apartment: data.apartment || '',
-      };
-
-      if (import.meta.env.DEV) {
-        console.group('[OdaMarket Registration Flow Audit: Request]');
-        console.log('Method: supabase.auth.signUp()');
-        console.log('Target Email:', accountData.email.trim().toLowerCase());
-        console.log('emailRedirectTo:', emailRedirectTo);
-        console.log('Metadata payload:', userMetadata);
-        console.groupEnd();
-      }
-
-      // Core registration using official Supabase Auth SDK
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email: accountData.email.trim().toLowerCase(),
-        password: accountData.password,
-        options: {
-          emailRedirectTo,
-          data: userMetadata,
-        },
+      // Register user via server-side Supabase Admin + Resend Template pipeline (`/api/auth/register-complete`)
+      // so Supabase's plain default confirmation email is NEVER sent and the user receives ONLY the Resend template.
+      const registerRes = await fetch('/api/auth/register-complete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          accountData: {
+            first_name: accountData.first_name.trim(),
+            last_name: accountData.last_name.trim(),
+            email: accountData.email.trim().toLowerCase(),
+            phone: formattedPhone,
+            password: accountData.password,
+          },
+          addressData: {
+            county: data.county,
+            town: data.town,
+            town_city: data.town,
+            street: data.street,
+            street_building: data.street,
+            estate: data.estate || '',
+            house_number: data.house_number || '',
+            apartment: data.apartment || '',
+            formatted_address: data.formatted_address || '',
+            delivery_instructions: data.delivery_instructions || '',
+          },
+          redirectTo: emailRedirectTo,
+        }),
       });
 
-      if (import.meta.env.DEV) {
-        console.group('[OdaMarket Registration Flow Audit: Response]');
-        console.log('Returned error:', signUpError);
-        console.log('Returned data.user:', signUpData?.user);
-        console.log('Returned data.session:', signUpData?.session);
-        const userObj: any = signUpData?.user;
-        const confirmationSentAt = userObj?.confirmation_sent_at;
-        console.log('confirmation_sent_at:', confirmationSentAt || '(none returned in user object)');
-        console.log('Email delivery status:', confirmationSentAt ? 'CONFIRMATION_EMAIL_REQUESTED' : 'AWAITING_VERIFICATION');
-        console.log('Supabase accepted signup:', !signUpError && !!signUpData);
-        console.groupEnd();
+      const registerData = await registerRes.json().catch(() => null);
+      if (!registerRes.ok) {
+        throw new Error(registerData?.error || 'Failed to register.');
       }
 
-      if (signUpError) {
-        throw signUpError;
-      }
-
-      const returnedUserId = signUpData?.user?.id || null;
-      if (returnedUserId) {
-        setCreatedUserId(returnedUserId);
-      }
-
-      // Save delivery address to database
-      try {
-        await fetch('/api/auth/save-address', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userId: returnedUserId,
-            email: accountData.email.trim().toLowerCase(),
-            addressData: {
-              county: data.county,
-              town_city: data.town,
-              street_building: data.street,
-              estate: data.estate,
-              house_number: data.house_number,
-              apartment: data.apartment,
-              full_name: `${accountData.first_name.trim()} ${accountData.last_name.trim()}`,
-              phone: formattedPhone,
-              delivery_instructions: data.delivery_instructions,
-            },
-          }),
-        });
-      } catch (addrErr) {
-        if (import.meta.env.DEV) {
-          console.warn('[OdaMarket] Non-fatal notice saving delivery address:', addrErr);
-        }
+      if (registerData?.userId) {
+        setCreatedUserId(registerData.userId);
       }
 
       // Advance to step 4 (Email confirmation notice)

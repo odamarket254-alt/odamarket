@@ -34,9 +34,16 @@ export interface EmailDiagnosticsReport {
       htmlPlaceholders?: string[];
     }>;
   };
+  automations?: Array<{
+    id: string;
+    name: string;
+    status: string;
+    created_at?: string;
+  }>;
 }
 
 export const RESEND_TEMPLATE_ENV_VAR_NAMES = [
+  'RESEND_TEMPLATE_ID',
   'RESEND_ORDER_CONFIRMATION_TEMPLATE_ID',
   'RESEND_PAYMENT_SUCCESS_TEMPLATE_ID',
   'RESEND_PAYMENT_FAILED_TEMPLATE_ID',
@@ -178,6 +185,26 @@ export async function getEmailDiagnostics(performLiveCheck: boolean = false): Pr
         }
       } catch (tplErr) {
         // Non-fatal if API key is restricted to sending only
+      }
+
+      // Inspect Resend Automations in the account
+      try {
+        const autoRes = await fetch('https://api.resend.com/automations', {
+          headers: { Authorization: `Bearer ${rawKey}` }
+        });
+        if (autoRes.ok) {
+          const autoData: any = await autoRes.json().catch(() => ({}));
+          if (Array.isArray(autoData?.data)) {
+            report.automations = autoData.data.map((a: any) => ({
+              id: a.id,
+              name: a.name,
+              status: a.status,
+              created_at: a.created_at
+            }));
+          }
+        }
+      } catch {
+        // Non-fatal
       }
     } catch (err: any) {
       report.connectionTest = {

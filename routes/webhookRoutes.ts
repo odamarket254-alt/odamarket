@@ -4,7 +4,7 @@ import path from 'path';
 import { createClient } from '@supabase/supabase-js';
 import {
   sendEmailVerificationEmail,
-  sendWelcomeEmail
+  sendRegistrationEmail
 } from '../emailService.js';
 
 const router = express.Router();
@@ -111,33 +111,47 @@ router.post('/profile-created', async (req, res) => {
     const origin = req.headers.origin || process.env.APP_URL || 'https://odamarket.co.ke';
     const redirectUrl = `${origin}/login?confirmed=true`;
 
-    let actionLink: string | null = null;
-
-    // 1. Generate GoTrue confirmation or magic link
-    try {
-      const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
-        type: 'magiclink',
-        email: email,
-        options: {
-          redirectTo: redirectUrl
+    // 1. Check if `/api/auth/register-complete` or Resend already handled the confirmation email
+    //    for this user to prevent duplicate emails when the `public.profiles` trigger fires.
+    let alreadyHandled = false;
+    if (userId) {
+      try {
+        const { data: userData } = await supabaseAdmin.auth.admin.getUserById(userId);
+        const meta: any = userData?.user?.user_metadata || {};
+        if (
+          userData?.user?.email_confirmed_at ||
+          meta.resend_confirmation_handled_by === 'register-complete' ||
+          meta.resend_confirmation_sent_at
+        ) {
+          alreadyHandled = true;
         }
-      });
-
-      if (!linkError && linkData?.properties?.action_link) {
-        actionLink = linkData.properties.action_link;
-      } else if (linkError) {
-        console.warn('[Webhook:profile-created] generateLink notice:', linkError.message);
+      } catch {
+        // Ignore
       }
-    } catch (genErr) {
-      console.warn('[Webhook:profile-created] Error generating link:', genErr);
     }
 
-    const finalLink = actionLink || `${origin}/login?confirmed=true`;
-
-    // 2. Dispatch the Email Verification and Welcome templates via Resend
     let resendMessageId: string | null = null;
-    if (process.env.RESEND_API_KEY) {
+    if (alreadyHandled) {
+      console.log(`[Webhook:profile-created] Confirmation email already handled for ${email}, skipping duplicate dispatch.`);
+    } else if (process.env.RESEND_API_KEY) {
       try {
+        let actionLink: string | null = null;
+        try {
+          const { data: linkData, error: linkError } = await supabaseAdmin.auth.admin.generateLink({
+            type: 'magiclink',
+            email: email,
+            options: {
+              redirectTo: redirectUrl
+            }
+          });
+          if (!linkError && linkData?.properties?.action_link) {
+            actionLink = linkData.properties.action_link;
+          }
+        } catch {
+          // Ignore
+        }
+
+        const finalLink = actionLink || `${origin}/login?confirmed=true`;
         const verifyRes = await sendEmailVerificationEmail({
           email,
           confirmationUrl: finalLink,
@@ -146,20 +160,9 @@ router.post('/profile-created', async (req, res) => {
           userId
         });
 
-        if (!verifyRes.success) {
-          console.error('[Webhook:profile-created] Resend verification error:', verifyRes.error);
-        } else {
+        if (verifyRes.success) {
           resendMessageId = verifyRes.resendId || null;
-          console.log(`[Webhook:profile-created] Successfully dispatched email verification template to ${email} (ID: ${resendMessageId})`);
         }
-
-        // Also trigger Welcome template if RESEND_WELCOME_TEMPLATE_ID is configured
-        await sendWelcomeEmail({
-          email,
-          firstName,
-          lastName: record.last_name || '',
-          userId
-        });
       } catch (sendErr) {
         console.error('[Webhook:profile-created] Resend dispatch exception:', sendErr);
       }

@@ -207,7 +207,7 @@ export function isValidResendTemplateIdentifier(val?: string | null): boolean {
 export async function resolveResendTemplateId(eventType: ResendEmailEventType): Promise<string | null> {
   const envKey = RESEND_TEMPLATE_ENV_KEYS[eventType];
   const primaryEnvVal = (process.env[envKey] || '').trim().replace(/^["']|["']$/g, '');
-  const genericEnvVal = (eventType === 'welcome' || eventType === 'email_verification')
+  const genericEnvVal = eventType === 'welcome'
     ? (process.env.RESEND_TEMPLATE_ID || '').trim().replace(/^["']|["']$/g, '')
     : '';
   const rawEnvVal = isValidResendTemplateIdentifier(primaryEnvVal)
@@ -517,6 +517,8 @@ export async function dispatchResendTemplateEmail(params: {
           exactTemplateVariables[key] = normNumberMap.get(normKey)!;
         } else if (vDef.fallback_value !== null && vDef.fallback_value !== undefined) {
           exactTemplateVariables[key] = Number(vDef.fallback_value) || 0;
+        } else {
+          exactTemplateVariables[key] = 0;
         }
       } else {
         if (stringVariables[key] !== undefined) {
@@ -525,6 +527,23 @@ export async function dispatchResendTemplateEmail(params: {
           exactTemplateVariables[key] = normStringMap.get(normKey)!;
         } else if (vDef.fallback_value !== null && vDef.fallback_value !== undefined) {
           exactTemplateVariables[key] = String(vDef.fallback_value);
+        } else {
+          const appUrlFallback = (process.env.APP_URL || process.env.VITE_APP_URL || 'https://odamarket.co.ke').replace(/\/$/, '');
+          if (normKey === 'shopurl') {
+            exactTemplateVariables[key] = `${appUrlFallback}/products`;
+          } else if (normKey === 'appurl') {
+            exactTemplateVariables[key] = appUrlFallback;
+          } else if (normKey === 'loginurl') {
+            exactTemplateVariables[key] = `${appUrlFallback}/login`;
+          } else if (normKey === 'confirmationurl' || normKey === 'verificationurl' || normKey === 'actionurl') {
+            exactTemplateVariables[key] = `${appUrlFallback}/login?confirmed=true`;
+          } else if (normKey === 'name' || normKey === 'customername' || normKey === 'firstname') {
+            exactTemplateVariables[key] = 'Valued Customer';
+          } else if (normKey === 'email' || normKey === 'customeremail') {
+            exactTemplateVariables[key] = to;
+          } else {
+            exactTemplateVariables[key] = '';
+          }
         }
       }
     }
@@ -701,7 +720,9 @@ export function buildOrderTemplateVariables(
   const resolvedSellerEmail = sellerInfo?.sellerEmail || 'info@odamarket.co.ke';
 
   const stringVariables: Record<string, string> = {
+    name: data.customerName || 'Valued Customer',
     customer_name: data.customerName || 'Valued Customer',
+    CUSTOMER_NAME: data.customerName || 'Valued Customer',
     customerName: data.customerName || 'Valued Customer',
     first_name: firstName,
     firstName: firstName,
@@ -756,6 +777,8 @@ export function buildOrderTemplateVariables(
     storeName: resolvedSellerName,
     seller_dashboard_url: `${appUrl}/admin/dashboard/orders`,
     app_url: appUrl,
+    shop_url: `${appUrl}/products`,
+    login_url: `${appUrl}/login`,
     support_email: 'info@odamarket.co.ke',
     support_phone: '0792867386'
   };
@@ -2139,6 +2162,7 @@ export async function sendEmailVerificationEmail(params: {
       actionUrl: confirmationUrl,
       name: fullName,
       customer_name: fullName,
+      CUSTOMER_NAME: fullName,
       customerName: fullName,
       first_name: resolvedFirstName,
       firstName: resolvedFirstName,
@@ -2147,6 +2171,7 @@ export async function sendEmailVerificationEmail(params: {
       customer_email: normEmail,
       email: normEmail,
       app_url: appUrl,
+      shop_url: `${appUrl}/products`,
       login_url: `${appUrl}/login`,
       support_email: 'info@odamarket.co.ke',
       support_phone: '0792867386'
@@ -2387,6 +2412,7 @@ export async function ensureWelcomeSeriesAutomation(preferredTemplateId?: string
                 variables: {
                   name: { var: 'event.name' },
                   customer_name: { var: 'event.customer_name' },
+                  CUSTOMER_NAME: { var: 'event.customer_name' },
                   shop_url: { var: 'event.shop_url' }
                 }
               }
@@ -2552,6 +2578,7 @@ export async function sendWelcomeEmail(params: {
     const stringVariables: Record<string, string> = {
       name: fullName,
       customer_name: fullName,
+      CUSTOMER_NAME: fullName,
       customerName: fullName,
       first_name: resolvedFirstName,
       firstName: resolvedFirstName,

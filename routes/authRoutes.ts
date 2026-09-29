@@ -1029,7 +1029,7 @@ router.post('/diagnostics/test-email', async (req, res) => {
         const { Resend } = await import('resend');
         const resend = new Resend(process.env.RESEND_API_KEY);
         const { data, error } = await resend.emails.send({
-          from: 'ODA Market <noreply@odamarket.co.ke>',
+          from: 'Team ODA Market <team@odamarket.co.ke>',
           to: email,
           subject: 'ODA Market - SMTP & Auth Diagnostic Test',
           html: `<div style="font-family: sans-serif; padding: 20px; background-color: #FAF5EC; border-radius: 8px;">

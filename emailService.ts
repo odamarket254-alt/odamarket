@@ -26,9 +26,16 @@ const CANDIDATE_RESEND_KEY_ENV_VARS = [
 
 export function getCandidateResendApiKeys(): string[] {
   const keys: string[] = [];
-  for (const envName of CANDIDATE_RESEND_KEY_ENV_VARS) {
-    const val = (process.env[envName] || '').trim().replace(/^["']|["']$/g, '');
-    if (val.startsWith('re_') && val.length >= 20 && !rejectedResendApiKeys.has(val) && !keys.includes(val)) {
+  const envNames = new Set<string>([
+    ...CANDIDATE_RESEND_KEY_ENV_VARS,
+    ...Object.keys(process.env).filter((k) => k.toUpperCase().includes('RESEND'))
+  ]);
+
+  for (const envName of envNames) {
+    const raw = (process.env[envName] || '').trim().replace(/^["']|["']$/g, '').replace(/^Bearer\s+/i, '').trim();
+    const match = raw.match(/re_[A-Za-z0-9_]{15,}/);
+    const val = match ? match[0] : raw;
+    if (val.startsWith('re_') && val.length >= 18 && !rejectedResendApiKeys.has(val) && !keys.includes(val)) {
       keys.push(val);
     }
   }

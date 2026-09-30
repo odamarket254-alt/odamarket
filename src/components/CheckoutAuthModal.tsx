@@ -86,6 +86,8 @@ export function CheckoutAuthModal({ isOpen, onClose, onSuccess }: CheckoutAuthMo
         body: JSON.stringify({
           emailOrPhone: emailOrPhone.trim(),
           password,
+          supabaseUrl: import.meta.env.VITE_SUPABASE_URL,
+          supabaseAnonKey: import.meta.env.VITE_SUPABASE_ANON_KEY,
         }),
       });
 

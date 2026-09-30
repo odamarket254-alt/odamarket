@@ -10,19 +10,82 @@ import {
   sendWelcomeEmail,
   sendRegistrationEmail,
   ensureWelcomeSeriesAutomation,
-  sendLoginOtpEmail
+  sendLoginOtpEmail,
+  getCandidateResendApiKeys
 } from '../emailService.js';
 
 const router = express.Router();
 
+function cleanEnvValue(val?: string): string {
+  return (val || '')
+    .trim()
+    .replace(/^["']|["']$/g, '')
+    .replace(/^Bearer\s+/i, '')
+    .trim();
+}
+
+function resolveSupabaseUrl(fallbackUrl?: string): string {
+  const candidates = [
+    process.env.VITE_SUPABASE_URL,
+    process.env.SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    fallbackUrl
+  ];
+  for (const c of candidates) {
+    const cleaned = cleanEnvValue(c);
+    if (cleaned && cleaned.startsWith('http') && !cleaned.includes('placeholder-project.supabase.co')) {
+      return cleaned;
+    }
+  }
+  return 'https://placeholder-project.supabase.co';
+}
+
+function getCandidateSupabaseKeys(clientAnonKey?: string): string[] {
+  const rawCandidates = [
+    process.env.VITE_SUPABASE_ANON_KEY,
+    process.env.SUPABASE_ANON_KEY,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    process.env.VITE_SUPABASE_SERVICE_ROLE_KEY,
+    process.env.SUPABASE_KEY,
+    clientAnonKey
+  ];
+  const validKeys: string[] = [];
+  for (const raw of rawCandidates) {
+    const cleaned = cleanEnvValue(raw);
+    if (
+      cleaned &&
+      cleaned.length > 20 &&
+      !cleaned.includes('placeholder') &&
+      !cleaned.startsWith('YOUR_') &&
+      !validKeys.includes(cleaned)
+    ) {
+      validKeys.push(cleaned);
+    }
+  }
+  return validKeys;
+}
+
 const supabaseAdmin = createClient(
-  (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://placeholder-project.supabase.co").trim().replace(/^["']|["']$/g, ''),
-  (process.env.SUPABASE_SERVICE_ROLE_KEY || "placeholder-service-key").trim().replace(/^["']|["']$/g, '')
+  resolveSupabaseUrl(),
+  cleanEnvValue(
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.VITE_SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.VITE_SUPABASE_ANON_KEY ||
+      process.env.SUPABASE_ANON_KEY ||
+      'placeholder-service-key'
+  )
 );
 
 const supabaseAnon = createClient(
-  (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "https://placeholder-project.supabase.co").trim().replace(/^["']|["']$/g, ''),
-  (process.env.VITE_SUPABASE_ANON_KEY || "placeholder-anon-key").trim().replace(/^["']|["']$/g, '')
+  resolveSupabaseUrl(),
+  cleanEnvValue(
+    process.env.VITE_SUPABASE_ANON_KEY ||
+      process.env.SUPABASE_ANON_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+      process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      'placeholder-anon-key'
+  )
 );
 
 const requestLimits = new Map<string, number>();
@@ -1429,6 +1492,7 @@ function maskEmailAddress(email: string): string {
 const LOGIN_OTP_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
 const LOGIN_OTP_MAX_REQUESTS_PER_WINDOW = 6; // max 6 OTP challenges/resends per 15 min per user
 const loginOtpRequestHistory = new Map<string, number[]>();
+const memoryOtpChallenges = new Map<string, LoginOtpChallengeRecord>();
 
 function checkAndRecordOtpRateLimit(key: string): { allowed: boolean; retryAfterSeconds?: number } {
   const now = Date.now();
@@ -1446,6 +1510,18 @@ function checkAndRecordOtpRateLimit(key: string): { allowed: boolean; retryAfter
 }
 
 async function saveLoginOtpChallenge(record: LoginOtpChallengeRecord): Promise<void> {
+  // 0. Invalidate previous in-memory challenges for this user and store new record
+  for (const [cid, existing] of memoryOtpChallenges.entries()) {
+    if (existing.user_id === record.user_id && cid !== record.id && !existing.verified_at && !existing.invalidated_at) {
+      memoryOtpChallenges.set(cid, {
+        ...existing,
+        invalidated_at: new Date().toISOString(),
+        encrypted_session: ''
+      });
+    }
+  }
+  memoryOtpChallenges.set(record.id, { ...record });
+
   // 1. Try primary dedicated table `public.login_otp_challenges`
   try {
     await supabaseAdmin
@@ -1579,11 +1655,18 @@ async function loadLoginOtpChallenge(
     if (!pvErr && pvData?.status) {
       const parsed = JSON.parse(pvData.status) as LoginOtpChallengeRecord;
       if (parsed && parsed.id === challengeId) {
+        memoryOtpChallenges.set(challengeId, { ...parsed });
         return parsed;
       }
     }
   } catch {
     // Ignore parse error
+  }
+
+  // 3. Fallback to in-memory cache
+  const mem = memoryOtpChallenges.get(challengeId);
+  if (mem) {
+    return { ...mem };
   }
 
   return null;
@@ -1592,6 +1675,8 @@ async function loadLoginOtpChallenge(
 async function updateLoginOtpChallengeState(
   record: LoginOtpChallengeRecord
 ): Promise<void> {
+  memoryOtpChallenges.set(record.id, { ...record });
+
   try {
     await supabaseAdmin
       .from('login_otp_challenges')
@@ -1678,34 +1763,55 @@ router.post('/login-initiate', async (req, res) => {
       phone = formattedPhone;
     }
 
-    // Create an ephemeral non-persisting Supabase client so credentials are verified cleanly
-    const ephemeralSupabase = createClient(
-      (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || 'https://placeholder-project.supabase.co')
-        .trim()
-        .replace(/^["']|["']$/g, ''),
-      (process.env.VITE_SUPABASE_ANON_KEY || 'placeholder-anon-key')
-        .trim()
-        .replace(/^["']|["']$/g, ''),
-      {
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false,
-          detectSessionInUrl: false
-        }
-      }
-    );
+    // Create an ephemeral non-persisting Supabase client and try all candidate keys if one is misconfigured
+    const clientSupabaseUrl = cleanEnvValue(req.body?.supabaseUrl || (req.headers['x-supabase-url'] as string));
+    const clientSupabaseAnonKey = cleanEnvValue(req.body?.supabaseAnonKey || (req.headers['x-supabase-anon-key'] as string));
+    const resolvedUrl = resolveSupabaseUrl(clientSupabaseUrl);
+    const candidateKeys = getCandidateSupabaseKeys(clientSupabaseAnonKey);
+
+    if (resolvedUrl.includes('placeholder-project.supabase.co') || candidateKeys.length === 0) {
+      return res.status(500).json({
+        error: 'Supabase URL or API key is missing in server environment variables (VITE_SUPABASE_URL / VITE_SUPABASE_ANON_KEY / SUPABASE_SERVICE_ROLE_KEY).'
+      });
+    }
 
     const authCredentials = email
       ? { email, password: String(password) }
       : { phone: phone!, password: String(password) };
 
-    const { data: authData, error: authError } = await ephemeralSupabase.auth.signInWithPassword(authCredentials);
+    let authData: any = null;
+    let authError: any = null;
+
+    for (const apiKey of candidateKeys) {
+      const ephemeralSupabase = createClient(resolvedUrl, apiKey, {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+          detectSessionInUrl: false
+        }
+      });
+
+      const attempt = await ephemeralSupabase.auth.signInWithPassword(authCredentials);
+      authData = attempt.data;
+      authError = attempt.error;
+
+      const errMsg = String(authError?.message || '').toLowerCase();
+      if (!authError || (!errMsg.includes('invalid api key') && !errMsg.includes('apikey') && !errMsg.includes('jwt'))) {
+        break;
+      }
+      console.warn('[Auth:login-initiate] Candidate Supabase API key rejected with Invalid API key, trying next fallback key...');
+    }
 
     if (authError || !authData?.user || !authData?.session) {
       const msg = authError?.message || 'Invalid login credentials.';
       if (msg.includes('Email not confirmed')) {
         return res.status(401).json({
           error: 'Please confirm your email before signing in. Check your inbox for the confirmation link.'
+        });
+      }
+      if (msg.toLowerCase().includes('invalid api key')) {
+        return res.status(500).json({
+          error: 'Supabase returned "Invalid API key". Please verify VITE_SUPABASE_ANON_KEY and SUPABASE_SERVICE_ROLE_KEY in your production environment variables.'
         });
       }
       return res.status(401).json({ error: msg });
@@ -1805,8 +1911,12 @@ router.post('/login-initiate', async (req, res) => {
       challengeRecord.invalidated_at = new Date().toISOString();
       challengeRecord.encrypted_session = '';
       await updateLoginOtpChallengeState(challengeRecord);
+      const rawErr = String(emailResult.error || '');
+      const friendlyErr = rawErr.toLowerCase().includes('api key is invalid') || rawErr.toLowerCase().includes('invalid_api_key')
+        ? 'Resend returned "API key is invalid". Please update RESEND_API_KEY in your production environment variables with a valid Full Access key (starts with re_).'
+        : rawErr || 'Failed to send verification code email. Please try again.';
       return res.status(500).json({
-        error: emailResult.error || 'Failed to send verification code email. Please try again.'
+        error: friendlyErr
       });
     }
 
@@ -2082,6 +2192,34 @@ router.post('/login-cancel-otp', async (req, res) => {
   } catch {
     return res.status(200).json({ success: true });
   }
+});
+
+/**
+ * PRODUCTION DIAGNOSTICS FOR 2-STEP LOGIN OTP
+ * Safe GET endpoint (/api/auth/otp-diagnostics) to verify Supabase & Resend API keys in production.
+ */
+router.get('/otp-diagnostics', async (_req, res) => {
+  const url = resolveSupabaseUrl();
+  const supabaseKeys = getCandidateSupabaseKeys();
+  const resendKeys = getCandidateResendApiKeys();
+
+  const diagnostics: Record<string, any> = {
+    supabaseUrlConfigured: !url.includes('placeholder-project.supabase.co'),
+    supabaseUrlHost: url.replace(/^https?:\/\//, ''),
+    supabaseCandidateKeysCount: supabaseKeys.length,
+    envVarsPresent: {
+      VITE_SUPABASE_URL: Boolean(cleanEnvValue(process.env.VITE_SUPABASE_URL)),
+      SUPABASE_URL: Boolean(cleanEnvValue(process.env.SUPABASE_URL)),
+      VITE_SUPABASE_ANON_KEY: Boolean(cleanEnvValue(process.env.VITE_SUPABASE_ANON_KEY)),
+      SUPABASE_ANON_KEY: Boolean(cleanEnvValue(process.env.SUPABASE_ANON_KEY)),
+      SUPABASE_SERVICE_ROLE_KEY: Boolean(cleanEnvValue(process.env.SUPABASE_SERVICE_ROLE_KEY)),
+      RESEND_API_KEY: Boolean(cleanEnvValue(process.env.RESEND_API_KEY))
+    },
+    resendCandidateKeysCount: resendKeys.length,
+    resendKeyPrefixes: resendKeys.map((k) => `${k.slice(0, 7)}...`)
+  };
+
+  return res.status(200).json(diagnostics);
 });
 
 export default router;

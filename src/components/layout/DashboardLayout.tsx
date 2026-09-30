@@ -45,7 +45,7 @@ import { Logo } from "../ui/Logo";
 import { getNavItems } from "../../utils/navigation";
 
 export default function DashboardLayout() {
-  const { user, profile, isLoading } = useAuthStore();
+  const { user, profile, isLoading, pendingOtpChallenge, signOut } = useAuthStore();
   const location = useLocation();
   const { isOpen: isMobileMenuOpen, setIsOpen: setIsMobileMenuOpen } = useMobileMenuStore();
 
@@ -70,7 +70,7 @@ export default function DashboardLayout() {
     }
   }, [isMobileMenuOpen]);
 
-  if (isLoading) {
+  if (isLoading && !pendingOtpChallenge) {
     return (
       <div className="min-h-[100dvh] flex items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -78,11 +78,12 @@ export default function DashboardLayout() {
     );
   }
 
-  if (!user) {
+  if (!user || pendingOtpChallenge) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   const handleSignOut = async () => {
+    signOut();
     await supabase.auth.signOut().catch(console.error);
   };
 

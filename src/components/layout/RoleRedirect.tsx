@@ -3,9 +3,9 @@ import { useAuthStore } from "../../store/useAuthStore";
 import { Loader2 } from "lucide-react";
 
 export default function RoleRedirect() {
-  const { user, profile, isLoading } = useAuthStore();
+  const { user, profile, isLoading, pendingOtpChallenge } = useAuthStore();
 
-  if (isLoading) {
+  if (isLoading && !pendingOtpChallenge) {
     return (
       <div className="flex h-[100dvh] w-full items-center justify-center bg-background">
         <Loader2 className="h-8 w-8 animate-spin text-[#C65A28] dark:text-[#C65A28]" />
@@ -13,7 +13,7 @@ export default function RoleRedirect() {
     );
   }
 
-  if (!user || !profile) {
+  if (!user || !profile || pendingOtpChallenge) {
     return <Navigate to="/login" replace />;
   }
 

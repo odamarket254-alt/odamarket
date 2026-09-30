@@ -7,7 +7,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { Toaster } from "./components/ui/Sonner";
 import { useEffect, Suspense, lazy } from "react";
 import { supabase } from "./lib/supabase";
-import { useAuthStore } from "./store/useAuthStore";
+import { useAuthStore, loadStoredPendingOtpChallenge } from "./store/useAuthStore";
 import { Loader2 } from "lucide-react";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { CookieConsent } from "./components/ui/CookieConsent";
@@ -92,7 +92,7 @@ function LoadingFallback() {
 }
 
 export default function App() {
-  const { setUser, setProfile, setLoading } = useAuthStore();
+  const { setUser, setProfile, setLoading, setPendingOtpChallenge } = useAuthStore();
 
   useEffect(() => {
     try {
@@ -105,8 +105,27 @@ export default function App() {
   }, []);
 
   useEffect(() => {
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "oda_pending_login_otp") {
+        const latestChallenge = loadStoredPendingOtpChallenge();
+        setPendingOtpChallenge(latestChallenge);
+      }
+    };
+    window.addEventListener("storage", handleStorageChange);
+
     const initSession = async () => {
       try {
+        const activeChallenge = loadStoredPendingOtpChallenge();
+        setPendingOtpChallenge(activeChallenge);
+
+        if (activeChallenge) {
+          // Do not expose any authenticated session while an OTP challenge is pending
+          setUser(null);
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+
         const { data: { session }, error } = await supabase.auth.getSession();
         if (error) {
           console.warn("Session check error:", error.message);
@@ -131,6 +150,7 @@ export default function App() {
         }
       } catch (e) {
         console.warn("Session check failed", e);
+        setLoading(false);
       }
     };
     initSession();
@@ -139,6 +159,13 @@ export default function App() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      const activeChallenge = loadStoredPendingOtpChallenge();
+      if (activeChallenge) {
+        setUser(null);
+        setProfile(null);
+        setLoading(false);
+        return;
+      }
       setUser(session?.user ?? null);
       if (session?.user) {
         setLoading(true);
@@ -149,7 +176,10 @@ export default function App() {
       }
     });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const fetchProfile = async (userId: string, retries = 3) => {

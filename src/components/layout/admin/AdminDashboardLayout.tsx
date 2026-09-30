@@ -9,7 +9,7 @@ import AdminSidebar from './AdminSidebar';
 import AdminHeader from './AdminHeader';
 
 export default function AdminDashboardLayout() {
-  const { user, profile, isLoading: loading } = useAuthStore();
+  const { user, profile, isLoading: loading, pendingOtpChallenge } = useAuthStore();
   
   // Sidebar state
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -34,7 +34,7 @@ export default function AdminDashboardLayout() {
     localStorage.setItem('oda_admin_sidebar_collapsed', JSON.stringify(sidebarCollapsed));
   }, [sidebarCollapsed]);
 
-  if (loading || (!profile && user)) {
+  if ((loading || (!profile && user)) && !pendingOtpChallenge) {
     return (
       <div className="min-h-screen bg-[#F3F6F4] flex flex-col items-center justify-center">
         <Loader2 className="w-12 h-12 text-[#C65A28] animate-spin mb-4" />
@@ -44,7 +44,7 @@ export default function AdminDashboardLayout() {
     );
   }
 
-  if (!user || !profile) {
+  if (!user || !profile || pendingOtpChallenge) {
     return <Navigate to="/login" replace />;
   }
 

@@ -9,7 +9,8 @@ import {
   sendEmailVerificationEmail,
   sendWelcomeEmail,
   sendRegistrationEmail,
-  ensureWelcomeSeriesAutomation
+  ensureWelcomeSeriesAutomation,
+  sendLoginOtpEmail
 } from '../emailService.js';
 
 const router = express.Router();
@@ -1309,6 +1310,777 @@ router.post('/admin/resend-verification-email', async (req, res) => {
     });
   } catch (err: any) {
     return res.status(500).json({ error: err.message || 'Failed to resend verification' });
+  }
+});
+
+// ============================================================================
+// TWO-STEP EMAIL + PASSWORD + RESEND 6-DIGIT OTP LOGIN FLOW
+// ============================================================================
+
+interface LoginOtpChallengeRecord {
+  id: string;
+  user_id: string;
+  email: string;
+  first_name?: string;
+  otp_hash: string;
+  challenge_token_hash: string;
+  encrypted_session: string;
+  expires_at: string;
+  resend_available_at: string;
+  attempts: number;
+  max_attempts: number;
+  verified_at: string | null;
+  invalidated_at: string | null;
+  created_at: string;
+}
+
+const LOGIN_OTP_EXPIRY_MS = 10 * 60 * 1000; // 10 minutes
+const LOGIN_OTP_RESEND_COOLDOWN_MS = 60 * 1000; // 60 seconds
+const LOGIN_OTP_MAX_ATTEMPTS = 5;
+
+function getOtpServerSecret(): string {
+  return (
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.RESEND_API_KEY ||
+    'oda-market-login-otp-secret-key-2026'
+  ).trim();
+}
+
+function generateSecureLoginOtp(): string {
+  // Cryptographically secure 6-digit integer in [100000, 999999]
+  return crypto.randomInt(100000, 1000000).toString();
+}
+
+function hashLoginOtp(challengeId: string, otp: string): string {
+  return crypto
+    .createHmac('sha256', getOtpServerSecret())
+    .update(`${challengeId}:${otp.trim()}`)
+    .digest('hex');
+}
+
+function hashChallengeToken(token: string): string {
+  return crypto
+    .createHmac('sha256', getOtpServerSecret())
+    .update(`token:${token.trim()}`)
+    .digest('hex');
+}
+
+function timingSafeHexEqual(a: string, b: string): boolean {
+  if (!a || !b || a.length !== b.length) return false;
+  try {
+    return crypto.timingSafeEqual(Buffer.from(a, 'hex'), Buffer.from(b, 'hex'));
+  } catch {
+    return false;
+  }
+}
+
+function encryptPendingSession(
+  sessionPayload: { access_token: string; refresh_token: string },
+  challengeToken: string
+): string {
+  const key = crypto.scryptSync(getOtpServerSecret(), `session:${challengeToken}`, 32);
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv('aes-256-gcm', key, iv);
+  const plaintext = JSON.stringify(sessionPayload);
+  const encrypted = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()]);
+  const authTag = cipher.getAuthTag();
+  return `${iv.toString('hex')}.${authTag.toString('hex')}.${encrypted.toString('hex')}`;
+}
+
+function decryptPendingSession(
+  encryptedPayload: string,
+  challengeToken: string
+): { access_token: string; refresh_token: string } | null {
+  try {
+    const parts = (encryptedPayload || '').split('.');
+    if (parts.length !== 3) return null;
+    const [ivHex, authTagHex, cipherHex] = parts;
+    const key = crypto.scryptSync(getOtpServerSecret(), `session:${challengeToken}`, 32);
+    const iv = Buffer.from(ivHex, 'hex');
+    const authTag = Buffer.from(authTagHex, 'hex');
+    const encrypted = Buffer.from(cipherHex, 'hex');
+    const decipher = crypto.createDecipheriv('aes-256-gcm', key, iv);
+    decipher.setAuthTag(authTag);
+    const decrypted = Buffer.concat([decipher.update(encrypted), decipher.final()]).toString('utf8');
+    const parsed = JSON.parse(decrypted);
+    if (parsed?.access_token && parsed?.refresh_token) {
+      return {
+        access_token: parsed.access_token,
+        refresh_token: parsed.refresh_token
+      };
+    }
+    return null;
+  } catch (err) {
+    console.error('[LoginOTP] Failed to decrypt pending session:', err);
+    return null;
+  }
+}
+
+function maskEmailAddress(email: string): string {
+  const clean = (email || '').trim().toLowerCase();
+  const [local, domain] = clean.split('@');
+  if (!local || !domain) return clean;
+  if (local.length <= 2) {
+    return `${local[0] || '*'}***@${domain}`;
+  }
+  return `${local.slice(0, 2)}***${local.slice(-1)}@${domain}`;
+}
+
+const LOGIN_OTP_WINDOW_MS = 15 * 60 * 1000; // 15 minutes
+const LOGIN_OTP_MAX_REQUESTS_PER_WINDOW = 6; // max 6 OTP challenges/resends per 15 min per user
+const loginOtpRequestHistory = new Map<string, number[]>();
+
+function checkAndRecordOtpRateLimit(key: string): { allowed: boolean; retryAfterSeconds?: number } {
+  const now = Date.now();
+  const cutoff = now - LOGIN_OTP_WINDOW_MS;
+  const timestamps = (loginOtpRequestHistory.get(key) || []).filter((ts) => ts > cutoff);
+  if (timestamps.length >= LOGIN_OTP_MAX_REQUESTS_PER_WINDOW) {
+    const oldest = timestamps[0];
+    const retryAfterSeconds = Math.max(1, Math.ceil((oldest + LOGIN_OTP_WINDOW_MS - now) / 1000));
+    loginOtpRequestHistory.set(key, timestamps);
+    return { allowed: false, retryAfterSeconds };
+  }
+  timestamps.push(now);
+  loginOtpRequestHistory.set(key, timestamps);
+  return { allowed: true };
+}
+
+async function saveLoginOtpChallenge(record: LoginOtpChallengeRecord): Promise<void> {
+  // 1. Try primary dedicated table `public.login_otp_challenges`
+  try {
+    await supabaseAdmin
+      .from('login_otp_challenges')
+      .update({ invalidated_at: new Date().toISOString() })
+      .eq('user_id', record.user_id)
+      .is('verified_at', null)
+      .is('invalidated_at', null);
+
+    await supabaseAdmin.from('login_otp_challenges').insert({
+      id: record.id,
+      user_id: record.user_id,
+      email: record.email,
+      otp_hash: record.otp_hash,
+      challenge_token_hash: record.challenge_token_hash,
+      encrypted_session: record.encrypted_session,
+      expires_at: record.expires_at,
+      resend_available_at: record.resend_available_at,
+      attempts: record.attempts,
+      max_attempts: record.max_attempts,
+      verified_at: record.verified_at,
+      invalidated_at: record.invalidated_at,
+      created_at: record.created_at
+    });
+  } catch {
+    // Fallback handled below
+  }
+
+  // 2. Also persist in `public.phone_verifications` (which has service_role-only RLS in Supabase)
+  //    Invalidate any previous active challenge for this user first
+  try {
+    const { data: prevUserRow } = await supabaseAdmin
+      .from('phone_verifications')
+      .select('otp_hash')
+      .eq('phone', `login_otp_user:${record.user_id}`)
+      .maybeSingle();
+
+    if (prevUserRow?.otp_hash && prevUserRow.otp_hash !== record.id) {
+      await supabaseAdmin
+        .from('phone_verifications')
+        .delete()
+        .eq('phone', `login_otp:${prevUserRow.otp_hash}`);
+    }
+
+    await supabaseAdmin.from('phone_verifications').upsert(
+      {
+        phone: `login_otp_user:${record.user_id}`,
+        otp_hash: record.id,
+        expires_at: new Date(record.expires_at).getTime(),
+        attempts: 0,
+        status: 'active_challenge_pointer',
+        updated_at: new Date().toISOString()
+      },
+      { onConflict: 'phone' }
+    );
+
+    await supabaseAdmin.from('phone_verifications').upsert(
+      {
+        phone: `login_otp:${record.id}`,
+        otp_hash: record.otp_hash,
+        expires_at: new Date(record.expires_at).getTime(),
+        attempts: record.attempts,
+        status: JSON.stringify(record),
+        updated_at: new Date().toISOString()
+      },
+      { onConflict: 'phone' }
+    );
+  } catch (err) {
+    console.warn('[LoginOTP] phone_verifications mirror notice:', err);
+  }
+
+  // 3. Store only non-sensitive verification state metadata on auth.users.app_metadata
+  try {
+    const { data: userData } = await supabaseAdmin.auth.admin.getUserById(record.user_id);
+    const existingAppMeta = userData?.user?.app_metadata || {};
+    const { login_otp_challenge: _legacy, ...cleanAppMeta } = existingAppMeta;
+    await supabaseAdmin.auth.admin.updateUserById(record.user_id, {
+      app_metadata: {
+        ...cleanAppMeta,
+        login_otp_challenge_id: record.id,
+        login_otp_pending: true,
+        login_otp_verified_at: null
+      }
+    });
+  } catch (err) {
+    console.warn('[LoginOTP] app_metadata update notice:', err);
+  }
+}
+
+async function loadLoginOtpChallenge(
+  challengeId: string,
+  _userId?: string
+): Promise<LoginOtpChallengeRecord | null> {
+  // 1. Try `public.login_otp_challenges` first
+  try {
+    const { data, error } = await supabaseAdmin
+      .from('login_otp_challenges')
+      .select('*')
+      .eq('id', challengeId)
+      .maybeSingle();
+
+    if (!error && data) {
+      return {
+        id: data.id,
+        user_id: data.user_id,
+        email: data.email,
+        otp_hash: data.otp_hash,
+        challenge_token_hash: data.challenge_token_hash,
+        encrypted_session: data.encrypted_session,
+        expires_at: data.expires_at,
+        resend_available_at: data.resend_available_at,
+        attempts: Number(data.attempts || 0),
+        max_attempts: Number(data.max_attempts || LOGIN_OTP_MAX_ATTEMPTS),
+        verified_at: data.verified_at || null,
+        invalidated_at: data.invalidated_at || null,
+        created_at: data.created_at
+      };
+    }
+  } catch {
+    // Fallback to phone_verifications
+  }
+
+  // 2. Fallback to `public.phone_verifications` (service_role-only RLS table)
+  try {
+    const { data: pvData, error: pvErr } = await supabaseAdmin
+      .from('phone_verifications')
+      .select('*')
+      .eq('phone', `login_otp:${challengeId}`)
+      .maybeSingle();
+
+    if (!pvErr && pvData?.status) {
+      const parsed = JSON.parse(pvData.status) as LoginOtpChallengeRecord;
+      if (parsed && parsed.id === challengeId) {
+        return parsed;
+      }
+    }
+  } catch {
+    // Ignore parse error
+  }
+
+  return null;
+}
+
+async function updateLoginOtpChallengeState(
+  record: LoginOtpChallengeRecord
+): Promise<void> {
+  try {
+    await supabaseAdmin
+      .from('login_otp_challenges')
+      .update({
+        otp_hash: record.otp_hash,
+        encrypted_session: record.encrypted_session,
+        expires_at: record.expires_at,
+        resend_available_at: record.resend_available_at,
+        attempts: record.attempts,
+        verified_at: record.verified_at,
+        invalidated_at: record.invalidated_at
+      })
+      .eq('id', record.id);
+  } catch {
+    // Ignore if table not created yet
+  }
+
+  try {
+    await supabaseAdmin.from('phone_verifications').upsert(
+      {
+        phone: `login_otp:${record.id}`,
+        otp_hash: record.otp_hash,
+        expires_at: new Date(record.expires_at).getTime(),
+        attempts: record.attempts,
+        status: JSON.stringify(record),
+        updated_at: new Date().toISOString()
+      },
+      { onConflict: 'phone' }
+    );
+
+    if (record.verified_at || record.invalidated_at) {
+      await supabaseAdmin
+        .from('phone_verifications')
+        .delete()
+        .eq('phone', `login_otp_user:${record.user_id}`);
+    }
+  } catch (err) {
+    console.warn('[LoginOTP] phone_verifications update notice:', err);
+  }
+
+  try {
+    const { data: userData } = await supabaseAdmin.auth.admin.getUserById(record.user_id);
+    const existingAppMeta = userData?.user?.app_metadata || {};
+    const { login_otp_challenge: _legacy, ...cleanAppMeta } = existingAppMeta;
+    await supabaseAdmin.auth.admin.updateUserById(record.user_id, {
+      app_metadata: {
+        ...cleanAppMeta,
+        login_otp_challenge_id: record.id,
+        login_otp_pending: !record.verified_at && !record.invalidated_at,
+        login_otp_verified_at: record.verified_at
+      }
+    });
+  } catch (err) {
+    console.warn('[LoginOTP] app_metadata update notice:', err);
+  }
+}
+
+/**
+ * STEP 1 OF LOGIN:
+ * Verifies email/phone + password against Supabase Auth on the server without exposing
+ * session tokens to the browser. Generates a 6-digit OTP and sends it via Resend.
+ */
+router.post('/login-initiate', async (req, res) => {
+  try {
+    const { emailOrPhone, email: rawEmail, password } = req.body || {};
+    const identifier = String(emailOrPhone || rawEmail || '').trim();
+
+    if (!identifier || !password) {
+      return res.status(400).json({ error: 'Email and password are required.' });
+    }
+
+    let email: string | undefined;
+    let phone: string | undefined;
+
+    if (identifier.includes('@')) {
+      email = identifier.toLowerCase();
+    } else {
+      let formattedPhone = identifier.replace(/[\s\-()]/g, '');
+      if (formattedPhone.startsWith('0')) {
+        formattedPhone = '+254' + formattedPhone.substring(1);
+      } else if (!formattedPhone.startsWith('+')) {
+        formattedPhone = '+' + formattedPhone;
+      }
+      phone = formattedPhone;
+    }
+
+    // Create an ephemeral non-persisting Supabase client so credentials are verified cleanly
+    const ephemeralSupabase = createClient(
+      (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || 'https://placeholder-project.supabase.co')
+        .trim()
+        .replace(/^["']|["']$/g, ''),
+      (process.env.VITE_SUPABASE_ANON_KEY || 'placeholder-anon-key')
+        .trim()
+        .replace(/^["']|["']$/g, ''),
+      {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+          detectSessionInUrl: false
+        }
+      }
+    );
+
+    const authCredentials = email
+      ? { email, password: String(password) }
+      : { phone: phone!, password: String(password) };
+
+    const { data: authData, error: authError } = await ephemeralSupabase.auth.signInWithPassword(authCredentials);
+
+    if (authError || !authData?.user || !authData?.session) {
+      const msg = authError?.message || 'Invalid login credentials.';
+      if (msg.includes('Email not confirmed')) {
+        return res.status(401).json({
+          error: 'Please confirm your email before signing in. Check your inbox for the confirmation link.'
+        });
+      }
+      return res.status(401).json({ error: msg });
+    }
+
+    const authenticatedUser = authData.user;
+
+    // Check if soft-deleted or banned
+    if (authenticatedUser.app_metadata?.is_deleted || authenticatedUser.user_metadata?.is_deleted) {
+      return res.status(403).json({
+        error: 'This account has been deactivated. Please contact ODA Market support.'
+      });
+    }
+
+    // Look up user profile for email / first_name
+    const { data: profileData } = await supabaseAdmin
+      .from('profiles')
+      .select('id, email, first_name, last_name, role, verified')
+      .eq('id', authenticatedUser.id)
+      .maybeSingle();
+
+    const targetEmail = (
+      authenticatedUser.email ||
+      profileData?.email ||
+      email ||
+      ''
+    )
+      .trim()
+      .toLowerCase();
+
+    if (!targetEmail || !targetEmail.includes('@')) {
+      return res.status(400).json({
+        error: 'No registered email address is associated with this account to receive a verification code.'
+      });
+    }
+
+    const rateCheck = checkAndRecordOtpRateLimit(`user:${authenticatedUser.id}`);
+    if (!rateCheck.allowed) {
+      return res.status(429).json({
+        error: `Too many login verification requests. Please wait ${Math.ceil((rateCheck.retryAfterSeconds || 60) / 60)} minute(s) before trying again.`,
+        retryAfterSeconds: rateCheck.retryAfterSeconds
+      });
+    }
+
+    const firstName =
+      profileData?.first_name ||
+      authenticatedUser.user_metadata?.first_name ||
+      authenticatedUser.user_metadata?.full_name?.split(' ')[0] ||
+      '';
+
+    // Generate cryptographically secure 6-digit OTP and challenge credentials
+    const challengeId = crypto.randomUUID();
+    const challengeToken = crypto.randomBytes(32).toString('hex');
+    const otp = generateSecureLoginOtp();
+    const otpHash = hashLoginOtp(challengeId, otp);
+    const challengeTokenHash = hashChallengeToken(challengeToken);
+    const encryptedSession = encryptPendingSession(
+      {
+        access_token: authData.session.access_token,
+        refresh_token: authData.session.refresh_token
+      },
+      challengeToken
+    );
+
+    const nowMs = Date.now();
+    const expiresAtIso = new Date(nowMs + LOGIN_OTP_EXPIRY_MS).toISOString();
+    const resendAvailableAtIso = new Date(nowMs + LOGIN_OTP_RESEND_COOLDOWN_MS).toISOString();
+
+    const challengeRecord: LoginOtpChallengeRecord = {
+      id: challengeId,
+      user_id: authenticatedUser.id,
+      email: targetEmail,
+      first_name: firstName,
+      otp_hash: otpHash,
+      challenge_token_hash: challengeTokenHash,
+      encrypted_session: encryptedSession,
+      expires_at: expiresAtIso,
+      resend_available_at: resendAvailableAtIso,
+      attempts: 0,
+      max_attempts: LOGIN_OTP_MAX_ATTEMPTS,
+      verified_at: null,
+      invalidated_at: null,
+      created_at: new Date(nowMs).toISOString()
+    };
+
+    await saveLoginOtpChallenge(challengeRecord);
+
+    // Send 6-digit OTP via Resend
+    const emailResult = await sendLoginOtpEmail({
+      email: targetEmail,
+      otp,
+      firstName,
+      challengeId
+    });
+
+    if (!emailResult.success) {
+      challengeRecord.invalidated_at = new Date().toISOString();
+      challengeRecord.encrypted_session = '';
+      await updateLoginOtpChallengeState(challengeRecord);
+      return res.status(500).json({
+        error: emailResult.error || 'Failed to send verification code email. Please try again.'
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      otpRequired: true,
+      challengeId,
+      challengeToken,
+      userId: authenticatedUser.id,
+      email: targetEmail,
+      maskedEmail: maskEmailAddress(targetEmail),
+      expiresAt: expiresAtIso,
+      expiresInSeconds: Math.floor(LOGIN_OTP_EXPIRY_MS / 1000),
+      resendCooldownSeconds: Math.floor(LOGIN_OTP_RESEND_COOLDOWN_MS / 1000),
+      resendId: emailResult.resendId
+    });
+  } catch (err: any) {
+    console.error('[Auth:login-initiate] Unexpected error:', err);
+    return res.status(500).json({
+      error: err?.message || 'An error occurred while initiating sign in.'
+    });
+  }
+});
+
+/**
+ * STEP 2 OF LOGIN:
+ * Verifies the 6-digit OTP server-side. Only when valid, unexpired, and unverified
+ * does the backend release the Supabase session tokens to complete login.
+ */
+router.post('/login-verify-otp', async (req, res) => {
+  try {
+    const { challengeId, challengeToken, userId, otp } = req.body || {};
+    const cleanOtp = String(otp || '').trim().replace(/\s+/g, '');
+
+    if (!challengeId || !challengeToken || !cleanOtp) {
+      return res.status(400).json({ error: 'Verification code and challenge credentials are required.' });
+    }
+
+    if (!/^\d{6}$/.test(cleanOtp)) {
+      return res.status(400).json({ error: 'Please enter a valid 6-digit verification code.' });
+    }
+
+    const record = await loadLoginOtpChallenge(String(challengeId), userId ? String(userId) : undefined);
+    if (!record) {
+      return res.status(400).json({
+        error: 'Login verification session not found or has expired. Please sign in again.',
+        expired: true
+      });
+    }
+
+    if (record.verified_at) {
+      return res.status(400).json({
+        error: 'This verification code has already been used. Please sign in again.',
+        expired: true
+      });
+    }
+
+    if (record.invalidated_at) {
+      return res.status(400).json({
+        error: 'This verification code is no longer valid. Please request a new code.',
+        expired: true
+      });
+    }
+
+    const incomingTokenHash = hashChallengeToken(String(challengeToken));
+    if (!timingSafeHexEqual(incomingTokenHash, record.challenge_token_hash)) {
+      return res.status(403).json({
+        error: 'Invalid verification session token. Please sign in again.'
+      });
+    }
+
+    if (Date.now() > new Date(record.expires_at).getTime()) {
+      record.invalidated_at = new Date().toISOString();
+      record.encrypted_session = '';
+      await updateLoginOtpChallengeState(record);
+      return res.status(400).json({
+        error: 'Your verification code has expired. Please request a new code or sign in again.',
+        expired: true
+      });
+    }
+
+    if (record.attempts >= record.max_attempts) {
+      record.invalidated_at = new Date().toISOString();
+      record.encrypted_session = '';
+      await updateLoginOtpChallengeState(record);
+      return res.status(429).json({
+        error: 'Too many failed verification attempts. Please sign in again to receive a new code.',
+        locked: true
+      });
+    }
+
+    const expectedOtpHash = hashLoginOtp(record.id, cleanOtp);
+    if (!timingSafeHexEqual(expectedOtpHash, record.otp_hash)) {
+      record.attempts += 1;
+      const isNowLocked = record.attempts >= record.max_attempts;
+      if (isNowLocked) {
+        record.invalidated_at = new Date().toISOString();
+        record.encrypted_session = '';
+      }
+      await updateLoginOtpChallengeState(record);
+
+      const remaining = Math.max(0, record.max_attempts - record.attempts);
+      return res.status(isNowLocked ? 429 : 400).json({
+        error: isNowLocked
+          ? 'Too many incorrect attempts. This code has been invalidated. Please sign in again.'
+          : `Invalid verification code. ${remaining} attempt${remaining === 1 ? '' : 's'} remaining.`,
+        remainingAttempts: remaining,
+        locked: isNowLocked
+      });
+    }
+
+    // OTP is valid! Decrypt the pending Supabase session before wiping it
+    const sessionTokens = decryptPendingSession(record.encrypted_session, String(challengeToken));
+    if (!sessionTokens) {
+      return res.status(400).json({
+        error: 'Could not restore authentication session. Please sign in again.',
+        expired: true
+      });
+    }
+
+    // Mark challenge verified and clear encrypted_session so it can never be replayed
+    record.verified_at = new Date().toISOString();
+    record.encrypted_session = '';
+    await updateLoginOtpChallengeState(record);
+
+    // Fetch user & profile details for immediate client hydration
+    const { data: userData } = await supabaseAdmin.auth.admin.getUserById(record.user_id);
+    const { data: profileData } = await supabaseAdmin
+      .from('profiles')
+      .select('*')
+      .eq('id', record.user_id)
+      .maybeSingle();
+
+    return res.status(200).json({
+      success: true,
+      verified: true,
+      session: sessionTokens,
+      user: userData?.user || null,
+      profile: profileData || null
+    });
+  } catch (err: any) {
+    console.error('[Auth:login-verify-otp] Unexpected error:', err);
+    return res.status(500).json({
+      error: err?.message || 'Failed to verify login code.'
+    });
+  }
+});
+
+/**
+ * RESEND LOGIN OTP:
+ * Invalidates the previous OTP and sends a brand-new 6-digit OTP via Resend
+ * while enforcing the 60-second resend cooldown.
+ */
+router.post('/login-resend-otp', async (req, res) => {
+  try {
+    const { challengeId, challengeToken, userId } = req.body || {};
+
+    if (!challengeId || !challengeToken) {
+      return res.status(400).json({ error: 'Challenge credentials are required to resend code.' });
+    }
+
+    const record = await loadLoginOtpChallenge(String(challengeId), userId ? String(userId) : undefined);
+    if (!record) {
+      return res.status(400).json({
+        error: 'Login session not found. Please sign in again.',
+        expired: true
+      });
+    }
+
+    if (record.verified_at) {
+      return res.status(400).json({
+        error: 'This login session is already verified.',
+        expired: true
+      });
+    }
+
+    const incomingTokenHash = hashChallengeToken(String(challengeToken));
+    if (!timingSafeHexEqual(incomingTokenHash, record.challenge_token_hash)) {
+      return res.status(403).json({
+        error: 'Invalid verification session token. Please sign in again.'
+      });
+    }
+
+    if (!record.encrypted_session) {
+      return res.status(400).json({
+        error: 'Your login session has expired or was locked. Please sign in again with your password.',
+        expired: true
+      });
+    }
+
+    const nowMs = Date.now();
+    const resendAvailableMs = new Date(record.resend_available_at).getTime();
+    if (nowMs < resendAvailableMs) {
+      const waitSeconds = Math.ceil((resendAvailableMs - nowMs) / 1000);
+      return res.status(429).json({
+        error: `Please wait ${waitSeconds} second${waitSeconds === 1 ? '' : 's'} before requesting a new code.`,
+        retryAfterSeconds: waitSeconds
+      });
+    }
+
+    const rateCheck = checkAndRecordOtpRateLimit(`user:${record.user_id}`);
+    if (!rateCheck.allowed) {
+      return res.status(429).json({
+        error: `Too many verification code requests. Please wait ${Math.ceil((rateCheck.retryAfterSeconds || 60) / 60)} minute(s) before trying again.`,
+        retryAfterSeconds: rateCheck.retryAfterSeconds
+      });
+    }
+
+    // Generate a new OTP, reset attempts, and extend expiration by 10 minutes
+    const newOtp = generateSecureLoginOtp();
+    const newOtpHash = hashLoginOtp(record.id, newOtp);
+    const newExpiresAtIso = new Date(nowMs + LOGIN_OTP_EXPIRY_MS).toISOString();
+    const newResendAvailableAtIso = new Date(nowMs + LOGIN_OTP_RESEND_COOLDOWN_MS).toISOString();
+
+    record.otp_hash = newOtpHash;
+    record.attempts = 0;
+    record.invalidated_at = null;
+    record.expires_at = newExpiresAtIso;
+    record.resend_available_at = newResendAvailableAtIso;
+
+    await updateLoginOtpChallengeState(record);
+
+    const emailResult = await sendLoginOtpEmail({
+      email: record.email,
+      otp: newOtp,
+      firstName: record.first_name,
+      challengeId: `${record.id}-r-${nowMs}`
+    });
+
+    if (!emailResult.success) {
+      return res.status(500).json({
+        error: emailResult.error || 'Failed to resend verification code. Please try again.'
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      challengeId: record.id,
+      maskedEmail: maskEmailAddress(record.email),
+      expiresAt: newExpiresAtIso,
+      expiresInSeconds: Math.floor(LOGIN_OTP_EXPIRY_MS / 1000),
+      resendCooldownSeconds: Math.floor(LOGIN_OTP_RESEND_COOLDOWN_MS / 1000),
+      resendId: emailResult.resendId,
+      message: 'A new 6-digit verification code has been sent to your email.'
+    });
+  } catch (err: any) {
+    console.error('[Auth:login-resend-otp] Unexpected error:', err);
+    return res.status(500).json({
+      error: err?.message || 'Failed to resend verification code.'
+    });
+  }
+});
+
+/**
+ * CANCEL / INVALIDATE PENDING LOGIN OTP CHALLENGE
+ */
+router.post('/login-cancel-otp', async (req, res) => {
+  try {
+    const { challengeId, challengeToken, userId } = req.body || {};
+    if (!challengeId || !challengeToken) {
+      return res.status(200).json({ success: true });
+    }
+    const record = await loadLoginOtpChallenge(String(challengeId), userId ? String(userId) : undefined);
+    if (record && !record.verified_at && !record.invalidated_at) {
+      const incomingTokenHash = hashChallengeToken(String(challengeToken));
+      if (timingSafeHexEqual(incomingTokenHash, record.challenge_token_hash)) {
+        record.invalidated_at = new Date().toISOString();
+        record.encrypted_session = '';
+        await updateLoginOtpChallengeState(record);
+      }
+    }
+    return res.status(200).json({ success: true });
+  } catch {
+    return res.status(200).json({ success: true });
   }
 });
 

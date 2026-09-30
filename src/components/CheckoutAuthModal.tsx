@@ -31,8 +31,15 @@ export function CheckoutAuthModal({ isOpen, onClose, onSuccess }: CheckoutAuthMo
   });
 
   const [otp, setOtp] = useState(["", "", "", "", "", ""]);
-  const [countdown, setCountdown] = useState(119); // 1:59
+  const [countdown, setCountdown] = useState(60);
   const [userId, setUserId] = useState<string | null>(null);
+  const [loginChallenge, setLoginChallenge] = useState<{
+    challengeId: string;
+    challengeToken: string;
+    userId: string;
+    email: string;
+    maskedEmail: string;
+  } | null>(null);
   
   const otpRefs = useRef<(HTMLInputElement | null)[]>([]);
 
@@ -70,35 +77,33 @@ export function CheckoutAuthModal({ isOpen, onClose, onSuccess }: CheckoutAuthMo
     try {
       setIsLoading(true);
       setError(null);
-      
-      const isEmail = emailOrPhone.includes('@');
-      let phone = undefined;
-      
-      if (!isEmail) {
-        let formattedPhone = emailOrPhone.trim().replace(/[\s\-()]/g, '');
-        if (formattedPhone.startsWith('0')) {
-          formattedPhone = '+254' + formattedPhone.substring(1);
-        } else if (!formattedPhone.startsWith('+')) {
-          formattedPhone = '+' + formattedPhone;
-        }
-        phone = formattedPhone;
-      }
 
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email: isEmail ? emailOrPhone : undefined,
-        phone: phone,
-        password
+      await supabase.auth.signOut().catch(() => {});
+
+      const response = await fetch('/api/auth/login-initiate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          emailOrPhone: emailOrPhone.trim(),
+          password,
+        }),
       });
 
-      if (error) throw error;
-      
-      if (data.user) {
-        setView("success");
-        setTimeout(() => {
-          onSuccess();
-          onClose();
-        }, 2000);
+      const resData = await response.json().catch(() => null);
+      if (!response.ok || !resData?.success) {
+        throw new Error(resData?.error || "Invalid credentials");
       }
+
+      setLoginChallenge({
+        challengeId: resData.challengeId,
+        challengeToken: resData.challengeToken,
+        userId: resData.userId,
+        email: resData.email,
+        maskedEmail: resData.maskedEmail || resData.email,
+      });
+      setOtp(["", "", "", "", "", ""]);
+      setCountdown(Number(resData.resendCooldownSeconds || 60));
+      setView("otp");
     } catch (err: any) {
       setError(err.message || "Invalid credentials");
     } finally {
@@ -195,7 +200,27 @@ export function CheckoutAuthModal({ isOpen, onClose, onSuccess }: CheckoutAuthMo
   const handleResendOtp = async () => {
     if (countdown > 0) return;
     setIsLoading(true);
+    setError(null);
     try {
+      if (loginChallenge) {
+        const response = await fetch('/api/auth/login-resend-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            challengeId: loginChallenge.challengeId,
+            challengeToken: loginChallenge.challengeToken,
+            userId: loginChallenge.userId,
+          }),
+        });
+        const resData = await response.json().catch(() => null);
+        if (!response.ok || !resData?.success) {
+          throw new Error(resData?.error || 'Failed to resend OTP');
+        }
+        setOtp(["", "", "", "", "", ""]);
+        setCountdown(Number(resData.resendCooldownSeconds || 60));
+        return;
+      }
+
       let formattedPhone = signupData.phone.trim().replace(/[\s\-()]/g, '');
       if (formattedPhone.startsWith('0')) {
         formattedPhone = '+254' + formattedPhone.substring(1);
@@ -236,6 +261,34 @@ export function CheckoutAuthModal({ isOpen, onClose, onSuccess }: CheckoutAuthMo
     try {
       setIsLoading(true);
       setError(null);
+
+      if (loginChallenge) {
+        const response = await fetch('/api/auth/login-verify-otp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            challengeId: loginChallenge.challengeId,
+            challengeToken: loginChallenge.challengeToken,
+            userId: loginChallenge.userId,
+            otp: code,
+          }),
+        });
+        const resData = await response.json().catch(() => null);
+        if (!response.ok || !resData?.success || !resData?.session) {
+          throw new Error(resData?.error || 'Invalid or expired OTP');
+        }
+        await supabase.auth.setSession({
+          access_token: resData.session.access_token,
+          refresh_token: resData.session.refresh_token,
+        });
+        setLoginChallenge(null);
+        setView("success");
+        setTimeout(() => {
+          onSuccess();
+          onClose();
+        }, 2000);
+        return;
+      }
       
       // Verify OTP via our custom endpoint
       const response = await fetch('/api/auth/verify-otp', {
@@ -326,7 +379,7 @@ export function CheckoutAuthModal({ isOpen, onClose, onSuccess }: CheckoutAuthMo
             <div className="animate-in slide-in-from-left-4 duration-300">
               <div className="text-center mb-8">
                 <div className="w-16 h-16 bg-[#F8FAFC] rounded-full flex items-center justify-center mx-auto mb-4 border border-[#E5E7EB]">
-                  <span className="text-[28px]">🔒</span>
+                  <Lock className="w-7 h-7 text-[#0B2A5B]" />
                 </div>
                 <h2 className="text-[#0B2A5B] font-bold text-[28px] mb-2">Continue to Checkout</h2>
                 <p className="text-[#6B7280] text-[15px]">Sign in or create an account to continue with your order.</p>
@@ -535,13 +588,17 @@ export function CheckoutAuthModal({ isOpen, onClose, onSuccess }: CheckoutAuthMo
               <div className="w-16 h-16 bg-[#F8FAFC] rounded-full flex items-center justify-center mb-6 border border-[#E5E7EB]">
                 <Check className="w-6 h-6 text-[#0B2A5B]" />
               </div>
-              <h2 className="text-[#0B2A5B] font-bold text-[28px] mb-2">Verify Your Phone Number</h2>
+              <h2 className="text-[#0B2A5B] font-bold text-[28px] mb-2">
+                {loginChallenge ? "Verify Your Login" : "Verify Your Phone Number"}
+              </h2>
               <p className="text-[#6B7280] text-[15px] mb-8">
-                Enter the 6-digit code sent to your mobile number. <br/>
+                {loginChallenge ? "Enter the 6-digit code sent to your email address." : "Enter the 6-digit code sent to your mobile number."} <br/>
                 <span className="text-[#0B2A5B] font-bold">
-                  {signupData.phone.length > 6 
-                    ? signupData.phone.slice(0, 4) + " *** " + signupData.phone.slice(-3)
-                    : signupData.phone}
+                  {loginChallenge
+                    ? loginChallenge.maskedEmail
+                    : signupData.phone.length > 6 
+                      ? signupData.phone.slice(0, 4) + " *** " + signupData.phone.slice(-3)
+                      : signupData.phone}
                 </span>
               </p>
               

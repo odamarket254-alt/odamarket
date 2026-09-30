@@ -4,6 +4,7 @@ import aiRoutes from "../routes/aiRoutes.js";
 import authRoutes from "../routes/authRoutes.js";
 import checkoutRoutes from "../routes/checkoutRoutes.js";
 import imageRoutes from "../routes/imageRoutes.js";
+import webhookRoutes from "../routes/webhookRoutes.js";
 import debugRoutes from "./debugRoutes.js";
 import { handlePaystackWebhook } from "../routes/paystackWebhook.js";
 import rateLimit from "express-rate-limit";
@@ -24,6 +25,7 @@ const apiLimiter = rateLimit({
   message: { error: "Too many requests, please try again later." }
 });
 
+app.use("/api/webhooks", webhookRoutes);
 app.use("/api/", apiLimiter);
 app.use("/api/auth", authRoutes);
 app.use("/api/checkout", checkoutRoutes);

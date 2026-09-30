@@ -7,12 +7,12 @@ interface ProtectedRouteProps {
 }
 
 export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
-  const { user, profile, isLoading } = useAuthStore();
+  const { user, profile, isLoading, pendingOtpChallenge } = useAuthStore();
 
   /*
    * Handle the loading state while the Session and Profile are being fetched.
    */
-  if (isLoading || (!profile && user)) {
+  if (isLoading || (!profile && user && !pendingOtpChallenge)) {
     return (
       <div className="flex h-[100dvh] w-full items-center justify-center bg-background text-[#C65A28] dark:text-[#C65A28]">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -21,9 +21,9 @@ export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
   }
 
   /*
-   * Redirect users who are not signed in.
+   * Redirect users who are not signed in or who have an unverified OTP login challenge.
    */
-  if (!user || !profile) {
+  if (!user || !profile || pendingOtpChallenge) {
     return <Navigate to="/login" replace />;
   }
 

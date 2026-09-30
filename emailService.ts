@@ -4,13 +4,81 @@ import fs from 'fs';
 import path from 'path';
 import { logEmailDiagnostics } from './src/lib/emailDiagnostics.js';
 
-// Lazy initialized Resend client
+// Lazy initialized Resend client with automatic failover if a domain-restricted key (e.g. old Vercel Integration key) fails
 let resendClient: Resend | null = null;
 let cachedApiKey: string = '';
+const rejectedResendApiKeys = new Set<string>();
+
+const CANDIDATE_RESEND_KEY_ENV_VARS = [
+  'RESEND_FULL_ACCESS_API_KEY',
+  'RESEND_MASTER_API_KEY',
+  'RESEND_API_KEY',
+  'RESEND_EMAIL_VERIFICATION_TEMPLATE_ID',
+  'RESEND_WELCOME_TEMPLATE_ID',
+  'RESEND_ORDER_CONFIRMATION_TEMPLATE_ID',
+  'RESEND_PAYMENT_SUCCESS_TEMPLATE_ID',
+  'RESEND_PAYMENT_FAILED_TEMPLATE_ID',
+  'RESEND_ORDER_READY_TEMPLATE_ID',
+  'RESEND_ORDER_CANCELLED_TEMPLATE_ID',
+  'RESEND_SELLER_NEW_ORDER_TEMPLATE_ID',
+  'RESEND_FROM_EMAIL'
+] as const;
+
+export function getCandidateResendApiKeys(): string[] {
+  const keys: string[] = [];
+  for (const envName of CANDIDATE_RESEND_KEY_ENV_VARS) {
+    const val = (process.env[envName] || '').trim().replace(/^["']|["']$/g, '');
+    if (val.startsWith('re_') && val.length >= 20 && !rejectedResendApiKeys.has(val) && !keys.includes(val)) {
+      keys.push(val);
+    }
+  }
+  return keys;
+}
+
+export function isUnverifiedDomainOrRestrictedKeyError(err: any): boolean {
+  if (!err) return false;
+  const msg = String(err.message || err.error || JSON.stringify(err)).toLowerCase();
+  const name = String(err.name || '').toLowerCase();
+  const status = Number(err.statusCode || err.status || 0);
+  return (
+    msg.includes('associated domain with your api key is not verified') ||
+    msg.includes('create a new api key with full access') ||
+    msg.includes('not verified') ||
+    msg.includes('restricted_api_key') ||
+    msg.includes('invalid_api_key') ||
+    name === 'restricted_api_key' ||
+    name === 'invalid_api_key' ||
+    status === 401 ||
+    status === 403
+  );
+}
+
+export function markResendApiKeyRejected(badKey: string, reason?: string): boolean {
+  if (!badKey) return false;
+  rejectedResendApiKeys.add(badKey);
+  if (cachedApiKey === badKey) {
+    resendClient = null;
+    cachedApiKey = '';
+  }
+  const remaining = getCandidateResendApiKeys();
+  if (remaining.length > 0) {
+    console.warn(
+      `[Resend Failover] Primary key (${badKey.slice(0, 10)}...) rejected (${reason || 'unverified domain/restricted'}). Automatically failing over to verified Full-Access key (${remaining[0].slice(0, 10)}...).`
+    );
+    return true;
+  }
+  return false;
+}
+
+export function getActiveResendApiKey(): string {
+  const candidates = getCandidateResendApiKeys();
+  if (candidates.length > 0) return candidates[0];
+  return (process.env.RESEND_API_KEY || '').trim().replace(/^["']|["']$/g, '');
+}
 
 function getResendClient(): Resend | null {
-  const apiKey = (process.env.RESEND_API_KEY || '').trim().replace(/^["']|["']$/g, '');
-  if (!apiKey || apiKey.startsWith('YOUR_')) {
+  const apiKey = getActiveResendApiKey();
+  if (!apiKey || apiKey.startsWith('YOUR_') || !apiKey.startsWith('re_')) {
     return null;
   }
   if (!resendClient || cachedApiKey !== apiKey) {
@@ -224,7 +292,16 @@ export async function resolveResendTemplateId(eventType: ResendEmailEventType): 
   try {
     const now = Date.now();
     if (!cachedTemplateList || now - cachedTemplateList.fetchedAt > TEMPLATE_CACHE_TTL_MS) {
-      const listRes = await resend.templates.list({ limit: 100 });
+      let currentKey = getActiveResendApiKey();
+      let listRes = await resend.templates.list({ limit: 100 });
+      while (listRes.error && isUnverifiedDomainOrRestrictedKeyError(listRes.error)) {
+        const switched = markResendApiKeyRejected(currentKey, listRes.error.message);
+        if (!switched) break;
+        const nextClient = getResendClient();
+        if (!nextClient) break;
+        currentKey = getActiveResendApiKey();
+        listRes = await nextClient.templates.list({ limit: 100 });
+      }
       if (!listRes.error && listRes.data?.data) {
         cachedTemplateList = {
           items: listRes.data.data.map(t => ({
@@ -362,7 +439,16 @@ async function getResendTemplateDetails(templateIdOrAlias: string): Promise<Cach
   }
 
   try {
-    const res = await resend.templates.get(templateIdOrAlias);
+    let activeKey = getActiveResendApiKey();
+    let res = await resend.templates.get(templateIdOrAlias);
+    while (res.error && isUnverifiedDomainOrRestrictedKeyError(res.error)) {
+      const switched = markResendApiKeyRejected(activeKey, res.error.message);
+      if (!switched) break;
+      const nextClient = getResendClient();
+      if (!nextClient) break;
+      activeKey = getActiveResendApiKey();
+      res = await nextClient.templates.get(templateIdOrAlias);
+    }
     if (res.error || !res.data) {
       return null;
     }
@@ -558,8 +644,10 @@ export async function dispatchResendTemplateEmail(params: {
     });
 
     if (!hasUndeclaredPlaceholders) {
-      // Use Resend's native `template: { id, variables }` API
-      const sendRes = await resend.emails.send(
+      // Use Resend's native `template: { id, variables }` API with automatic failover if key is tied to an unverified domain
+      let activeClient = getResendClient() || resend;
+      let activeKey = getActiveResendApiKey();
+      let sendRes = await activeClient.emails.send(
         {
           from: resolvedFrom,
           to: [to],
@@ -572,6 +660,28 @@ export async function dispatchResendTemplateEmail(params: {
         },
         idempotencyKey ? { idempotencyKey } : undefined
       );
+
+      while (sendRes.error && isUnverifiedDomainOrRestrictedKeyError(sendRes.error)) {
+        const switched = markResendApiKeyRejected(activeKey, sendRes.error.message);
+        if (!switched) break;
+        const nextClient = getResendClient();
+        if (!nextClient) break;
+        activeClient = nextClient;
+        activeKey = getActiveResendApiKey();
+        sendRes = await activeClient.emails.send(
+          {
+            from: resolvedFrom,
+            to: [to],
+            subject: resolvedSubject,
+            replyTo: resolvedReplyTo,
+            template: {
+              id: templateDoc.id,
+              ...(Object.keys(exactTemplateVariables).length > 0 ? { variables: exactTemplateVariables } : {})
+            }
+          },
+          idempotencyKey ? { idempotencyKey: `${idempotencyKey}-fo` } : undefined
+        );
+      }
 
       if (!sendRes.error) {
         return {
@@ -590,7 +700,9 @@ export async function dispatchResendTemplateEmail(params: {
       ? interpolateTemplateString(templateDoc.text, stringVariables, numericVariables)
       : undefined;
 
-    const renderedSendRes = await resend.emails.send(
+    let renderedClient = getResendClient() || resend;
+    let renderedKey = getActiveResendApiKey();
+    let renderedSendRes = await renderedClient.emails.send(
       {
         from: resolvedFrom,
         to: [to],
@@ -601,6 +713,26 @@ export async function dispatchResendTemplateEmail(params: {
       },
       idempotencyKey ? { idempotencyKey } : undefined
     );
+
+    while (renderedSendRes.error && isUnverifiedDomainOrRestrictedKeyError(renderedSendRes.error)) {
+      const switched = markResendApiKeyRejected(renderedKey, renderedSendRes.error.message);
+      if (!switched) break;
+      const nextClient = getResendClient();
+      if (!nextClient) break;
+      renderedClient = nextClient;
+      renderedKey = getActiveResendApiKey();
+      renderedSendRes = await renderedClient.emails.send(
+        {
+          from: resolvedFrom,
+          to: [to],
+          subject: resolvedSubject,
+          replyTo: resolvedReplyTo,
+          html: renderedHtml,
+          ...(renderedText ? { text: renderedText } : {})
+        },
+        idempotencyKey ? { idempotencyKey: `${idempotencyKey}-fo` } : undefined
+      );
+    }
 
     if (renderedSendRes.error) {
       return {
@@ -619,7 +751,9 @@ export async function dispatchResendTemplateEmail(params: {
 
   // 2. Fallback if templates.get() is unavailable (e.g. Sending-Only API Key):
   // Call resend.emails.send with template: { id, variables } directly
-  const directRes = await resend.emails.send(
+  let directClient = getResendClient() || resend;
+  let directKey = getActiveResendApiKey();
+  let directRes = await directClient.emails.send(
     {
       from: fallbackFrom,
       to: [to],
@@ -632,6 +766,28 @@ export async function dispatchResendTemplateEmail(params: {
     },
     idempotencyKey ? { idempotencyKey } : undefined
   );
+
+  while (directRes.error && isUnverifiedDomainOrRestrictedKeyError(directRes.error)) {
+    const switched = markResendApiKeyRejected(directKey, directRes.error.message);
+    if (!switched) break;
+    const nextClient = getResendClient();
+    if (!nextClient) break;
+    directClient = nextClient;
+    directKey = getActiveResendApiKey();
+    directRes = await directClient.emails.send(
+      {
+        from: fallbackFrom,
+        to: [to],
+        subject: interpolateTemplateString(defaultSubject, stringVariables, numericVariables),
+        replyTo,
+        template: {
+          id: templateIdOrAlias,
+          variables: stringVariables
+        }
+      },
+      idempotencyKey ? { idempotencyKey: `${idempotencyKey}-fo` } : undefined
+    );
+  }
 
   if (!directRes.error) {
     return {
@@ -2262,7 +2418,7 @@ let cachedWelcomeAutomationId: string | null = null;
 let cachedWelcomeAutomationCheckedAt = 0;
 
 function getRawResendApiKey(): string {
-  return (process.env.RESEND_API_KEY || '').trim().replace(/^["']|["']$/g, '');
+  return getActiveResendApiKey();
 }
 
 /**
@@ -2820,5 +2976,195 @@ export async function sendOrderConfirmationEmail(orderInfo: any) {
   } catch (err: any) {
     console.error('Legacy sendOrderConfirmationEmail error:', err);
     return { success: false, error: err.message };
+  }
+}
+
+/**
+ * 9. LOGIN TWO-FACTOR OTP EMAIL (RESEND)
+ * Sends a 6-digit login verification code from "Team ODA Market" via the verified odamarket.co.ke domain.
+ */
+export function buildLoginOtpEmailHtml(otp: string, firstName?: string): string {
+  const greeting = firstName && firstName.trim() ? `Hello ${firstName.trim()},` : 'Hello,';
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Your ODA Market login verification code</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #FAF5EC; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+  <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #FAF5EC; padding: 40px 15px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 540px; background-color: #FFFFFF; border-radius: 16px; overflow: hidden; border: 1px solid #E8DCC9; box-shadow: 0 10px 30px rgba(58, 36, 24, 0.08);">
+          <tr>
+            <td style="height: 6px; background: linear-gradient(90deg, #D96A27 0%, #F49C64 100%); background-color: #D96A27;"></td>
+          </tr>
+          <tr>
+            <td align="center" style="padding: 32px 30px 16px 30px; text-align: center;">
+              <h1 style="margin: 0; color: #D96A27; font-size: 28px; font-weight: 800; letter-spacing: -0.5px;">ODA MARKET</h1>
+              <p style="margin: 6px 0 0 0; color: #8B857D; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;">Login Security Verification</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 8px 36px 36px 36px;">
+              <p style="margin: 0 0 14px 0; color: #3A2418; font-size: 15px; line-height: 1.6; font-weight: 600;">${greeting}</p>
+              <p style="margin: 0 0 20px 0; color: #4B5563; font-size: 15px; line-height: 1.6;">
+                We received a login request for your ODA Market account. Your verification code is:
+              </p>
+              <div style="background-color: #FFFDF8; border: 2px solid #D96A27; border-radius: 12px; padding: 22px 16px; text-align: center; margin-bottom: 22px;">
+                <span style="display: inline-block; font-size: 34px; font-weight: 800; letter-spacing: 8px; color: #3A2418; font-family: 'Courier New', Courier, monospace;">${otp}</span>
+              </div>
+              <p style="margin: 0 0 12px 0; color: #4B5563; font-size: 14px; line-height: 1.6;">
+                This code expires in <strong>10 minutes</strong>. Do not share this code with anyone.
+              </p>
+              <p style="margin: 0 0 24px 0; color: #6B7280; font-size: 13px; line-height: 1.6;">
+                If you did not attempt to log in, please secure your account immediately.
+              </p>
+              <p style="margin: 0; color: #3A2418; font-size: 14px; line-height: 1.6;">
+                Regards,<br>
+                <strong>Team ODA Market</strong>
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color: #FAF5EC; padding: 20px 30px; text-align: center; border-top: 1px solid #E8DCC9;">
+              <p style="margin: 0; color: #8B857D; font-size: 12px;">&copy; 2026 ODA Market &bull; Nairobi, Kenya &bull; <a href="mailto:info@odamarket.co.ke" style="color: #D96A27; text-decoration: none; font-weight: 600;">info@odamarket.co.ke</a></p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+}
+
+export async function sendLoginOtpEmail(params: {
+  email: string;
+  otp: string;
+  firstName?: string;
+  challengeId: string;
+}): Promise<SendOrderEmailResult> {
+  const { email, otp, firstName = '', challengeId } = params;
+  if (!isValidCustomerEmail(email)) {
+    return { success: false, error: 'Invalid recipient email address' };
+  }
+
+  const normEmail = email.trim().toLowerCase();
+  const resend = getResendClient();
+  if (!resend) {
+    return { success: false, error: 'RESEND_API_KEY is not configured on server' };
+  }
+
+  const loginOtpTemplateId = (process.env.RESEND_LOGIN_OTP_TEMPLATE_ID || '').trim().replace(/^["']|["']$/g, '');
+  if (isValidResendTemplateIdentifier(loginOtpTemplateId)) {
+    const tplRes = await dispatchResendTemplateEmail({
+      templateIdOrAlias: loginOtpTemplateId,
+      to: normEmail,
+      defaultSubject: 'Your ODA Market login verification code',
+      defaultFrom: 'Team ODA Market <info@odamarket.co.ke>',
+      stringVariables: {
+        otp,
+        code: otp,
+        verification_code: otp,
+        name: firstName || 'Valued Customer',
+        first_name: firstName || 'Valued Customer',
+        email: normEmail
+      },
+      idempotencyKey: `oda-login-otp-${challengeId}`
+    });
+    if (tplRes.success) {
+      return {
+        success: true,
+        resendId: tplRes.resendId,
+        templateId: tplRes.templateId,
+        recipient: normEmail,
+        sentAt: new Date().toISOString()
+      };
+    }
+  }
+
+  const fromSender = resolveValidFromEmail(
+    process.env.RESEND_FROM_EMAIL,
+    'Team ODA Market <info@odamarket.co.ke>'
+  ).replace(/^"?ODA Market"?/i, 'Team ODA Market');
+
+  const html = buildLoginOtpEmailHtml(otp, firstName);
+  const text = [
+    firstName && firstName.trim() ? `Hello ${firstName.trim()},` : 'Hello,',
+    '',
+    'We received a login request for your ODA Market account.',
+    '',
+    'Your verification code is:',
+    '',
+    otp,
+    '',
+    'This code expires in 10 minutes.',
+    '',
+    'If you did not attempt to log in, please secure your account.',
+    '',
+    'Regards,',
+    'Team ODA Market'
+  ].join('\n');
+
+  try {
+    let activeClient = getResendClient() || resend;
+    let activeKey = getActiveResendApiKey();
+    let sendRes = await activeClient.emails.send(
+      {
+        from: isValidFromEmailFormat(fromSender) ? fromSender : 'Team ODA Market <info@odamarket.co.ke>',
+        to: [normEmail],
+        replyTo: 'info@odamarket.co.ke',
+        subject: 'Your ODA Market login verification code',
+        html,
+        text
+      },
+      { idempotencyKey: `oda-login-otp-${challengeId}` }
+    );
+
+    while (sendRes.error && isUnverifiedDomainOrRestrictedKeyError(sendRes.error)) {
+      const switched = markResendApiKeyRejected(activeKey, sendRes.error.message);
+      if (!switched) break;
+      const nextClient = getResendClient();
+      if (!nextClient) break;
+      activeClient = nextClient;
+      activeKey = getActiveResendApiKey();
+      sendRes = await activeClient.emails.send(
+        {
+          from: isValidFromEmailFormat(fromSender) ? fromSender : 'Team ODA Market <info@odamarket.co.ke>',
+          to: [normEmail],
+          replyTo: 'info@odamarket.co.ke',
+          subject: 'Your ODA Market login verification code',
+          html,
+          text
+        },
+        { idempotencyKey: `oda-login-otp-${challengeId}-fo` }
+      );
+    }
+
+    if (sendRes.error) {
+      console.error(`[Resend Login OTP] Failed to send OTP to ${normEmail}:`, sendRes.error);
+      return {
+        success: false,
+        recipient: normEmail,
+        error: sendRes.error.message || 'Failed to send login verification code'
+      };
+    }
+
+    console.log(`[Resend Login OTP] Sent 6-digit login OTP to ${normEmail} (Resend ID: ${sendRes.data?.id})`);
+    return {
+      success: true,
+      resendId: sendRes.data?.id,
+      recipient: normEmail,
+      sentAt: new Date().toISOString()
+    };
+  } catch (err: any) {
+    console.error(`[Resend Login OTP] Exception sending OTP to ${normEmail}:`, err?.message || err);
+    return {
+      success: false,
+      recipient: normEmail,
+      error: err?.message || 'Failed to send login verification code'
+    };
   }
 }

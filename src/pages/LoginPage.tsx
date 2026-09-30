@@ -1,17 +1,19 @@
 import { OptimizedImage } from "../components/ui/OptimizedImage";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Link, useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "../lib/supabase";
-import { useAuthStore } from "../store/useAuthStore";
+import { useAuthStore, loadStoredPendingOtpChallenge } from "../store/useAuthStore";
 import { toast } from "sonner";
 import { motion } from "motion/react";
 import {
   Mail,
   Lock,
   ArrowRight,
+  ArrowLeft,
+  RefreshCw,
   Eye,
   EyeOff,
   Check,
@@ -33,10 +35,17 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 export default function LoginPage() {
   const [isLoading, setIsLoading] = useState(false);
+  const [isResendingOtp, setIsResendingOtp] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [otpDigits, setOtpDigits] = useState<string[]>(["", "", "", "", "", ""]);
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [resendCooldown, setResendCooldown] = useState<number>(0);
+  const [expirySecondsLeft, setExpirySecondsLeft] = useState<number>(600);
+  const otpInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
   const navigate = useNavigate();
   const location = useLocation();
-  const { setProfile, setUser } = useAuthStore();
+  const { setProfile, setUser, pendingOtpChallenge, setPendingOtpChallenge } = useAuthStore();
 
   const searchParams = new URLSearchParams(location.search);
   const isEmailConfirmed = searchParams.get("confirmed") === "true";
@@ -48,6 +57,43 @@ export default function LoginPage() {
   }, [isEmailConfirmed]);
 
   const from = (location.state as any)?.from?.pathname || "/dashboard";
+
+  // Sync timers with active pendingOtpChallenge (survives page reload & multi-tab)
+  useEffect(() => {
+    const stored = loadStoredPendingOtpChallenge();
+    if (stored && (!pendingOtpChallenge || pendingOtpChallenge.challengeId !== stored.challengeId)) {
+      setPendingOtpChallenge(stored);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!pendingOtpChallenge) {
+      setResendCooldown(0);
+      setExpirySecondsLeft(600);
+      return;
+    }
+
+    const updateTimers = () => {
+      const now = Date.now();
+      const expiresMs = new Date(pendingOtpChallenge.expiresAt).getTime();
+      const remainingExpiry = Math.max(0, Math.floor((expiresMs - now) / 1000));
+      setExpirySecondsLeft(remainingExpiry);
+
+      const remainingResend = Math.max(
+        0,
+        Math.ceil((pendingOtpChallenge.resendAvailableAt - now) / 1000)
+      );
+      setResendCooldown(remainingResend);
+
+      if (remainingExpiry <= 0) {
+        setOtpError("Your verification code has expired. Please request a new code or sign in again.");
+      }
+    };
+
+    updateTimers();
+    const interval = setInterval(updateTimers, 1000);
+    return () => clearInterval(interval);
+  }, [pendingOtpChallenge]);
 
   const {
     register,
@@ -62,48 +108,45 @@ export default function LoginPage() {
 
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
+    setOtpError(null);
     try {
-      let email = undefined;
-      let phone = undefined;
-      
-      if (data.emailOrPhone.includes("@")) {
-        email = data.emailOrPhone;
-      } else {
-        let formattedPhone = data.emailOrPhone.trim().replace(/[\s\-()]/g, "");
-        if (formattedPhone.startsWith("0")) {
-          formattedPhone = "+254" + formattedPhone.substring(1);
-        } else if (!formattedPhone.startsWith("+")) {
-          formattedPhone = "+" + formattedPhone;
-        }
-        phone = formattedPhone;
+      // Ensure no previous browser session is active before starting 2-step login
+      await supabase.auth.signOut().catch(() => {});
+      setUser(null);
+      setProfile(null);
+
+      const response = await fetch("/api/auth/login-initiate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          emailOrPhone: data.emailOrPhone.trim(),
+          password: data.password,
+        }),
+      });
+
+      const resData = await response.json().catch(() => null);
+      if (!response.ok || !resData?.success) {
+        throw new Error(resData?.error || "Failed to sign in. Please check your credentials.");
       }
 
-      const authOptions = email
-        ? { email, password: data.password }
-        : { phone, password: data.password };
+      const now = Date.now();
+      const cooldownSec = Number(resData.resendCooldownSeconds || 60);
+      setOtpDigits(["", "", "", "", "", ""]);
+      setPendingOtpChallenge({
+        challengeId: resData.challengeId,
+        challengeToken: resData.challengeToken,
+        userId: resData.userId,
+        email: resData.email,
+        maskedEmail: resData.maskedEmail || resData.email,
+        expiresAt: resData.expiresAt,
+        resendAvailableAt: now + cooldownSec * 1000,
+        redirectTo: from,
+      });
 
-      const { data: authData, error: authError } = await supabase.auth.signInWithPassword(authOptions);
-
-      if (authError) throw authError;
-
-      if (authData?.user) {
-        // Check if verified via profile
-        const { data: profileData, error: profileError } = await supabase
-          .from("profiles")
-          .select('*').limit(100)
-          .eq("id", authData.user.id)
-          .single();
-
-        if (profileError) {
-          console.error("Profile error:", profileError);
-        }
-
-        setUser(authData.user);
-        if (profileData) setProfile(profileData);
-
-        toast.success("Welcome back to ODA Market!");
-        navigate(from, { replace: true });
-      }
+      toast.success(`A 6-digit verification code has been sent to ${resData.maskedEmail || resData.email}`);
+      setTimeout(() => {
+        otpInputRefs.current[0]?.focus();
+      }, 100);
     } catch (error: any) {
       if (error.message?.includes("Email not confirmed")) {
         toast.error("Please confirm your email before signing in. Check your inbox for the confirmation link.");
@@ -113,6 +156,210 @@ export default function LoginPage() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleOtpDigitChange = (index: number, value: string) => {
+    const clean = value.replace(/\D/g, "");
+    if (!clean) {
+      const next = [...otpDigits];
+      next[index] = "";
+      setOtpDigits(next);
+      return;
+    }
+
+    // Handle multi-digit input or paste into a single box
+    if (clean.length > 1) {
+      const chars = clean.slice(0, 6).split("");
+      const next = [...otpDigits];
+      for (let i = 0; i < 6; i++) {
+        next[i] = chars[i] || "";
+      }
+      setOtpDigits(next);
+      setOtpError(null);
+      const focusIdx = Math.min(5, chars.length);
+      otpInputRefs.current[focusIdx]?.focus();
+      return;
+    }
+
+    const next = [...otpDigits];
+    next[index] = clean;
+    setOtpDigits(next);
+    setOtpError(null);
+
+    if (index < 5) {
+      otpInputRefs.current[index + 1]?.focus();
+    }
+  };
+
+  const handleOtpKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Backspace" && !otpDigits[index] && index > 0) {
+      otpInputRefs.current[index - 1]?.focus();
+    } else if (e.key === "Enter" && otpDigits.join("").length === 6 && !isLoading) {
+      e.preventDefault();
+      handleVerifyOtp();
+    }
+  };
+
+  const handleOtpPaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+    e.preventDefault();
+    const pasted = e.clipboardData.getData("text").replace(/\D/g, "").slice(0, 6);
+    if (!pasted) return;
+    const next = ["", "", "", "", "", ""];
+    for (let i = 0; i < pasted.length; i++) {
+      next[i] = pasted[i];
+    }
+    setOtpDigits(next);
+    setOtpError(null);
+    const focusIdx = Math.min(5, pasted.length - 1);
+    otpInputRefs.current[focusIdx]?.focus();
+  };
+
+  const handleVerifyOtp = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (!pendingOtpChallenge) return;
+
+    const code = otpDigits.join("");
+    if (code.length !== 6) {
+      setOtpError("Please enter the complete 6-digit verification code.");
+      return;
+    }
+
+    setIsLoading(true);
+    setOtpError(null);
+    try {
+      const response = await fetch("/api/auth/login-verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          challengeId: pendingOtpChallenge.challengeId,
+          challengeToken: pendingOtpChallenge.challengeToken,
+          userId: pendingOtpChallenge.userId,
+          otp: code,
+        }),
+      });
+
+      const resData = await response.json().catch(() => null);
+      if (!response.ok || !resData?.success || !resData?.session) {
+        if (resData?.locked) {
+          setOtpDigits(["", "", "", "", "", ""]);
+        }
+        const errMsg = resData?.error || "Invalid verification code. Please try again.";
+        setOtpError(errMsg);
+        toast.error(errMsg);
+        return;
+      }
+
+      const targetRedirect = pendingOtpChallenge.redirectTo || from || "/dashboard";
+
+      // Clear pending OTP challenge BEFORE hydrating the verified Supabase session
+      setPendingOtpChallenge(null);
+
+      const { data: sessionData, error: sessionError } = await supabase.auth.setSession({
+        access_token: resData.session.access_token,
+        refresh_token: resData.session.refresh_token,
+      });
+
+      if (sessionError) {
+        throw sessionError;
+      }
+
+      const verifiedUser = sessionData?.user || resData.user;
+      if (verifiedUser) {
+        setUser(verifiedUser);
+        if (resData.profile) {
+          const normalizedRole = resData.profile.role === "supplier" ? "seller" : resData.profile.role;
+          setProfile({ ...resData.profile, role: normalizedRole });
+        } else {
+          const { data: profileData } = await supabase
+            .from("profiles")
+            .select("*")
+            .eq("id", verifiedUser.id)
+            .maybeSingle();
+          if (profileData) {
+            const normalizedRole = profileData.role === "supplier" ? "seller" : profileData.role;
+            setProfile({ ...profileData, role: normalizedRole });
+          }
+        }
+      }
+
+      toast.success("Welcome back to ODA Market!");
+      navigate(targetRedirect, { replace: true });
+    } catch (err: any) {
+      const msg = err?.message || "Failed to verify code. Please try again.";
+      setOtpError(msg);
+      toast.error(msg);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResendOtp = async () => {
+    if (!pendingOtpChallenge || resendCooldown > 0 || isResendingOtp) return;
+
+    setIsResendingOtp(true);
+    setOtpError(null);
+    try {
+      const response = await fetch("/api/auth/login-resend-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          challengeId: pendingOtpChallenge.challengeId,
+          challengeToken: pendingOtpChallenge.challengeToken,
+          userId: pendingOtpChallenge.userId,
+        }),
+      });
+
+      const resData = await response.json().catch(() => null);
+      if (!response.ok || !resData?.success) {
+        if (resData?.expired) {
+          setPendingOtpChallenge(null);
+        }
+        throw new Error(resData?.error || "Failed to resend verification code.");
+      }
+
+      const now = Date.now();
+      const cooldownSec = Number(resData.resendCooldownSeconds || 60);
+      setOtpDigits(["", "", "", "", "", ""]);
+      setPendingOtpChallenge({
+        ...pendingOtpChallenge,
+        expiresAt: resData.expiresAt,
+        resendAvailableAt: now + cooldownSec * 1000,
+      });
+
+      toast.success("A new 6-digit verification code has been sent to your email.");
+      setTimeout(() => {
+        otpInputRefs.current[0]?.focus();
+      }, 100);
+    } catch (err: any) {
+      const msg = err?.message || "Failed to resend verification code.";
+      setOtpError(msg);
+      toast.error(msg);
+    } finally {
+      setIsResendingOtp(false);
+    }
+  };
+
+  const handleCancelOtp = () => {
+    if (pendingOtpChallenge?.challengeId && pendingOtpChallenge?.challengeToken) {
+      fetch("/api/auth/login-cancel-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          challengeId: pendingOtpChallenge.challengeId,
+          challengeToken: pendingOtpChallenge.challengeToken,
+          userId: pendingOtpChallenge.userId,
+        }),
+      }).catch(() => {});
+    }
+    setPendingOtpChallenge(null);
+    setOtpDigits(["", "", "", "", "", ""]);
+    setOtpError(null);
+  };
+
+  const formatCountdown = (totalSeconds: number) => {
+    const mins = Math.floor(totalSeconds / 60);
+    const secs = totalSeconds % 60;
+    return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
   const handleGoogleLogin = async () => {
@@ -200,12 +447,120 @@ export default function LoginPage() {
               <div className="hidden lg:flex justify-center mb-6">
                  <Logo className="w-[120px]" />
               </div>
-              <h2 className="text-3xl font-bold text-[#1A1A1A] mb-2 tracking-tight">Welcome Back</h2>
-              <p className="text-[#666] text-sm font-medium">
-                Sign in to shop fresh groceries, beverages, and everyday products.
-              </p>
+              {pendingOtpChallenge ? (
+                <>
+                  <h2 className="text-3xl font-bold text-[#1A1A1A] mb-2 tracking-tight">Verify Your Login</h2>
+                  <p className="text-[#666] text-sm font-medium">
+                    We sent a 6-digit security code to{" "}
+                    <span className="font-bold text-[#1A1A1A]">{pendingOtpChallenge.maskedEmail || pendingOtpChallenge.email}</span>
+                  </p>
+                </>
+              ) : (
+                <>
+                  <h2 className="text-3xl font-bold text-[#1A1A1A] mb-2 tracking-tight">Welcome Back</h2>
+                  <p className="text-[#666] text-sm font-medium">
+                    Sign in to shop fresh groceries, beverages, and everyday products.
+                  </p>
+                </>
+              )}
             </div>
 
+            {pendingOtpChallenge ? (
+              <form onSubmit={handleVerifyOtp} className="space-y-6">
+                {otpError && (
+                  <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-red-700 text-xs font-medium text-left">
+                    {otpError}
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-[#4B5563] text-xs font-bold uppercase tracking-wider text-center mb-3">
+                    Enter 6-Digit Verification Code
+                  </label>
+                  <div className="flex items-center justify-between gap-2 sm:gap-2.5">
+                    {otpDigits.map((digit, idx) => (
+                      <input
+                        key={idx}
+                        ref={(el) => {
+                          otpInputRefs.current[idx] = el;
+                        }}
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="one-time-code"
+                        maxLength={6}
+                        value={digit}
+                        onChange={(e) => handleOtpDigitChange(idx, e.target.value)}
+                        onKeyDown={(e) => handleOtpKeyDown(idx, e)}
+                        onPaste={handleOtpPaste}
+                        disabled={isLoading}
+                        className={cn(
+                          "w-full h-[54px] text-center text-xl font-extrabold rounded-xl bg-white border outline-none transition-all duration-200 text-[#1F2937] shadow-sm",
+                          otpError
+                            ? "border-red-400 focus:border-red-500 focus:shadow-[0_0_0_4px_rgba(239,68,68,0.1)]"
+                            : "border-[#E5E7EB] focus:border-[#D96A27] focus:shadow-[0_0_0_4px_rgba(217,106,39,0.12)]"
+                        )}
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between text-xs font-medium text-[#6B7280] bg-[#FAF5EC] px-4 py-2.5 rounded-xl border border-[#E8DCC9]/70">
+                  <span className="flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-[#D96A27]" />
+                    Code expires in:
+                  </span>
+                  <span className={cn("font-bold", expirySecondsLeft <= 60 ? "text-red-600" : "text-[#1A1A1A]")}>
+                    {formatCountdown(expirySecondsLeft)}
+                  </span>
+                </div>
+
+                <button
+                  type="submit"
+                  disabled={isLoading || otpDigits.join("").length !== 6 || expirySecondsLeft <= 0}
+                  className="w-full h-[52px] rounded-xl bg-[#D96A27] hover:bg-[#c45a1f] text-white font-bold text-[16px] shadow-[0_4px_14px_rgba(217,106,39,0.3)] hover:shadow-[0_6px_20px_rgba(217,106,39,0.4)] disabled:opacity-70 disabled:cursor-not-allowed transition-all duration-300 flex items-center justify-center gap-2"
+                >
+                  {isLoading ? (
+                    <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+                  ) : (
+                    <>
+                      Verify & Sign In <ArrowRight className="w-5 h-5 ml-1" />
+                    </>
+                  )}
+                </button>
+
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 border-t border-gray-100 text-sm">
+                  <button
+                    type="button"
+                    onClick={handleCancelOtp}
+                    disabled={isLoading}
+                    className="inline-flex items-center gap-1.5 text-[#6B7280] hover:text-[#1F2937] font-semibold transition-colors"
+                  >
+                    <ArrowLeft className="w-4 h-4" />
+                    Back to Sign In
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handleResendOtp}
+                    disabled={resendCooldown > 0 || isResendingOtp || isLoading}
+                    className={cn(
+                      "inline-flex items-center gap-1.5 font-bold transition-colors",
+                      resendCooldown > 0 || isResendingOtp
+                        ? "text-[#9CA3AF] cursor-not-allowed"
+                        : "text-[#D96A27] hover:text-[#c45a1f]"
+                    )}
+                  >
+                    <RefreshCw className={cn("w-3.5 h-3.5", isResendingOtp && "animate-spin")} />
+                    {resendCooldown > 0
+                      ? `Resend code in ${resendCooldown}s`
+                      : isResendingOtp
+                      ? "Sending..."
+                      : "Resend Code"}
+                  </button>
+                </div>
+              </form>
+            ) : (
+              <>
             {isEmailConfirmed && (
               <div className="mb-6 p-4 rounded-xl bg-green-50 border border-green-200 flex items-start gap-3 text-left">
                 <CheckCircle2 className="w-5 h-5 text-green-600 shrink-0 mt-0.5" />
@@ -329,6 +684,8 @@ export default function LoginPage() {
                 )}
               </button>
             </form>
+              </>
+            )}
           </div>
 
           <div className="text-center mt-8">

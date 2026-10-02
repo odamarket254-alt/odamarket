@@ -85,10 +85,33 @@ export default function AdminOrdersPage() {
         return;
       }
 
+      // Map intermediate statuses to valid Postgres order_status enum values ('pending', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded')
+      const dbStatusMap: Record<string, string> = {
+        confirmed: 'processing',
+        ready_for_pickup: 'processing',
+        packed: 'processing',
+        ready: 'processing',
+        out_for_delivery: 'shipped'
+      };
+      const dbStatus = dbStatusMap[status] || status;
+
+      let parsedNotes: Record<string, any> = {};
+      if (existingOrder?.notes) {
+        try {
+          parsedNotes = typeof existingOrder.notes === 'string'
+            ? JSON.parse(existingOrder.notes)
+            : { ...existingOrder.notes };
+        } catch {
+          parsedNotes = {};
+        }
+      }
+      parsedNotes.sub_status = status;
+
       const { error } = await supabase
         .from('orders')
         .update({ 
-          status, 
+          status: dbStatus,
+          notes: JSON.stringify(parsedNotes),
           updated_at: new Date().toISOString() 
         })
         .eq('id', id);
@@ -96,18 +119,16 @@ export default function AdminOrdersPage() {
       if (error) throw error;
 
       // Optimistically update order in state
-      setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status } : o)));
+      setOrders((prev) => prev.map((o) => (o.id === id ? { ...o, status, notes: JSON.stringify(parsedNotes) } : o)));
 
-      // Trigger automatic customer notification
-      if (existingOrder?.user_id) {
-        await notifyOrderStatusChange({
-          orderId: id,
-          userId: existingOrder.user_id,
-          newStatus: status,
-          oldStatus: existingOrder.status,
-          orderNumber: existingOrder.order_number
-        });
-      }
+      // Trigger automatic customer notification & Resend transactional email
+      await notifyOrderStatusChange({
+        orderId: id,
+        userId: existingOrder?.user_id || '',
+        newStatus: status,
+        oldStatus: existingOrder?.status,
+        orderNumber: existingOrder?.order_number
+      });
 
       toast.success(`Order marked as ${status.replace(/_/g, ' ')}`);
     } catch (error) {
@@ -119,6 +140,7 @@ export default function AdminOrdersPage() {
   const filteredOrders = orders.filter(o => {
     const matchesSearch = o.id?.toLowerCase().includes(search.toLowerCase()) || 
                           o.order_number?.toLowerCase().includes(search.toLowerCase()) ||
+                          o.customer?.full_name?.toLowerCase().includes(search.toLowerCase()) ||
                           o.customer?.first_name?.toLowerCase().includes(search.toLowerCase()) ||
                           o.customer?.last_name?.toLowerCase().includes(search.toLowerCase()) ||
                           o.customer?.email?.toLowerCase().includes(search.toLowerCase());
@@ -239,7 +261,7 @@ export default function AdminOrdersPage() {
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex flex-col">
-                          <span className="text-sm font-semibold text-[#3A2418] dark:text-white">{order.customer?.first_name || 'Guest User'}</span>
+                          <span className="text-sm font-semibold text-[#3A2418] dark:text-white">{order.customer?.full_name || order.customer?.first_name || 'Customer'}</span>
                           <span className="text-xs text-[#5F5A54]">{order.customer?.email || 'N/A'}</span>
                         </div>
                       </td>
@@ -271,9 +293,9 @@ export default function AdminOrdersPage() {
                             <button className="p-1.5 rounded-md hover:bg-[#E8DCC9] dark:hover:bg-slate-700 text-[#5F5A54] transition-colors">
                               <MoreVertical className="h-4 w-4" />
                             </button>
-                            <div className="absolute right-0 mt-1 w-44 bg-[#FFFDF8] dark:bg-[#3A2418] rounded-lg shadow-xl border border-[#E8DCC9] dark:border-slate-700 hidden group-hover/menu:block z-10">
+                            <div className="absolute right-0 mt-1 w-48 bg-[#FFFDF8] dark:bg-[#3A2418] rounded-lg shadow-xl border border-[#E8DCC9] dark:border-slate-700 hidden group-hover/menu:block z-10">
                               <div className="py-1">
-                                {['pending', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded'].map(s => (
+                                {['pending', 'confirmed', 'processing', 'ready_for_pickup', 'out_for_delivery', 'shipped', 'delivered', 'cancelled', 'refunded'].map(s => (
                                   <button 
                                     key={s}
                                     onClick={() => updateOrderStatus(order.id, s)}

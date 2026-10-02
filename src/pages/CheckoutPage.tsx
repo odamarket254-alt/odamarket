@@ -44,9 +44,10 @@ export default function CheckoutPage() {
   const { user, profile } = useAuthStore();
   const navigate = useNavigate();
 
-  const fullName = user?.user_metadata?.full_name || user?.user_metadata?.first_name || "";
-  const userEmail = user?.email || "";
-  const userPhone = profile?.phone || user?.phone || user?.user_metadata?.phone || "";
+  const profileName = [profile?.first_name, profile?.last_name].filter(Boolean).join(" ").trim() || profile?.full_name || "";
+  const fullName = profileName || user?.user_metadata?.full_name || user?.user_metadata?.first_name || "";
+  const userEmail = user?.email || profile?.email || "";
+  const userPhone = profile?.phone_number || profile?.phone || user?.phone || user?.user_metadata?.phone || "";
 
   const [coupon, setCoupon] = useState("");
   const [isGeneratingWA, setIsGeneratingWA] = useState(false);
@@ -71,8 +72,8 @@ export default function CheckoutPage() {
   const [shippingDetails, setShippingDetails] = useState({
     recipientName: fullName,
     recipientPhone: userPhone,
-    location: "Nairobi, Westlands",
-    fullAddress: "Spring Valley Estate, Peponi Road, Building A, Opposite Mall"
+    location: profile?.address || "Nairobi, Westlands",
+    fullAddress: profile?.address || "Spring Valley Estate, Peponi Road, Building A, Opposite Mall"
   });
   
   const [contactDetails, setContactDetails] = useState({
@@ -94,19 +95,32 @@ export default function CheckoutPage() {
           .single();
           
         if (data && !error) {
-          setShippingDetails({
-            recipientName: data.full_name,
-            recipientPhone: data.phone,
-            location: (data.county || "") + ", " + (data.town_city || ""),
-            fullAddress: (data.area_location || "") + ", " + (data.street_building || "")
-          });
+          const addrRecipient =
+            data.full_name ||
+            [data.first_name, data.last_name].filter(Boolean).join(' ').trim() ||
+            fullName;
+          const addrPhone = data.phone_number || data.phone || userPhone;
+          const locParts = [data.county, data.city_town || data.town_city].filter(Boolean).join(', ');
+          const streetParts = [
+            data.area_estate || data.area_location,
+            data.street_building,
+            data.house_apartment,
+            data.landmark
+          ].filter(Boolean).join(', ');
+
+          setShippingDetails(prev => ({
+            recipientName: addrRecipient || prev.recipientName,
+            recipientPhone: addrPhone || prev.recipientPhone,
+            location: locParts || prev.location,
+            fullAddress: streetParts || prev.fullAddress
+          }));
         }
       } catch(err) {
         // ignore
       }
     };
     fetchDefaultAddress();
-  }, [user]);
+  }, [user, fullName, userPhone]);
 
   const [editAddressData, setEditAddressData] = useState(shippingDetails);
   
@@ -115,17 +129,21 @@ export default function CheckoutPage() {
 
   // Sync when user/profile loads
   useEffect(() => {
+    const resolvedName = profile?.full_name || user?.user_metadata?.full_name || user?.user_metadata?.first_name || "";
+    const resolvedPhone = profile?.phone || user?.phone || user?.user_metadata?.phone || "";
+    const resolvedEmail = user?.email || profile?.email || "";
+
     setShippingDetails(prev => ({
       ...prev,
-      recipientName: !prev.recipientName ? (user?.user_metadata?.full_name || user?.user_metadata?.first_name || "") : prev.recipientName,
-      recipientPhone: !prev.recipientPhone ? (profile?.phone || user?.phone || user?.user_metadata?.phone || "") : prev.recipientPhone
+      recipientName: !prev.recipientName ? resolvedName : prev.recipientName,
+      recipientPhone: !prev.recipientPhone ? resolvedPhone : prev.recipientPhone
     }));
     
     setContactDetails(prev => ({
       ...prev,
-      fullName: !prev.fullName ? (user?.user_metadata?.full_name || user?.user_metadata?.first_name || "") : prev.fullName,
-      userPhone: !prev.userPhone ? (profile?.phone || user?.phone || user?.user_metadata?.phone || "") : prev.userPhone,
-      userEmail: !prev.userEmail ? (user?.email || "") : prev.userEmail
+      fullName: !prev.fullName ? resolvedName : prev.fullName,
+      userPhone: !prev.userPhone ? resolvedPhone : prev.userPhone,
+      userEmail: !prev.userEmail ? resolvedEmail : prev.userEmail
     }));
   }, [user, profile]);
 

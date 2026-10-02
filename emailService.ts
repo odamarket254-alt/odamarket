@@ -116,9 +116,12 @@ function getSupabaseAdmin(): SupabaseClient | null {
 
 export type ResendEmailEventType =
   | 'order_confirmation'
+  | 'order_confirmed'
   | 'payment_success'
   | 'payment_failed'
   | 'order_ready'
+  | 'order_shipped'
+  | 'order_delivered'
   | 'order_cancelled'
   | 'welcome'
   | 'email_verification'
@@ -126,9 +129,12 @@ export type ResendEmailEventType =
 
 export const RESEND_TEMPLATE_ENV_KEYS: Record<ResendEmailEventType, string> = {
   order_confirmation: 'RESEND_ORDER_CONFIRMATION_TEMPLATE_ID',
+  order_confirmed: 'RESEND_ORDER_CONFIRMED_TEMPLATE_ID',
   payment_success: 'RESEND_PAYMENT_SUCCESS_TEMPLATE_ID',
   payment_failed: 'RESEND_PAYMENT_FAILED_TEMPLATE_ID',
   order_ready: 'RESEND_ORDER_READY_TEMPLATE_ID',
+  order_shipped: 'RESEND_ORDER_SHIPPED_TEMPLATE_ID',
+  order_delivered: 'RESEND_ORDER_DELIVERED_TEMPLATE_ID',
   order_cancelled: 'RESEND_ORDER_CANCELLED_TEMPLATE_ID',
   welcome: 'RESEND_WELCOME_TEMPLATE_ID',
   email_verification: 'RESEND_EMAIL_VERIFICATION_TEMPLATE_ID',
@@ -366,6 +372,15 @@ export async function resolveResendTemplateId(eventType: ResendEmailEventType): 
           (n.includes('order') && n.includes('confirm') && !n.includes('seller'))
         );
       },
+      order_confirmed: (t) => {
+        const a = (t.alias || '').toLowerCase();
+        const n = (t.name || '').toLowerCase();
+        return (
+          a === 'order-confirmed' ||
+          a === 'order_confirmed' ||
+          (n.includes('order') && n.includes('confirmed') && !n.includes('seller'))
+        );
+      },
       payment_success: (t) => {
         const a = (t.alias || '').toLowerCase();
         const n = (t.name || '').toLowerCase();
@@ -392,6 +407,25 @@ export async function resolveResendTemplateId(eventType: ResendEmailEventType): 
           a.includes('order_ready') ||
           a.includes('ready-for-pickup') ||
           (n.includes('order') && (n.includes('ready') || n.includes('pickup') || n.includes('dispatched')))
+        );
+      },
+      order_shipped: (t) => {
+        const a = (t.alias || '').toLowerCase();
+        const n = (t.name || '').toLowerCase();
+        return (
+          a.includes('order-shipped') ||
+          a.includes('order_shipped') ||
+          a.includes('out-for-delivery') ||
+          (n.includes('order') && (n.includes('shipped') || n.includes('out for delivery')))
+        );
+      },
+      order_delivered: (t) => {
+        const a = (t.alias || '').toLowerCase();
+        const n = (t.name || '').toLowerCase();
+        return (
+          a.includes('order-delivered') ||
+          a.includes('order_delivered') ||
+          (n.includes('order') && n.includes('delivered'))
         );
       },
       order_cancelled: (t) => {
@@ -1176,15 +1210,6 @@ async function loadOrderEmailContext(
 
   if (order.user_id) {
     try {
-      const { data: authUser } = await supabase.auth.admin.getUserById(order.user_id);
-      if (authUser?.user?.email && isValidCustomerEmail(authUser.user.email)) {
-        buyerEmail = authUser.user.email.trim();
-      }
-    } catch {
-      // ignore
-    }
-
-    try {
       const { data: profile } = await supabase
         .from('profiles')
         .select('first_name, last_name, email, phone_number')
@@ -1192,7 +1217,7 @@ async function loadOrderEmailContext(
         .single();
 
       if (profile) {
-        if (!buyerEmail && profile.email && isValidCustomerEmail(profile.email)) {
+        if (profile.email && isValidCustomerEmail(profile.email)) {
           buyerEmail = profile.email.trim();
         }
         const profileFullName = `${profile.first_name || ''} ${profile.last_name || ''}`.trim();
@@ -1201,6 +1226,25 @@ async function loadOrderEmailContext(
         }
         if (profile.phone_number) {
           customerPhone = profile.phone_number;
+        }
+      }
+    } catch {
+      // ignore
+    }
+
+    try {
+      const { data: authUser } = await supabase.auth.admin.getUserById(order.user_id);
+      if (authUser?.user) {
+        if (!buyerEmail && authUser.user.email && isValidCustomerEmail(authUser.user.email)) {
+          buyerEmail = authUser.user.email.trim();
+        }
+        const meta: any = authUser.user.user_metadata || {};
+        if (customerName === 'Customer') {
+          const metaName = (meta.full_name || `${meta.first_name || ''} ${meta.last_name || ''}`).trim();
+          if (metaName) customerName = metaName;
+        }
+        if (!customerPhone && (meta.phone || meta.phone_number || authUser.user.phone)) {
+          customerPhone = String(meta.phone || meta.phone_number || authUser.user.phone);
         }
       }
     } catch {
@@ -1237,7 +1281,7 @@ async function loadOrderEmailContext(
   const items: OrderEmailItem[] = (rawItems || []).map((i: any) => {
     const quantity = Number(i.quantity) || 1;
     const unitPrice = Number(i.unit_price) || 0;
-    const lineTotal = Number(i.subtotal || i.total_price) || quantity * unitPrice;
+    const lineTotal = Number(i.subtotal ?? i.total_price) || quantity * unitPrice;
     return {
       name: i.product_name || 'Grocery Item',
       quantity,
@@ -1248,16 +1292,58 @@ async function loadOrderEmailContext(
     };
   });
 
-  let deliveryAddress = 'Nairobi, Kenya';
+  let deliveryAddress = '';
   let deliveryMethod = 'standard';
   const deliveryFee = Number(order.delivery_fee) || 0;
 
   if (parsedNotes.shippingDetails) {
-    deliveryAddress =
-      parsedNotes.shippingDetails.fullAddress ||
-      parsedNotes.shippingDetails.location ||
-      deliveryAddress;
+    const parts = [
+      parsedNotes.shippingDetails.fullAddress,
+      parsedNotes.shippingDetails.location
+    ]
+      .map((s) => (s || '').trim())
+      .filter(Boolean);
+    if (parts.length > 0) {
+      // Avoid repeating location if already inside fullAddress
+      deliveryAddress =
+        parts.length === 2 && parts[0].toLowerCase().includes(parts[1].toLowerCase())
+          ? parts[0]
+          : parts.join(' — ');
+    }
   }
+
+  if (!deliveryAddress && (order.address_id || order.user_id)) {
+    try {
+      let addrQuery = supabase.from('delivery_addresses').select('*');
+      if (order.address_id) {
+        addrQuery = addrQuery.eq('id', order.address_id);
+      } else {
+        addrQuery = addrQuery.eq('user_id', order.user_id).eq('is_default', true);
+      }
+      const { data: addr } = await addrQuery.limit(1).maybeSingle();
+      if (addr) {
+        const addrParts = [addr.street_building, addr.area_location, addr.town_city, addr.county]
+          .map((s) => (s || '').trim())
+          .filter(Boolean);
+        if (addrParts.length > 0) {
+          deliveryAddress = [...new Set(addrParts)].join(', ');
+        }
+        if (customerName === 'Customer' && addr.full_name) {
+          customerName = addr.full_name.trim();
+        }
+        if (!customerPhone && addr.phone) {
+          customerPhone = addr.phone;
+        }
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  if (!deliveryAddress) {
+    deliveryAddress = 'Nairobi, Kenya';
+  }
+
   if (parsedNotes.deliveryMethod) {
     deliveryMethod = parsedNotes.deliveryMethod;
   }
@@ -1300,12 +1386,231 @@ async function loadOrderEmailContext(
 }
 
 /**
+ * Sends an HTML + text email through Resend with automatic API-key failover
+ * (if a key is domain-restricted or invalid) and automatic 429 rate-limit backoff retry.
+ */
+async function sendResendHtmlEmailWithFailover(params: {
+  from: string;
+  to: string;
+  replyTo?: string;
+  subject: string;
+  html: string;
+  text?: string;
+  idempotencyKey?: string;
+}): Promise<{ success: boolean; resendId?: string; error?: string }> {
+  let activeClient = getResendClient();
+  if (!activeClient) {
+    return { success: false, error: 'RESEND_API_KEY is not configured on server' };
+  }
+
+  const { from, to, replyTo = 'info@odamarket.co.ke', subject, html, text, idempotencyKey } = params;
+  const resolvedFrom = resolveValidFromEmail(from, 'ODA Market <orders@odamarket.co.ke>');
+
+  let activeKey = getActiveResendApiKey();
+  let attempt = 0;
+
+  const isRateLimitError = (err: any): boolean => {
+    if (!err) return false;
+    const name = String(err.name || '').toLowerCase();
+    const msg = String(err.message || err.error || '').toLowerCase();
+    const status = Number(err.statusCode || err.status || 0);
+    return (
+      status === 429 ||
+      name.includes('rate_limit') ||
+      msg.includes('too many requests') ||
+      msg.includes('rate limit')
+    );
+  };
+
+  while (attempt < 12) {
+    attempt += 1;
+    const keySuffix = attempt === 1 ? '' : `-a${attempt}`;
+    const sendRes = await activeClient.emails.send(
+      {
+        from: resolvedFrom,
+        to: [to],
+        replyTo,
+        subject,
+        html,
+        ...(text ? { text } : {})
+      },
+      idempotencyKey ? { idempotencyKey: `${idempotencyKey}${keySuffix}` } : undefined
+    );
+
+    if (!sendRes.error) {
+      return {
+        success: true,
+        resendId: sendRes.data?.id || `resend_${Date.now()}`
+      };
+    }
+
+    // 1. Handle 429 burst rate-limit (2 req/s) with backoff on the SAME key
+    if (isRateLimitError(sendRes.error)) {
+      let rlRetry = 0;
+      let rlRes = sendRes;
+      while (rlRes.error && isRateLimitError(rlRes.error) && rlRetry < 4) {
+        rlRetry += 1;
+        await new Promise((r) => setTimeout(r, 650 * rlRetry));
+        rlRes = await activeClient.emails.send(
+          {
+            from: resolvedFrom,
+            to: [to],
+            replyTo,
+            subject,
+            html,
+            ...(text ? { text } : {})
+          },
+          idempotencyKey ? { idempotencyKey: `${idempotencyKey}${keySuffix}-rl${rlRetry}` } : undefined
+        );
+      }
+      if (!rlRes.error) {
+        return {
+          success: true,
+          resendId: rlRes.data?.id || `resend_${Date.now()}`
+        };
+      }
+      if (!isUnverifiedDomainOrRestrictedKeyError(rlRes.error)) {
+        return {
+          success: false,
+          error: rlRes.error.message || JSON.stringify(rlRes.error)
+        };
+      }
+    }
+
+    // 2. Handle domain-restricted / invalid key by failing over to next candidate key
+    if (isUnverifiedDomainOrRestrictedKeyError(sendRes.error)) {
+      const switched = markResendApiKeyRejected(activeKey, sendRes.error.message);
+      if (!switched) {
+        return {
+          success: false,
+          error: sendRes.error.message || JSON.stringify(sendRes.error)
+        };
+      }
+      const nextClient = getResendClient();
+      if (!nextClient) {
+        return {
+          success: false,
+          error: sendRes.error.message || 'No valid Resend API keys remaining'
+        };
+      }
+      activeClient = nextClient;
+      activeKey = getActiveResendApiKey();
+      // Brief pause so failover call does not trigger 2 req/sec rate limit
+      await new Promise((r) => setTimeout(r, 550));
+      continue;
+    }
+
+    return {
+      success: false,
+      error: sendRes.error.message || JSON.stringify(sendRes.error)
+    };
+  }
+
+  return { success: false, error: 'Exhausted Resend dispatch attempts' };
+}
+
+/**
+ * Formats an internal order status code into a human-friendly label
+ */
+function formatOrderStatusLabel(status?: string): string {
+  const norm = (status || 'processing').toLowerCase().trim();
+  switch (norm) {
+    case 'confirmed':
+      return 'Confirmed';
+    case 'processing':
+      return 'Confirmed & Processing';
+    case 'packed':
+      return 'Packed & Ready';
+    case 'ready_for_pickup':
+    case 'ready':
+      return 'Ready for Pickup';
+    case 'out_for_delivery':
+      return 'Out for Delivery';
+    case 'shipped':
+      return 'Shipped / On the Way';
+    case 'delivered':
+      return 'Delivered';
+    case 'cancelled':
+      return 'Cancelled';
+    case 'refunded':
+      return 'Refunded';
+    case 'pending':
+      return 'Pending';
+    default:
+      return norm.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+}
+
+/**
+ * Builds plain-text representation of an ODA Market order email
+ */
+export function buildOrderEmailPlainText(
+  data: OrderEmailData,
+  heading: string,
+  introMessage: string
+): string {
+  const deliveryDisplay = data.deliveryFee > 0 ? formatCurrency(data.deliveryFee) : 'Free';
+  const deliveryMethodLabel =
+    data.deliveryMethod === 'express'
+      ? 'Express Delivery (Same Day)'
+      : data.deliveryMethod === 'pickup'
+      ? 'Store Pickup'
+      : 'Standard Delivery';
+
+  const itemLines = (data.items || []).map(
+    (item) => `  - ${item.name} | Qty: ${item.quantity} x ${formatCurrency(item.unitPrice)} = ${formatCurrency(item.lineTotal)}`
+  );
+
+  return [
+    `ODA MARKET - ${heading.toUpperCase()}`,
+    `============================================================`,
+    `Hello ${data.customerName || 'Valued Customer'},`,
+    ``,
+    introMessage,
+    ``,
+    `ORDER DETAILS`,
+    `------------------------------------------------------------`,
+    `Order ID: ${data.orderNumber}`,
+    `Order Date: ${data.orderDate}`,
+    `Order Status: ${formatOrderStatusLabel(data.orderStatus)}`,
+    `Payment Status: ${data.paymentStatus || 'PAID'} (${data.paymentMethod || 'M-Pesa'})`,
+    ...(data.paymentReference ? [`Payment Reference: ${data.paymentReference}`] : []),
+    ``,
+    `PRODUCTS ORDERED`,
+    `------------------------------------------------------------`,
+    ...(itemLines.length > 0 ? itemLines : ['  - Order items attached to your account']),
+    ``,
+    `ORDER SUMMARY`,
+    `------------------------------------------------------------`,
+    `Subtotal: ${formatCurrency(data.subtotal)}`,
+    `Delivery (${deliveryMethodLabel}): ${deliveryDisplay}`,
+    ...(data.discountAmount && data.discountAmount > 0 ? [`Discount: -${formatCurrency(data.discountAmount)}`] : []),
+    `Order Total: ${formatCurrency(data.total)}`,
+    ``,
+    `DELIVERY INFORMATION`,
+    `------------------------------------------------------------`,
+    `Delivery Method: ${deliveryMethodLabel}`,
+    `Delivery Address: ${data.deliveryAddress || 'Nairobi, Kenya'}`,
+    `Recipient: ${data.recipientName || data.customerName}`,
+    ...(data.customerPhone ? [`Phone: ${data.customerPhone}`] : []),
+    ``,
+    `View & Track Your Order: ${data.trackingUrl}`,
+    ``,
+    `Need help? Contact ODA Market Support at info@odamarket.co.ke or call/WhatsApp +254 792 867386.`,
+    `© ${new Date().getFullYear()} ODA Market • Nairobi, Kenya`
+  ].join('\n');
+}
+
+/**
  * Builds responsive, email-client compatible HTML matching ODA Market brand guidelines
- * (Used as safe fallback when RESEND_ORDER_CONFIRMATION_TEMPLATE_ID is not yet configured in Resend)
+ * Contains all required fields: Buyer Name, Order ID, Products Ordered, Quantities,
+ * Order Total, Payment Status, Delivery Information, Order Date, and View Order Button.
  */
 export function buildOrderConfirmationEmailHtml(data: OrderEmailData): string {
   const {
     customerName,
+    customerPhone,
+    recipientName,
     orderNumber,
     orderDate,
     items,
@@ -1316,6 +1621,7 @@ export function buildOrderConfirmationEmailHtml(data: OrderEmailData): string {
     deliveryMethod,
     deliveryAddress,
     paymentMethod,
+    paymentStatus,
     paymentReference,
     orderStatus,
     storeName,
@@ -1324,10 +1630,17 @@ export function buildOrderConfirmationEmailHtml(data: OrderEmailData): string {
 
   const appUrl = (process.env.APP_URL || process.env.VITE_APP_URL || 'https://odamarket.co.ke').replace(/\/$/, '');
   const deliveryDisplay = deliveryFee > 0 ? formatCurrency(deliveryFee) : 'Free';
-  const deliveryMethodLabel = deliveryMethod === 'express' ? 'Express Delivery (Same Day)' : (deliveryMethod === 'pickup' ? 'Store Pickup' : 'Standard Delivery');
+  const deliveryMethodLabel =
+    deliveryMethod === 'express'
+      ? 'Express Delivery (Same Day)'
+      : deliveryMethod === 'pickup'
+      ? 'Store Pickup'
+      : 'Standard Delivery';
+  const totalQuantity = (items || []).reduce((sum, i) => sum + (Number(i.quantity) || 0), 0);
+  const statusLabel = formatOrderStatusLabel(orderStatus);
 
-  // Render product line items
-  const itemsHtml = items.map((item) => `
+  // Render product line items with explicit Product Name, Quantity, Unit Price, and Line Total
+  const itemsHtml = (items || []).map((item) => `
     <tr>
       <td style="padding: 14px 0; border-bottom: 1px solid #F0E6D8; vertical-align: top;">
         <table border="0" cellpadding="0" cellspacing="0" width="100%">
@@ -1337,7 +1650,7 @@ export function buildOrderConfirmationEmailHtml(data: OrderEmailData): string {
                 ${item.name}
               </p>
               <p style="margin: 0; font-size: 13px; color: #8B857D; line-height: 1.4;">
-                Qty: <strong style="color: #3A2418;">${item.quantity}</strong> &times; ${formatCurrency(item.unitPrice)}
+                Quantity: <strong style="color: #3A2418;">${item.quantity}</strong> &times; ${formatCurrency(item.unitPrice)}
               </p>
             </td>
             <td align="right" style="vertical-align: top; white-space: nowrap; padding-left: 12px;">
@@ -1371,20 +1684,13 @@ export function buildOrderConfirmationEmailHtml(data: OrderEmailData): string {
   </style>
 </head>
 <body style="margin: 0; padding: 0; background-color: #FAF5EC; -webkit-font-smoothing: antialiased;">
-  <!-- Full Background Wrapper -->
   <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #FAF5EC; table-layout: fixed;">
     <tr>
       <td align="center" style="padding: 30px 12px 40px 12px;">
-        
-        <!-- Main Card Container -->
         <table border="0" cellpadding="0" cellspacing="0" width="100%" class="email-container" style="max-width: 600px; background-color: #FFFFFF; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(58, 36, 24, 0.08); border: 1px solid #E8DCC9;">
-          
-          <!-- Top Orange Brand Gradient Bar -->
           <tr>
             <td style="height: 6px; background: linear-gradient(90deg, #D96A27 0%, #F49C64 100%);"></td>
           </tr>
-
-          <!-- Header Logo & Tagline -->
           <tr>
             <td align="center" style="padding: 32px 24px 20px 24px; text-align: center;">
               <a href="${appUrl}" target="_blank" style="text-decoration: none;">
@@ -1397,8 +1703,6 @@ export function buildOrderConfirmationEmailHtml(data: OrderEmailData): string {
               </p>
             </td>
           </tr>
-
-          <!-- Confirmation Hero Banner -->
           <tr>
             <td class="fluid-padding" style="padding: 0 32px 24px 32px;">
               <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 12px; padding: 20px; text-align: center;">
@@ -1410,34 +1714,34 @@ export function buildOrderConfirmationEmailHtml(data: OrderEmailData): string {
                     <h2 style="margin: 4px 0 6px 0; color: #166534; font-size: 22px; font-weight: 800; line-height: 1.3;">
                       Order Confirmed
                     </h2>
-                    <p style="margin: 0; color: #15803D; font-size: 14px; font-weight: 500; line-height: 1.5;">
-                      Payment Received via ${paymentMethod || 'M-Pesa (Paystack)'}
+                    <p style="margin: 0; color: #15803D; font-size: 14px; font-weight: 600; line-height: 1.5;">
+                      Payment Status: ${paymentStatus || 'PAID'} via ${paymentMethod || 'M-Pesa (Paystack)'}
                     </p>
                   </td>
                 </tr>
               </table>
             </td>
           </tr>
-
-          <!-- Friendly Greeting Message -->
           <tr>
             <td class="fluid-padding" style="padding: 0 32px 20px 32px;">
               <p style="margin: 0 0 12px 0; color: #3A2418; font-size: 16px; font-weight: 600; line-height: 1.5;">
                 Hello ${customerName || 'Valued Customer'},
               </p>
               <p style="margin: 0; color: #5F5A54; font-size: 15px; line-height: 1.6;">
-                Thank you for your order. Your payment has been successfully received and your order is now confirmed. Our fulfillment team is carefully preparing your fresh produce and groceries.
+                Thank you for shopping with <strong>ODA Market</strong>! Your payment has been verified and your order <strong>${orderNumber}</strong> is now confirmed and being prepared by our fulfillment team.
               </p>
             </td>
           </tr>
-
-          <!-- Order Summary Metadata Card -->
           <tr>
             <td class="fluid-padding" style="padding: 0 32px 24px 32px;">
               <div style="background-color: #FFFDF8; border: 1px solid #E8DCC9; border-radius: 12px; padding: 18px 20px;">
                 <table border="0" cellpadding="0" cellspacing="0" width="100%">
                   <tr>
-                    <td style="padding: 5px 0; font-size: 13px; color: #8B857D; width: 40%;">Order Number:</td>
+                    <td style="padding: 5px 0; font-size: 13px; color: #8B857D; width: 42%;">Buyer Name:</td>
+                    <td align="right" style="padding: 5px 0; font-size: 13px; font-weight: 700; color: #3A2418;">${customerName || 'Valued Customer'}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 5px 0; font-size: 13px; color: #8B857D;">Order ID:</td>
                     <td align="right" style="padding: 5px 0; font-size: 13px; font-weight: 700; color: #D96A27; font-family: monospace;">${orderNumber}</td>
                   </tr>
                   <tr>
@@ -1446,17 +1750,17 @@ export function buildOrderConfirmationEmailHtml(data: OrderEmailData): string {
                   </tr>
                   <tr>
                     <td style="padding: 5px 0; font-size: 13px; color: #8B857D;">Payment Status:</td>
-                    <td align="right" style="padding: 5px 0; font-size: 13px; font-weight: 700; color: #16A34A;">PAID</td>
+                    <td align="right" style="padding: 5px 0; font-size: 13px; font-weight: 700; color: #16A34A;">${paymentStatus || 'PAID'} (${paymentMethod || 'M-Pesa'})</td>
                   </tr>
                   ${paymentReference ? `
                   <tr>
-                    <td style="padding: 5px 0; font-size: 13px; color: #8B857D;">Paystack Reference:</td>
+                    <td style="padding: 5px 0; font-size: 13px; color: #8B857D;">Payment Reference:</td>
                     <td align="right" style="padding: 5px 0; font-size: 12px; font-weight: 500; color: #5F5A54; font-family: monospace;">${paymentReference}</td>
                   </tr>
                   ` : ''}
                   <tr>
                     <td style="padding: 5px 0; font-size: 13px; color: #8B857D;">Order Status:</td>
-                    <td align="right" style="padding: 5px 0; font-size: 13px; font-weight: 700; color: #D96A27; text-transform: uppercase;">${orderStatus || 'Processing'}</td>
+                    <td align="right" style="padding: 5px 0; font-size: 13px; font-weight: 700; color: #D96A27; text-transform: uppercase;">${statusLabel}</td>
                   </tr>
                   ${storeName ? `
                   <tr>
@@ -1468,20 +1772,16 @@ export function buildOrderConfirmationEmailHtml(data: OrderEmailData): string {
               </div>
             </td>
           </tr>
-
-          <!-- Order Items Section -->
           <tr>
             <td class="fluid-padding" style="padding: 0 32px 20px 32px;">
               <h3 style="margin: 0 0 12px 0; font-size: 16px; font-weight: 700; color: #3A2418; border-bottom: 2px solid #E8DCC9; padding-bottom: 8px;">
-                Items in Your Order
+                Products Ordered (${totalQuantity} ${totalQuantity === 1 ? 'Item' : 'Items'})
               </h3>
               <table border="0" cellpadding="0" cellspacing="0" width="100%">
                 ${itemsHtml}
               </table>
             </td>
           </tr>
-
-          <!-- Order Financial Breakdown -->
           <tr>
             <td class="fluid-padding" style="padding: 0 32px 24px 32px;">
               <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #FAF5EC; border-radius: 12px; padding: 18px 20px; border: 1px solid #E8DCC9;">
@@ -1500,14 +1800,12 @@ export function buildOrderConfirmationEmailHtml(data: OrderEmailData): string {
                 </tr>
                 ` : ''}
                 <tr>
-                  <td style="padding: 12px 0 0 0; font-size: 17px; font-weight: 800; color: #D96A27; border-top: 1px solid #E8DCC9;">Total Paid:</td>
+                  <td style="padding: 12px 0 0 0; font-size: 17px; font-weight: 800; color: #D96A27; border-top: 1px solid #E8DCC9;">Order Total:</td>
                   <td align="right" style="padding: 12px 0 0 0; font-size: 18px; font-weight: 800; color: #D96A27; border-top: 1px solid #E8DCC9;">${formatCurrency(total)}</td>
                 </tr>
               </table>
             </td>
           </tr>
-
-          <!-- Delivery & Fulfillment Information -->
           <tr>
             <td class="fluid-padding" style="padding: 0 32px 24px 32px;">
               <div style="background-color: #FFFDF8; border: 1px solid #E8DCC9; border-radius: 12px; padding: 18px 20px;">
@@ -1518,16 +1816,19 @@ export function buildOrderConfirmationEmailHtml(data: OrderEmailData): string {
                   <strong>Method:</strong> ${deliveryMethodLabel}
                 </p>
                 <p style="margin: 0 0 4px 0; font-size: 14px; color: #5F5A54; line-height: 1.5;">
-                  <strong>Destination:</strong> ${deliveryAddress || 'Nairobi, Kenya'}
+                  <strong>Delivery Address:</strong> ${deliveryAddress || 'Nairobi, Kenya'}
                 </p>
+                <p style="margin: 0 0 4px 0; font-size: 14px; color: #5F5A54;">
+                  <strong>Recipient:</strong> ${recipientName || customerName}
+                </p>
+                ${customerPhone ? `
                 <p style="margin: 0; font-size: 14px; color: #5F5A54;">
-                  <strong>Recipient:</strong> ${customerName}
+                  <strong>Phone:</strong> ${customerPhone}
                 </p>
+                ` : ''}
               </div>
             </td>
           </tr>
-
-          <!-- Call to Action Button: View My Order -->
           <tr>
             <td class="fluid-padding" style="padding: 0 32px 32px 32px; text-align: center;">
               <table border="0" cellpadding="0" cellspacing="0" width="100%">
@@ -1546,12 +1847,10 @@ export function buildOrderConfirmationEmailHtml(data: OrderEmailData): string {
                 </tr>
               </table>
               <p style="margin: 14px 0 0 0; color: #8B857D; font-size: 12px; line-height: 1.5;">
-                You can track live dispatch progress and review your items anytime.
+                You can also view all your orders and download invoices anytime in <a href="${appUrl}/buyer/dashboard/orders" target="_blank" style="color: #D96A27; text-decoration: underline; font-weight: 600;">My Orders</a>.
               </p>
             </td>
           </tr>
-
-          <!-- Need Help / Support Section -->
           <tr>
             <td class="fluid-padding" style="padding: 0 32px 28px 32px;">
               <div style="border-top: 1px solid #F0E6D8; padding-top: 20px;">
@@ -1563,27 +1862,22 @@ export function buildOrderConfirmationEmailHtml(data: OrderEmailData): string {
                 </p>
                 <p style="margin: 0; font-size: 13px; color: #5F5A54; line-height: 1.6;">
                   &bull; Email: <a href="mailto:info@odamarket.co.ke" style="color: #D96A27; text-decoration: none; font-weight: 600;">info@odamarket.co.ke</a><br/>
-                  &bull; Phone / WhatsApp: <a href="tel:0792867386" style="color: #D96A27; text-decoration: none; font-weight: 600;">0792867386</a><br/>
-                  &bull; Hours: Mon - Fri: 8:00 AM - 5:00 PM | Sat: 9:00 AM - 3:00 PM
+                  &bull; Phone / WhatsApp: <a href="tel:+254792867386" style="color: #D96A27; text-decoration: none; font-weight: 600;">+254 792 867386 (0792867386)</a>
                 </p>
               </div>
             </td>
           </tr>
-
-          <!-- Footer -->
           <tr>
             <td style="background-color: #FAF5EC; padding: 24px 30px; text-align: center; border-top: 1px solid #E8DCC9;">
               <p style="margin: 0 0 6px 0; color: #3A2418; font-size: 12px; font-weight: 700;">
                 &copy; ${new Date().getFullYear()} ODA Market. All rights reserved.
               </p>
               <p style="margin: 0; color: #8B857D; font-size: 12px; line-height: 1.5;">
-                Nairobi, Kenya &bull; Fresh Farm Produce & Groceries
+                Nairobi, Kenya &bull; Fresh Farm Produce &amp; Groceries
               </p>
             </td>
           </tr>
-
         </table>
-
       </td>
     </tr>
   </table>
@@ -1593,7 +1887,315 @@ export function buildOrderConfirmationEmailHtml(data: OrderEmailData): string {
 }
 
 /**
- * 1. ORDER CONFIRMATION EMAIL (plus optional Payment Success & Seller New Order templates)
+ * Builds responsive, ODA Market-branded HTML for Order Status Change notifications:
+ * - order_confirmed ('confirmed')
+ * - order_ready ('ready_for_pickup', 'packed', 'ready')
+ * - order_shipped ('shipped', 'out_for_delivery')
+ * - order_delivered ('delivered')
+ * - order_cancelled ('cancelled', 'refunded')
+ */
+export function buildOrderStatusEmailHtml(
+  data: OrderEmailData,
+  eventType: 'order_confirmed' | 'order_ready' | 'order_shipped' | 'order_delivered' | 'order_cancelled'
+): { subject: string; html: string; text: string } {
+  const {
+    customerName,
+    customerPhone,
+    recipientName,
+    orderNumber,
+    orderDate,
+    items,
+    subtotal,
+    deliveryFee,
+    discountAmount = 0,
+    total,
+    deliveryMethod,
+    deliveryAddress,
+    paymentMethod,
+    paymentStatus,
+    paymentReference,
+    orderStatus,
+    trackingUrl
+  } = data;
+
+  const appUrl = (process.env.APP_URL || process.env.VITE_APP_URL || 'https://odamarket.co.ke').replace(/\/$/, '');
+  const deliveryDisplay = deliveryFee > 0 ? formatCurrency(deliveryFee) : 'Free';
+  const deliveryMethodLabel =
+    deliveryMethod === 'express'
+      ? 'Express Delivery (Same Day)'
+      : deliveryMethod === 'pickup'
+      ? 'Store Pickup'
+      : 'Standard Delivery';
+  const totalQuantity = (items || []).reduce((sum, i) => sum + (Number(i.quantity) || 0), 0);
+  const statusLabel = formatOrderStatusLabel(orderStatus);
+
+  let subject = `Order Update: ${orderNumber} - ODA Market`;
+  let bannerBg = '#F0FDF4';
+  let bannerBorder = '#BBF7D0';
+  let badgeBg = '#16A34A';
+  let titleColor = '#166534';
+  let subtitleColor = '#15803D';
+  let topBarGradient = 'linear-gradient(90deg, #D96A27 0%, #16A34A 100%)';
+  let heroIcon = '&#10003;';
+  let heroTitle = 'Order Confirmed';
+  let heroSubtitle = `Order ${orderNumber} • Status: ${statusLabel}`;
+  let introMessage = `Your order ${orderNumber} has been confirmed by our team and is being prepared for ${deliveryMethodLabel}.`;
+  let ctaLabel = 'View My Order &rarr;';
+
+  if (eventType === 'order_confirmed') {
+    subject = `Order Confirmed: ${orderNumber} - ODA Market`;
+    heroTitle = 'Order Confirmed';
+    heroSubtitle = `Order ${orderNumber} is Confirmed`;
+    introMessage = `Your order ${orderNumber} has been confirmed by ODA Market and is now being prepared for ${deliveryMethodLabel}.`;
+  } else if (eventType === 'order_ready') {
+    const isPickup = (orderStatus || '').toLowerCase() === 'ready_for_pickup' || deliveryMethod === 'pickup';
+    subject = isPickup
+      ? `Your Order ${orderNumber} is Ready for Pickup - ODA Market`
+      : `Your Order ${orderNumber} is Packed & Ready - ODA Market`;
+    bannerBg = '#FFFBEB';
+    bannerBorder = '#FDE68A';
+    badgeBg = '#D97706';
+    titleColor = '#92400E';
+    subtitleColor = '#B45309';
+    heroIcon = '&#128230;';
+    heroTitle = isPickup ? 'Order Ready for Pickup!' : 'Your Order is Ready!';
+    heroSubtitle = `Order ${orderNumber} • Status: ${statusLabel}`;
+    introMessage = isPickup
+      ? `Great news! Your fresh groceries for order ${orderNumber} have been packed and are ready for pickup.`
+      : `Great news! Your fresh groceries for order ${orderNumber} have been packed and are ready for ${deliveryMethodLabel}.`;
+    ctaLabel = 'Track Order Status &rarr;';
+  } else if (eventType === 'order_shipped') {
+    const isOutForDelivery = (orderStatus || '').toLowerCase() === 'out_for_delivery';
+    subject = isOutForDelivery
+      ? `Your Order ${orderNumber} is Out for Delivery - ODA Market`
+      : `Your Order ${orderNumber} Has Shipped - ODA Market`;
+    bannerBg = '#EFF6FF';
+    bannerBorder = '#BFDBFE';
+    badgeBg = '#2563EB';
+    titleColor = '#1E40AF';
+    subtitleColor = '#1D4ED8';
+    topBarGradient = 'linear-gradient(90deg, #D96A27 0%, #2563EB 100%)';
+    heroIcon = '&#128666;';
+    heroTitle = isOutForDelivery ? 'Out for Delivery!' : 'Your Order is On the Way!';
+    heroSubtitle = `Order ${orderNumber} • Status: ${statusLabel}`;
+    introMessage = `Your order ${orderNumber} has been dispatched and is on its way to ${deliveryAddress || 'your delivery address'}. Please keep your phone (${customerPhone || 'registered number'}) reachable for our delivery rider.`;
+    ctaLabel = 'Track My Delivery &rarr;';
+  } else if (eventType === 'order_delivered') {
+    subject = `Order Delivered: ${orderNumber} - ODA Market`;
+    bannerBg = '#F0FDF4';
+    bannerBorder = '#BBF7D0';
+    badgeBg = '#16A34A';
+    titleColor = '#166534';
+    subtitleColor = '#15803D';
+    topBarGradient = 'linear-gradient(90deg, #16A34A 0%, #D96A27 100%)';
+    heroIcon = '&#10003;';
+    heroTitle = 'Order Delivered!';
+    heroSubtitle = `Order ${orderNumber} • Delivered`;
+    introMessage = `Your order ${orderNumber} has been delivered! Thank you for shopping with ODA Market. You can view your order receipt, download your invoice, or rate your products anytime from your account.`;
+    ctaLabel = 'View Order & Rate Products &rarr;';
+  } else if (eventType === 'order_cancelled') {
+    subject = `Order Cancelled: ${orderNumber} - ODA Market`;
+    bannerBg = '#FEF2F2';
+    bannerBorder = '#FECACA';
+    badgeBg = '#DC2626';
+    titleColor = '#991B1B';
+    subtitleColor = '#B91C1C';
+    topBarGradient = 'linear-gradient(90deg, #6B7280 0%, #DC2626 100%)';
+    heroIcon = '&#10005;';
+    heroTitle = `Order ${orderNumber} Cancelled`;
+    heroSubtitle = `Status: ${statusLabel}`;
+    introMessage = `Your order ${orderNumber} (Total: ${formatCurrency(total)}) has been marked as ${statusLabel}. If you already paid for this order and require refund assistance, or if you have any questions, please reply to this email or contact ODA Market Support at +254 792 867386.`;
+    ctaLabel = 'View Order Details &rarr;';
+  }
+
+  const itemsHtml = (items || []).map((item) => `
+    <tr>
+      <td style="padding: 12px 0; border-bottom: 1px solid #F0E6D8; vertical-align: top;">
+        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+          <tr>
+            <td style="vertical-align: top;">
+              <p style="margin: 0 0 4px 0; font-size: 14px; font-weight: 700; color: #3A2418; line-height: 1.4;">
+                ${item.name}
+              </p>
+              <p style="margin: 0; font-size: 13px; color: #8B857D; line-height: 1.4;">
+                Quantity: <strong style="color: #3A2418;">${item.quantity}</strong> &times; ${formatCurrency(item.unitPrice)}
+              </p>
+            </td>
+            <td align="right" style="vertical-align: top; white-space: nowrap; padding-left: 12px;">
+              <span style="font-size: 14px; font-weight: 700; color: #3A2418;">
+                ${formatCurrency(item.lineTotal)}
+              </span>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  `).join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${subject}</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #FAF5EC; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #FAF5EC; padding: 30px 12px 40px 12px;">
+    <tr>
+      <td align="center">
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #FFFFFF; border-radius: 16px; overflow: hidden; border: 1px solid #E8DCC9; box-shadow: 0 10px 30px rgba(58, 36, 24, 0.08);">
+          <tr>
+            <td style="height: 6px; background: ${topBarGradient};"></td>
+          </tr>
+          <tr>
+            <td align="center" style="padding: 32px 24px 20px 24px; text-align: center;">
+              <a href="${appUrl}" target="_blank" style="text-decoration: none;">
+                <h1 style="margin: 0; color: #D96A27; font-size: 28px; font-weight: 800; letter-spacing: -0.5px;">ODA MARKET</h1>
+              </a>
+              <p style="margin: 5px 0 0 0; color: #8B857D; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;">Order Status Notification</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 0 32px 24px 32px;">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: ${bannerBg}; border: 1px solid ${bannerBorder}; border-radius: 12px; padding: 20px; text-align: center;">
+                <tr>
+                  <td align="center">
+                    <div style="display: inline-block; width: 44px; height: 44px; line-height: 44px; background-color: ${badgeBg}; color: #FFFFFF; border-radius: 50%; font-size: 20px; font-weight: bold; margin-bottom: 8px;">
+                      ${heroIcon}
+                    </div>
+                    <h2 style="margin: 4px 0 6px 0; color: ${titleColor}; font-size: 22px; font-weight: 800;">${heroTitle}</h2>
+                    <p style="margin: 0; color: ${subtitleColor}; font-size: 14px; font-weight: 600;">${heroSubtitle}</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 0 32px 20px 32px;">
+              <p style="margin: 0 0 12px 0; color: #3A2418; font-size: 16px; font-weight: 600;">Hello ${customerName || 'Valued Customer'},</p>
+              <p style="margin: 0; color: #5F5A54; font-size: 15px; line-height: 1.6;">${introMessage}</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 0 32px 24px 32px;">
+              <div style="background-color: #FFFDF8; border: 1px solid #E8DCC9; border-radius: 12px; padding: 18px 20px;">
+                <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                  <tr>
+                    <td style="padding: 5px 0; font-size: 13px; color: #8B857D; width: 42%;">Buyer Name:</td>
+                    <td align="right" style="padding: 5px 0; font-size: 13px; font-weight: 700; color: #3A2418;">${customerName || 'Valued Customer'}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 5px 0; font-size: 13px; color: #8B857D;">Order ID:</td>
+                    <td align="right" style="padding: 5px 0; font-size: 13px; font-weight: 700; color: #D96A27; font-family: monospace;">${orderNumber}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 5px 0; font-size: 13px; color: #8B857D;">Order Date:</td>
+                    <td align="right" style="padding: 5px 0; font-size: 13px; font-weight: 600; color: #3A2418;">${orderDate}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 5px 0; font-size: 13px; color: #8B857D;">Order Status:</td>
+                    <td align="right" style="padding: 5px 0; font-size: 13px; font-weight: 700; color: ${titleColor}; text-transform: uppercase;">${statusLabel}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 5px 0; font-size: 13px; color: #8B857D;">Payment Status:</td>
+                    <td align="right" style="padding: 5px 0; font-size: 13px; font-weight: 700; color: ${paymentStatus === 'PAID' ? '#16A34A' : '#3A2418'};">${paymentStatus || 'PAID'} (${paymentMethod || 'M-Pesa'})</td>
+                  </tr>
+                  ${paymentReference ? `
+                  <tr>
+                    <td style="padding: 5px 0; font-size: 13px; color: #8B857D;">Payment Reference:</td>
+                    <td align="right" style="padding: 5px 0; font-size: 12px; font-weight: 500; color: #5F5A54; font-family: monospace;">${paymentReference}</td>
+                  </tr>
+                  ` : ''}
+                </table>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 0 32px 20px 32px;">
+              <h3 style="margin: 0 0 12px 0; font-size: 16px; font-weight: 700; color: #3A2418; border-bottom: 2px solid #E8DCC9; padding-bottom: 8px;">
+                Products Ordered (${totalQuantity} ${totalQuantity === 1 ? 'Item' : 'Items'})
+              </h3>
+              <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                ${itemsHtml}
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 0 32px 24px 32px;">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #FAF5EC; border-radius: 12px; padding: 18px 20px; border: 1px solid #E8DCC9;">
+                <tr>
+                  <td style="padding: 5px 0; font-size: 14px; color: #5F5A54;">Subtotal:</td>
+                  <td align="right" style="padding: 5px 0; font-size: 14px; font-weight: 600; color: #3A2418;">${formatCurrency(subtotal)}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 5px 0; font-size: 14px; color: #5F5A54;">Delivery Fee (${deliveryMethodLabel}):</td>
+                  <td align="right" style="padding: 5px 0; font-size: 14px; font-weight: 600; color: #3A2418;">${deliveryDisplay}</td>
+                </tr>
+                ${discountAmount > 0 ? `
+                <tr>
+                  <td style="padding: 5px 0; font-size: 14px; color: #16A34A;">Discount Applied:</td>
+                  <td align="right" style="padding: 5px 0; font-size: 14px; font-weight: 600; color: #16A34A;">-${formatCurrency(discountAmount)}</td>
+                </tr>
+                ` : ''}
+                <tr>
+                  <td style="padding: 12px 0 0 0; font-size: 17px; font-weight: 800; color: #D96A27; border-top: 1px solid #E8DCC9;">Order Total:</td>
+                  <td align="right" style="padding: 12px 0 0 0; font-size: 18px; font-weight: 800; color: #D96A27; border-top: 1px solid #E8DCC9;">${formatCurrency(total)}</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 0 32px 24px 32px;">
+              <div style="background-color: #FFFDF8; border: 1px solid #E8DCC9; border-radius: 12px; padding: 18px 20px;">
+                <h4 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 700; color: #3A2418; text-transform: uppercase; letter-spacing: 0.5px;">
+                  Delivery Information
+                </h4>
+                <p style="margin: 0 0 4px 0; font-size: 14px; color: #3A2418;">
+                  <strong>Method:</strong> ${deliveryMethodLabel}
+                </p>
+                <p style="margin: 0 0 4px 0; font-size: 14px; color: #5F5A54; line-height: 1.5;">
+                  <strong>Delivery Address:</strong> ${deliveryAddress || 'Nairobi, Kenya'}
+                </p>
+                <p style="margin: 0 0 4px 0; font-size: 14px; color: #5F5A54;">
+                  <strong>Recipient:</strong> ${recipientName || customerName}
+                </p>
+                ${customerPhone ? `
+                <p style="margin: 0; font-size: 14px; color: #5F5A54;">
+                  <strong>Phone:</strong> ${customerPhone}
+                </p>
+                ` : ''}
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding: 0 32px 32px 32px;">
+              <a href="${trackingUrl}" target="_blank" style="display: inline-block; padding: 16px 38px; font-size: 16px; font-weight: 700; color: #FFFFFF; text-decoration: none; border-radius: 12px; background-color: #D96A27;">
+                ${ctaLabel}
+              </a>
+              <p style="margin: 14px 0 0 0; color: #8B857D; font-size: 12px;">
+                Or view your full order history at <a href="${appUrl}/buyer/dashboard/orders" target="_blank" style="color: #D96A27; text-decoration: underline; font-weight: 600;">My Orders</a>.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color: #FAF5EC; padding: 24px 30px; text-align: center; border-top: 1px solid #E8DCC9;">
+              <p style="margin: 0 0 6px 0; color: #3A2418; font-size: 12px; font-weight: 700;">&copy; ${new Date().getFullYear()} ODA Market. All rights reserved.</p>
+              <p style="margin: 0; color: #8B857D; font-size: 12px;">Need help? Contact <a href="mailto:info@odamarket.co.ke" style="color: #D96A27; text-decoration: none;">info@odamarket.co.ke</a> or call/WhatsApp +254 792 867386</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  const text = buildOrderEmailPlainText(data, heroTitle, introMessage);
+  return { subject, html, text };
+}
+
+/**
+ * 1. ORDER CONFIRMATION EMAIL
  * Strictly requires verified payment before dispatching.
  */
 export async function sendOrderConfirmationEmailForOrder(
@@ -1677,8 +2279,7 @@ export async function sendOrderConfirmationEmailForOrder(
         };
       }
 
-      const resend = getResendClient();
-      if (!resend) {
+      if (!getResendClient()) {
         console.warn('[Resend Email] ⚠️ RESEND_API_KEY is not configured in environment. Skipping email dispatch.');
         await recordOrderEmailEvent({
           supabase,
@@ -1694,81 +2295,52 @@ export async function sendOrderConfirmationEmailForOrder(
         };
       }
 
-      const templateId = await resolveResendTemplateId('order_confirmation');
       const idempotencyKey = options.forceResend
         ? `oda-order-confirmation-${cleanOrderId}-force-${Date.now()}`
         : `oda-order-confirmation-${cleanOrderId}`;
 
-      let resendId = '';
-      let usedTemplateId: string | undefined = undefined;
+      const fromSender = resolveValidFromEmail(
+        process.env.RESEND_FROM_EMAIL,
+        'ODA Market <orders@odamarket.co.ke>'
+      );
+      const html = buildOrderConfirmationEmailHtml(emailData);
+      const text = buildOrderEmailPlainText(
+        emailData,
+        'Order Confirmed',
+        `Thank you for shopping with ODA Market! Your payment has been verified and your order ${emailData.orderNumber} is now confirmed and being prepared by our fulfillment team.`
+      );
 
-      if (templateId) {
-        const { stringVariables, numericVariables } = buildOrderTemplateVariables(emailData);
-        console.log(
-          `[Resend Email] 📤 Dispatching Order Confirmation via Resend Template (${templateId}) to ${emailData.customerEmail} for ${emailData.orderNumber}...`
-        );
+      console.log(
+        `[Resend Email] 📤 Dispatching Order Confirmation email to ${emailData.customerEmail} for ${emailData.orderNumber}...`
+      );
 
-        const tplResult = await dispatchResendTemplateEmail({
-          templateIdOrAlias: templateId,
-          to: emailData.customerEmail,
-          defaultSubject: `Order Confirmed: ${emailData.orderNumber} - ODA Market`,
-          stringVariables,
-          numericVariables,
-          idempotencyKey
+      const sendResult = await sendResendHtmlEmailWithFailover({
+        from: fromSender,
+        to: emailData.customerEmail,
+        replyTo: 'info@odamarket.co.ke',
+        subject: `Order Confirmed: ${emailData.orderNumber} - ODA Market`,
+        html,
+        text,
+        idempotencyKey
+      });
+
+      if (!sendResult.success) {
+        console.error(`[Resend Email] ❌ Resend API returned error for order ${cleanOrderId}:`, sendResult.error);
+        await recordOrderEmailEvent({
+          supabase,
+          order,
+          eventType: 'order_confirmation',
+          recipientEmail: emailData.customerEmail,
+          status: 'failed',
+          errorMessage: sendResult.error || 'Resend error'
         });
-
-        if (tplResult.success) {
-          resendId = tplResult.resendId || `resend_${Date.now()}`;
-          usedTemplateId = tplResult.templateId || templateId;
-        } else {
-          console.warn(
-            `[Resend Email] ⚠️ Template (${templateId}) dispatch notice for order ${cleanOrderId} (${tplResult.error}). Falling back to standard Order Confirmation email.`
-          );
-        }
+        return {
+          success: false,
+          error: sendResult.error || 'Resend error'
+        };
       }
 
-      if (!resendId) {
-        // Fallback if RESEND_ORDER_CONFIRMATION_TEMPLATE_ID is not yet published in Resend or template call failed
-        const fromSender = resolveValidFromEmail(
-          process.env.RESEND_FROM_EMAIL,
-          'ODA Market <orders@odamarket.co.ke>'
-        );
-        const html = buildOrderConfirmationEmailHtml(emailData);
-
-        console.log(
-          `[Resend Email] 📤 Dispatching order confirmation email to ${emailData.customerEmail} for ${emailData.orderNumber}...`
-        );
-
-        const resendResponse = await resend.emails.send(
-          {
-            from: fromSender,
-            to: [emailData.customerEmail],
-            replyTo: 'info@odamarket.co.ke',
-            subject: `Order Confirmed: ${emailData.orderNumber} - ODA Market`,
-            html
-          },
-          { idempotencyKey }
-        );
-
-        if (resendResponse.error) {
-          console.error(`[Resend Email] ❌ Resend API returned error for order ${cleanOrderId}:`, resendResponse.error);
-          await recordOrderEmailEvent({
-            supabase,
-            order,
-            eventType: 'order_confirmation',
-            recipientEmail: emailData.customerEmail,
-            status: 'failed',
-            errorMessage: resendResponse.error.message || JSON.stringify(resendResponse.error)
-          });
-          return {
-            success: false,
-            error: resendResponse.error.message || 'Resend error'
-          };
-        }
-
-        resendId = resendResponse.data?.id || `resend_${Date.now()}`;
-      }
-
+      const resendId = sendResult.resendId || `resend_${Date.now()}`;
       const sentAtIso = new Date().toISOString();
       console.log(
         `[Resend Email] ✅ Successfully sent order confirmation to ${emailData.customerEmail}! (Resend ID: ${resendId})`
@@ -1780,17 +2352,10 @@ export async function sendOrderConfirmationEmailForOrder(
         eventType: 'order_confirmation',
         recipientEmail: emailData.customerEmail,
         status: 'sent',
-        resendId,
-        templateId: usedTemplateId
+        resendId
       });
 
-      // Trigger Payment Success template (if separately configured) and Seller New Order template (if configured)
-      try {
-        await sendPaymentSuccessEmailForOrder(cleanOrderId);
-      } catch (psErr) {
-        console.warn(`[Resend Email] Non-fatal notice on payment_success template:`, psErr);
-      }
-
+      // Notify seller(s) if products belong to registered supplier accounts
       try {
         await sendSellerNewOrderEmailForOrder(cleanOrderId);
       } catch (sellerErr) {
@@ -1801,7 +2366,6 @@ export async function sendOrderConfirmationEmailForOrder(
         success: true,
         orderId: cleanOrderId,
         resendId,
-        templateId: usedTemplateId,
         sentAt: sentAtIso,
         recipient: emailData.customerEmail
       };
@@ -2010,109 +2574,173 @@ export async function sendPaymentFailedEmailForOrder(
 }
 
 /**
- * 4 & 5. ORDER READY & ORDER CANCELLED TEMPLATE EMAILS
+ * 4. ORDER STATUS CHANGE EMAILS
+ * Supports all order status transitions in ODA Market:
+ * - 'order_confirmed' ('confirmed')
+ * - 'order_ready' ('ready_for_pickup', 'packed', 'ready')
+ * - 'order_shipped' ('shipped', 'out_for_delivery')
+ * - 'order_delivered' ('delivered')
+ * - 'order_cancelled' ('cancelled', 'refunded')
  * Verified against actual database order status before sending.
  */
 export async function sendOrderStatusEmailForOrder(
   orderId: string,
-  eventType: 'order_ready' | 'order_cancelled',
+  eventType: 'order_confirmed' | 'order_ready' | 'order_shipped' | 'order_delivered' | 'order_cancelled',
   options: { forceResend?: boolean } = {}
 ): Promise<SendOrderEmailResult> {
   const cleanOrderId = (orderId || '').trim();
   if (!cleanOrderId) return { success: false, error: 'Missing orderId' };
 
-  const templateId = await resolveResendTemplateId(eventType);
-  if (!templateId) {
-    console.log(`[Resend Email] ℹ️ Skipped ${eventType} email for order ${cleanOrderId}: ${RESEND_TEMPLATE_ENV_KEYS[eventType]} not configured.`);
-    return {
-      success: true,
-      skipped: true,
-      reason: `${RESEND_TEMPLATE_ENV_KEYS[eventType]} not configured`
-    };
+  const lockKey = `${eventType}:${cleanOrderId}`;
+  if (!options.forceResend && inFlightDispatches.has(lockKey)) {
+    return inFlightDispatches.get(lockKey)!;
   }
 
-  const supabase = getSupabaseAdmin();
-  if (!supabase) return { success: false, error: 'Database configuration unavailable' };
+  const task = (async (): Promise<SendOrderEmailResult> => {
+    const supabase = getSupabaseAdmin();
+    if (!supabase) return { success: false, error: 'Database configuration unavailable' };
 
-  const ctx = await loadOrderEmailContext(supabase, cleanOrderId);
-  if (ctx.error || !ctx.order || !ctx.emailData) {
-    return { success: false, error: ctx.error || 'Order not found' };
-  }
+    const ctx = await loadOrderEmailContext(supabase, cleanOrderId);
+    if (ctx.error || !ctx.order || !ctx.emailData) {
+      return { success: false, error: ctx.error || 'Order not found' };
+    }
 
-  const { order, emailData } = ctx;
-  const normStatus = (order.status || '').toLowerCase().trim();
+    const { order, emailData, parsedNotes } = ctx;
+    const normStatus = (parsedNotes?.sub_status || order.status || '').toLowerCase().trim();
+    const dbStatus = (order.status || '').toLowerCase().trim();
 
-  if (eventType === 'order_ready') {
-    const readyStatuses = ['ready_for_pickup', 'packed', 'ready', 'out_for_delivery', 'shipped'];
-    if (!readyStatuses.includes(normStatus)) {
+    // Verify that the order's actual status in the database matches the status notification being sent
+    if (eventType === 'order_confirmed') {
+      if (!['confirmed', 'processing'].includes(normStatus) && !['confirmed', 'processing'].includes(dbStatus)) {
+        return {
+          success: false,
+          skipped: true,
+          reason: `Order status in DB (${normStatus}) does not match order_confirmed`
+        };
+      }
+      emailData.orderStatus = 'confirmed';
+    } else if (eventType === 'order_ready') {
+      const readyStatuses = ['ready_for_pickup', 'packed', 'ready', 'processing'];
+      if (!readyStatuses.includes(normStatus) && !readyStatuses.includes(dbStatus)) {
+        return {
+          success: false,
+          skipped: true,
+          reason: `Order status in DB (${normStatus}) does not match order_ready`
+        };
+      }
+      if (normStatus === 'processing') {
+        emailData.orderStatus = 'ready_for_pickup';
+      }
+    } else if (eventType === 'order_shipped') {
+      const shippedStatuses = ['shipped', 'out_for_delivery'];
+      if (!shippedStatuses.includes(normStatus) && !shippedStatuses.includes(dbStatus)) {
+        return {
+          success: false,
+          skipped: true,
+          reason: `Order status in DB (${normStatus}) does not match order_shipped`
+        };
+      }
+    } else if (eventType === 'order_delivered') {
+      if (normStatus !== 'delivered' && dbStatus !== 'delivered') {
+        return {
+          success: false,
+          skipped: true,
+          reason: `Order status in DB (${normStatus}) is not delivered`
+        };
+      }
+    } else if (eventType === 'order_cancelled') {
+      if (!['cancelled', 'refunded'].includes(normStatus) && !['cancelled', 'refunded'].includes(dbStatus)) {
+        return {
+          success: false,
+          skipped: true,
+          reason: `Order status in DB (${normStatus}) is not cancelled`
+        };
+      }
+    }
+
+    const idemp = await checkEmailEventAlreadySent(supabase, order, eventType, emailData.customerEmail);
+    if (idemp.alreadySent && !options.forceResend) {
+      console.log(
+        `[Resend Email] ℹ️ Idempotency: ${eventType} email for order ${cleanOrderId} already sent at ${idemp.sentAt}. Skipping.`
+      );
       return {
-        success: false,
+        success: true,
         skipped: true,
-        reason: `Order status in DB (${normStatus}) does not match order_ready`
+        alreadySent: true,
+        orderId: cleanOrderId,
+        sentAt: idemp.sentAt,
+        resendId: idemp.resendId
       };
     }
-  } else if (eventType === 'order_cancelled') {
-    if (normStatus !== 'cancelled' && normStatus !== 'refunded') {
-      return {
-        success: false,
-        skipped: true,
-        reason: `Order status in DB (${normStatus}) is not cancelled`
-      };
+
+    if (!isValidCustomerEmail(emailData.customerEmail)) {
+      return { success: false, error: 'Invalid customer email' };
     }
-  }
 
-  const idemp = await checkEmailEventAlreadySent(supabase, order, eventType, emailData.customerEmail);
-  if (idemp.alreadySent && !options.forceResend) {
-    return {
-      success: true,
-      skipped: true,
-      alreadySent: true,
-      orderId: cleanOrderId,
-      sentAt: idemp.sentAt,
-      resendId: idemp.resendId
-    };
-  }
+    if (!getResendClient()) {
+      return { success: false, error: 'RESEND_API_KEY is not configured on server' };
+    }
 
-  if (!isValidCustomerEmail(emailData.customerEmail)) {
-    return { success: false, error: 'Invalid customer email' };
-  }
-
-  const { stringVariables, numericVariables } = buildOrderTemplateVariables(emailData);
-  const defaultSubject =
-    eventType === 'order_ready'
-      ? `Your Order ${emailData.orderNumber} is Ready - ODA Market`
-      : `Order Cancelled: ${emailData.orderNumber} - ODA Market`;
-
-  const res = await dispatchResendTemplateEmail({
-    templateIdOrAlias: templateId,
-    to: emailData.customerEmail,
-    defaultSubject,
-    stringVariables,
-    numericVariables,
-    idempotencyKey: options.forceResend
+    const fromSender = resolveValidFromEmail(
+      process.env.RESEND_FROM_EMAIL,
+      'ODA Market <orders@odamarket.co.ke>'
+    );
+    const { subject, html, text } = buildOrderStatusEmailHtml(emailData, eventType);
+    const idempotencyKey = options.forceResend
       ? `oda-${eventType}-${cleanOrderId}-${Date.now()}`
-      : `oda-${eventType}-${cleanOrderId}`
-  });
+      : `oda-${eventType}-${cleanOrderId}`;
 
-  await recordOrderEmailEvent({
-    supabase,
-    order,
-    eventType,
-    recipientEmail: emailData.customerEmail,
-    status: res.success ? 'sent' : 'failed',
-    resendId: res.resendId,
-    templateId: res.templateId || templateId,
-    errorMessage: res.error
-  });
+    console.log(
+      `[Resend Email] 📤 Dispatching ${eventType} email (${ normStatus }) to ${emailData.customerEmail} for ${emailData.orderNumber}...`
+    );
 
-  return {
-    success: res.success,
-    orderId: cleanOrderId,
-    resendId: res.resendId,
-    templateId: res.templateId || templateId,
-    recipient: emailData.customerEmail,
-    error: res.error
-  };
+    const res = await sendResendHtmlEmailWithFailover({
+      from: fromSender,
+      to: emailData.customerEmail,
+      replyTo: 'info@odamarket.co.ke',
+      subject,
+      html,
+      text,
+      idempotencyKey
+    });
+
+    await recordOrderEmailEvent({
+      supabase,
+      order,
+      eventType,
+      recipientEmail: emailData.customerEmail,
+      status: res.success ? 'sent' : 'failed',
+      resendId: res.resendId,
+      errorMessage: res.error
+    });
+
+    if (res.success) {
+      console.log(
+        `[Resend Email] ✅ Sent ${eventType} email to ${emailData.customerEmail} for ${emailData.orderNumber} (Resend ID: ${res.resendId})`
+      );
+    } else {
+      console.error(
+        `[Resend Email] ❌ Failed to send ${eventType} email for ${emailData.orderNumber}:`,
+        res.error
+      );
+    }
+
+    return {
+      success: res.success,
+      orderId: cleanOrderId,
+      resendId: res.resendId,
+      recipient: emailData.customerEmail,
+      sentAt: res.success ? new Date().toISOString() : undefined,
+      error: res.error
+    };
+  })();
+
+  inFlightDispatches.set(lockKey, task);
+  try {
+    return await task;
+  } finally {
+    inFlightDispatches.delete(lockKey);
+  }
 }
 
 /**
@@ -3147,6 +3775,30 @@ export async function sendLoginOtpEmail(params: {
           text
         },
         { idempotencyKey: `oda-login-otp-${challengeId}-fo` }
+      );
+    }
+
+    // Retry automatically if Resend per-second burst limit (429 rate_limit_exceeded) is hit by concurrent logins
+    let rateLimitRetries = 0;
+    while (
+      sendRes.error &&
+      rateLimitRetries < 4 &&
+      (String((sendRes.error as any).name || '').toLowerCase().includes('rate_limit') ||
+        String(sendRes.error.message || '').toLowerCase().includes('too many requests') ||
+        String(sendRes.error.message || '').toLowerCase().includes('rate limit'))
+    ) {
+      rateLimitRetries += 1;
+      await new Promise((r) => setTimeout(r, 550 * rateLimitRetries));
+      sendRes = await activeClient.emails.send(
+        {
+          from: isValidFromEmailFormat(fromSender) ? fromSender : 'Team ODA Market <info@odamarket.co.ke>',
+          to: [normEmail],
+          replyTo: 'info@odamarket.co.ke',
+          subject: 'Your ODA Market login verification code',
+          html,
+          text
+        },
+        { idempotencyKey: `oda-login-otp-${challengeId}-rl-${rateLimitRetries}` }
       );
     }
 

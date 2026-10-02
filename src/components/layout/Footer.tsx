@@ -61,7 +61,8 @@ export function Footer() {
             <li><Link to="/track-order" className="text-[#FAF5EC]/80 hover:text-[#D9A62E] transition-colors text-sm">Track Order</Link></li>
             <li><Link to="/returns" className="text-[#FAF5EC]/80 hover:text-[#D9A62E] transition-colors text-sm">Returns & Refunds</Link></li>
             <li><Link to="/faq" className="text-[#FAF5EC]/80 hover:text-[#D9A62E] transition-colors text-sm">FAQ</Link></li>
-            <li><Link to="/help" className="text-[#FAF5EC]/80 hover:text-[#D9A62E] transition-colors text-sm">Help Center</Link></li>
+            <li><Link to="/help-center" className="text-[#FAF5EC]/80 hover:text-[#D9A62E] transition-colors text-sm">Help Center</Link></li>
+            <li><Link to="/terms-and-conditions" className="text-[#FAF5EC]/80 hover:text-[#D9A62E] transition-colors text-sm">Terms &amp; Conditions</Link></li>
           </ul>
         </div>
 
@@ -107,7 +108,9 @@ export function Footer() {
         <p className="text-[#FAF5EC]/60 text-sm">
           &copy; {new Date().getFullYear()} ODA Market. All rights reserved.
         </p>
-        <div className="flex items-center gap-4">
+        <div className="flex flex-wrap items-center justify-center gap-4">
+          <Link to="/terms-and-conditions" className="text-[#FAF5EC]/60 hover:text-[#D9A62E] transition-colors text-sm">Terms &amp; Conditions</Link>
+          <span className="text-[#FAF5EC]/20">•</span>
           <Link to="/cookie-policy" className="text-[#FAF5EC]/60 hover:text-[#D9A62E] transition-colors text-sm">Cookie Policy</Link>
           <span className="text-[#FAF5EC]/60 text-sm">Supported Payment:</span>
           <div className="px-3 py-1 bg-white/10 rounded border border-white/20 font-bold text-[#FAF5EC] tracking-wide text-sm">

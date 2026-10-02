@@ -34,6 +34,7 @@ const ProductsPage = lazy(() => import("./pages/ProductsPage"));
 const ProductDetailsPage = lazy(() => import("./pages/ProductDetailsPage"));
 const ContactPage = lazy(() => import("./pages/ContactPage"));
 const CookiePolicyPage = lazy(() => import("./pages/CookiePolicyPage"));
+const TermsAndConditionsPage = lazy(() => import("./pages/TermsAndConditionsPage"));
 const CartPage = lazy(() => import("./pages/CartPage"));
 const WishlistPage = lazy(() => import("./pages/WishlistPage"));
 const TrackOrderPage = lazy(() => import("./pages/TrackOrderPage"));
@@ -241,6 +242,8 @@ export default function App() {
               <Route path="/help-center/ticket/:id" element={<CustomerTicketDetailsPage />} />
               <Route path="/store-locator" element={<StoreLocatorPage />} />
               <Route path="/cookie-policy" element={<CookiePolicyPage />} />
+              <Route path="/terms-and-conditions" element={<TermsAndConditionsPage />} />
+              <Route path="/terms" element={<TermsAndConditionsPage />} />
               <Route path="/notifications" element={<NotificationsPage />} />
             </Route>
 

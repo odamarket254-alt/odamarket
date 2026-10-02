@@ -139,7 +139,7 @@ export async function notifyOrderStatusChange({
   orderNumber
 }: OrderStatusNotificationParams): Promise<{ success: boolean; id?: string; error?: any }> {
   try {
-    if (!userId || !orderId || !newStatus) {
+    if (!orderId || !newStatus) {
       console.warn('[NotificationService] Missing required parameters for notifyOrderStatusChange');
       return { success: false, error: 'Missing parameters' };
     }
@@ -154,7 +154,7 @@ export async function notifyOrderStatusChange({
     }
 
     // Check in-memory deduplication cache
-    const cacheKey = `${userId}_${orderId}_${normNew}`;
+    const cacheKey = `${userId || 'order'}_${orderId}_${normNew}`;
     const lastSent = deduplicationCache.get(cacheKey);
     const now = Date.now();
     if (lastSent && now - lastSent < DEDUPLICATION_WINDOW_MS) {
@@ -163,9 +163,39 @@ export async function notifyOrderStatusChange({
     }
     deduplicationCache.set(cacheKey, now);
 
-    // Format display order number
+    // 1. Trigger server-side Resend transactional email for order status transitions
+    // (Order Confirmed, Order Ready, Order Shipped/Out for Delivery, Order Delivered, Order Cancelled)
+    if (
+      typeof window !== 'undefined' &&
+      [
+        'confirmed',
+        'processing',
+        'ready_for_pickup',
+        'packed',
+        'ready',
+        'out_for_delivery',
+        'shipped',
+        'delivered',
+        'cancelled',
+        'refunded'
+      ].includes(normNew)
+    ) {
+      fetch('/api/checkout/order-status-email', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, newStatus: normNew })
+      }).catch((err) => {
+        console.warn('[NotificationService] Non-fatal notice calling order-status-email:', err);
+      });
+    }
+
+    if (!userId) {
+      return { success: true };
+    }
+
+    // 2. Format display order number & create in-app notification
     const displayOrderNum = orderNumber || (orderId.length > 8 ? `ODA-${orderId.slice(0, 8).toUpperCase()}` : `ODA-${orderId}`);
-    const { title, message, type } = getStatusNotificationDetails(normNew, displayOrderNum);
+    const { title, message } = getStatusNotificationDetails(normNew, displayOrderNum);
 
     // Prepare notification payload
     // We encode orderId in type as `order_status:${normNew}:${orderId}` so it's always accessible
@@ -185,8 +215,7 @@ export async function notifyOrderStatusChange({
       .single();
 
     if (error) {
-      console.error('[NotificationService] Failed to insert notification in Supabase:', error);
-      return { success: false, error };
+      console.warn('[NotificationService] In-app notification insert warning:', error.message);
     }
 
     const createdRecord = data || {
@@ -223,21 +252,7 @@ export async function notifyOrderStatusChange({
       console.warn('[NotificationService] Realtime broadcast notice warning:', realtimeErr);
     }
 
-    console.log(`[NotificationService] Order notification created successfully for user ${userId}: "${title}"`);
-
-    // Trigger server-side Resend template email for order status transitions (Order Ready, Order Cancelled, Confirmed)
-    if (
-      typeof window !== 'undefined' &&
-      ['ready_for_pickup', 'packed', 'ready', 'out_for_delivery', 'shipped', 'cancelled', 'confirmed', 'processing'].includes(normNew)
-    ) {
-      fetch('/api/checkout/order-status-email', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ orderId, newStatus: normNew })
-      }).catch((err) => {
-        console.warn('[NotificationService] Non-fatal notice calling order-status-email:', err);
-      });
-    }
+    console.log(`[NotificationService] Order notification processed for user ${userId}: "${title}"`);
 
     return { success: true, id: createdRecord.id };
   } catch (err) {

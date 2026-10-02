@@ -1,4 +1,5 @@
 import { useState, ChangeEvent, FormEvent } from "react";
+import { Link } from "react-router-dom";
 import { Mail, Phone, MapPin, Send, Loader2 } from "lucide-react";
 import { Button } from "../components/ui/Button";
 import { Input } from "../components/ui/Input";
@@ -186,7 +187,15 @@ export default function ContactPage() {
             </Button>
             
             <p className="text-xs text-center text-muted-foreground pt-4">
-              By submitting this form, you agree to our privacy policy and terms of service.
+              By submitting this form, you agree to our{" "}
+              <Link to="/cookie-policy" className="text-[#C65A28] hover:underline font-medium">
+                cookie policy
+              </Link>{" "}
+              and{" "}
+              <Link to="/terms-and-conditions" className="text-[#C65A28] hover:underline font-medium">
+                terms &amp; conditions
+              </Link>
+              .
             </p>
           </form>
         </div>

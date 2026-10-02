@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Your Order {{{order_number}}} is Ready - ODA Market</title>
+  <title>Order Delivered: {{{order_number}}} - ODA Market</title>
 </head>
 <body style="margin: 0; padding: 0; background-color: #FAF5EC; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
   <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #FAF5EC; padding: 30px 12px 40px 12px;">
@@ -11,24 +11,24 @@
       <td align="center">
         <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #FFFFFF; border-radius: 16px; overflow: hidden; border: 1px solid #E8DCC9; box-shadow: 0 10px 30px rgba(58, 36, 24, 0.08);">
           <tr>
-            <td style="height: 6px; background: linear-gradient(90deg, #D96A27 0%, #16A34A 100%);"></td>
+            <td style="height: 6px; background: linear-gradient(90deg, #16A34A 0%, #D96A27 100%);"></td>
           </tr>
           <tr>
             <td align="center" style="padding: 32px 24px 20px 24px;">
               <a href="{{{app_url}}}" target="_blank" style="text-decoration: none;">
                 <h1 style="margin: 0; color: #D96A27; font-size: 28px; font-weight: 800;">ODA MARKET</h1>
               </a>
-              <p style="margin: 5px 0 0 0; color: #8B857D; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;">Order Ready Notification</p>
+              <p style="margin: 5px 0 0 0; color: #8B857D; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;">Order Delivered Notification</p>
             </td>
           </tr>
           <tr>
             <td style="padding: 0 32px 24px 32px;">
-              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #FFFBEB; border: 1px solid #FDE68A; border-radius: 12px; padding: 20px; text-align: center;">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #F0FDF4; border: 1px solid #BBF7D0; border-radius: 12px; padding: 20px; text-align: center;">
                 <tr>
                   <td align="center">
-                    <div style="display: inline-block; width: 44px; height: 44px; line-height: 44px; background-color: #D97706; color: #FFFFFF; border-radius: 50%; font-size: 20px; font-weight: bold; margin-bottom: 8px;">&#128230;</div>
-                    <h2 style="margin: 4px 0 6px 0; color: #92400E; font-size: 22px; font-weight: 800;">Your Order is Ready!</h2>
-                    <p style="margin: 0; color: #B45309; font-size: 14px; font-weight: 600;">Order {{{order_number}}} &bull; Status: {{{order_status}}}</p>
+                    <div style="display: inline-block; width: 44px; height: 44px; line-height: 44px; background-color: #16A34A; color: #FFFFFF; border-radius: 50%; font-size: 20px; font-weight: bold; margin-bottom: 8px;">&#10003;</div>
+                    <h2 style="margin: 4px 0 6px 0; color: #166534; font-size: 22px; font-weight: 800;">Order Delivered!</h2>
+                    <p style="margin: 0; color: #15803D; font-size: 14px; font-weight: 600;">Order {{{order_number}}} &bull; Delivered</p>
                   </td>
                 </tr>
               </table>
@@ -38,7 +38,7 @@
             <td style="padding: 0 32px 20px 32px;">
               <p style="margin: 0 0 12px 0; color: #3A2418; font-size: 16px; font-weight: 600;">Hello {{{customer_name}}},</p>
               <p style="margin: 0; color: #5F5A54; font-size: 15px; line-height: 1.6;">
-                Great news! Your fresh groceries for order <strong>{{{order_number}}}</strong> have been packed and are ready for <strong>{{{delivery_method}}}</strong>.
+                Your order <strong>{{{order_number}}}</strong> has been delivered! Thank you for shopping with ODA Market. You can view your order receipt, download your invoice, or rate your products anytime from your account.
               </p>
             </td>
           </tr>
@@ -79,19 +79,9 @@
             </td>
           </tr>
           <tr>
-            <td style="padding: 0 32px 24px 32px;">
-              <div style="background-color: #FFFDF8; border: 1px solid #E8DCC9; border-radius: 12px; padding: 18px 20px;">
-                <h4 style="margin: 0 0 8px 0; font-size: 14px; font-weight: 700; color: #3A2418; text-transform: uppercase;">Delivery Information</h4>
-                <p style="margin: 0 0 4px 0; font-size: 14px; color: #3A2418;"><strong>Method:</strong> {{{delivery_method}}}</p>
-                <p style="margin: 0 0 4px 0; font-size: 14px; color: #5F5A54;"><strong>Address:</strong> {{{delivery_address}}}</p>
-                <p style="margin: 0; font-size: 14px; color: #5F5A54;"><strong>Phone:</strong> {{{customer_phone}}}</p>
-              </div>
-            </td>
-          </tr>
-          <tr>
             <td align="center" style="padding: 0 32px 32px 32px;">
               <a href="{{{tracking_url}}}" target="_blank" style="display: inline-block; padding: 16px 38px; font-size: 16px; font-weight: 700; color: #FFFFFF; text-decoration: none; border-radius: 12px; background-color: #D96A27;">
-                Track Order Status &rarr;
+                View Order &amp; Rate Products &rarr;
               </a>
             </td>
           </tr>

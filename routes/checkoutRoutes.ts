@@ -289,25 +289,39 @@ router.post("/verify", async (req, res) => {
 });
 
 /**
- * Server-side endpoint to dispatch Resend template emails when an order status transitions
- * (e.g. order_ready, order_cancelled, confirmed). Verifies the status in Supabase before sending.
+ * Server-side endpoint to dispatch Resend transactional emails when an order status transitions
+ * (confirmed, ready_for_pickup/packed/ready, shipped/out_for_delivery, delivered, cancelled/refunded).
+ * Verifies the actual status in Supabase before sending.
  */
 router.post("/order-status-email", async (req, res) => {
   try {
-    const { orderId, newStatus } = req.body;
+    const { orderId, newStatus, forceResend } = req.body;
     if (!orderId) {
       return res.status(400).json({ error: "Missing orderId" });
     }
 
     const normStatus = String(newStatus || '').toLowerCase().trim();
+    const opts = { forceResend: Boolean(forceResend) };
     let result: any = { success: true, skipped: true };
 
-    if (['ready_for_pickup', 'packed', 'ready', 'out_for_delivery', 'shipped'].includes(normStatus)) {
-      result = await sendOrderStatusEmailForOrder(orderId, 'order_ready');
+    if (normStatus === 'confirmed') {
+      // Ensure initial order confirmation is sent; if already sent, dispatch order_confirmed status update
+      const confirmRes = await sendOrderConfirmationEmailForOrder(orderId, opts);
+      if (confirmRes.alreadySent) {
+        result = await sendOrderStatusEmailForOrder(orderId, 'order_confirmed', opts);
+      } else {
+        result = confirmRes;
+      }
+    } else if (normStatus === 'processing') {
+      result = await sendOrderConfirmationEmailForOrder(orderId, opts);
+    } else if (['ready_for_pickup', 'packed', 'ready'].includes(normStatus)) {
+      result = await sendOrderStatusEmailForOrder(orderId, 'order_ready', opts);
+    } else if (['shipped', 'out_for_delivery'].includes(normStatus)) {
+      result = await sendOrderStatusEmailForOrder(orderId, 'order_shipped', opts);
+    } else if (normStatus === 'delivered') {
+      result = await sendOrderStatusEmailForOrder(orderId, 'order_delivered', opts);
     } else if (normStatus === 'cancelled' || normStatus === 'refunded') {
-      result = await sendOrderStatusEmailForOrder(orderId, 'order_cancelled');
-    } else if (normStatus === 'confirmed' || normStatus === 'processing') {
-      result = await sendOrderConfirmationEmailForOrder(orderId);
+      result = await sendOrderStatusEmailForOrder(orderId, 'order_cancelled', opts);
     }
 
     return res.status(200).json({

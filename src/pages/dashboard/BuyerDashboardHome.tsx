@@ -1,589 +1,959 @@
-import { OptimizedImage } from "../../components/ui/OptimizedImage";
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Link } from 'react-router-dom';
+import { 
+  Package, ShoppingBag, MapPin, CreditCard, Heart, Clock, TrendingUp, 
+  ChevronRight, Star, Gift, Truck, ArrowRight,
+  CheckCircle2, AlertCircle, RefreshCcw, Search, Plus, Ticket, 
+  MessageCircle, ExternalLink, ShieldCheck, Check, ShoppingCart, Image as ImageIcon
+} from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useCartStore } from '../../store/useCartStore';
 import { supabase } from '../../lib/supabase';
-import { 
-  Package, ShoppingBag, MapPin, CreditCard, Heart, Clock, TrendingUp, 
-  ChevronRight, Star, Gift, Truck, Map, Bell, ArrowRight,
-  CheckCircle2, AlertCircle, Calendar, RefreshCcw, Search, Plus, Ticket, Image as ImageIcon
-} from 'lucide-react';
-import { Link } from 'react-router-dom';
-import { getWhatsAppLink } from '../../utils/whatsapp';
-import { MessageCircle } from 'lucide-react';
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { formatCurrency } from '../../lib/utils';
-import { Card } from '../../components/ui/Card';
+import { OptimizedImage } from '../../components/ui/OptimizedImage';
 import { Button } from '../../components/ui/Button';
+import { Card } from '../../components/ui/Card';
+import { getWhatsAppLink } from '../../utils/whatsapp';
+import { toast } from 'sonner';
+
+interface OrderItem {
+  id: string;
+  order_id: string;
+  product_id: string;
+  product_name: string;
+  quantity: number;
+  unit_price: number;
+  total_price: number;
+  product_image?: string;
+}
+
+interface OrderRecord {
+  id: string;
+  order_number?: string;
+  created_at: string;
+  status: 'pending' | 'confirmed' | 'processing' | 'out_for_delivery' | 'delivered' | 'cancelled' | string;
+  total: number;
+  subtotal?: number;
+  delivery_fee?: number;
+  payment_status?: string;
+  order_items?: OrderItem[];
+}
+
+interface ProductRecord {
+  id: string;
+  name: string;
+  slug?: string;
+  price: number;
+  sale_price?: number;
+  image_url?: string;
+  category_id?: string;
+  stock?: number;
+  is_featured?: boolean;
+}
+
+interface CategoryRecord {
+  id: string;
+  name: string;
+  slug: string;
+  image_url?: string;
+}
 
 export function BuyerDashboardHome() {
   const { profile, user } = useAuthStore();
-  
-  const [activeOrders, setActiveOrders] = useState<any[]>([]);
-  const [wishlistItems, setWishlistItems] = useState<any[]>([]);
-  const [recentProducts, setRecentProducts] = useState<any[]>([]);
-  const [recommended, setRecommended] = useState<any[]>([]);
-  const [savingsData, setSavingsData] = useState<any[]>([]);
-  const [popularCategories, setPopularCategories] = useState<any[]>([]);
-
-  const [flashDeals, setFlashDeals] = useState<any[]>([]);
-  const [flashDealTime, setFlashDealTime] = useState("");
-  const { addItem: addCartItem } = useCartStore(); // Ensure we can add items
+  const { addItem: addCartItem } = useCartStore();
 
   const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
-  // Stats
-  const [stats, setStats] = useState({
-    activeOrders: 0,
-    cartItems: 0,
-    wishlistItems: 0,
-    rewardPoints: 0,
-    totalSavings: 0,
-    pendingDeliveries: 0
-  });
+  // Real Database Data
+  const [allOrders, setAllOrders] = useState<OrderRecord[]>([]);
+  const [recommendedProducts, setRecommendedProducts] = useState<ProductRecord[]>([]);
+  const [categories, setCategories] = useState<CategoryRecord[]>([]);
+  const [wishlistIds, setWishlistIds] = useState<Set<string>>(new Set());
+  const [rewardPoints, setRewardPoints] = useState<number>(0);
 
-  useEffect(() => {
-    fetchDashboardData();
-  }, [user]);
-
-  const fetchDashboardData = async () => {
+  const fetchDashboardData = useCallback(async () => {
     if (!user) return;
     setIsLoading(true);
+    setLoadError(null);
+
     try {
-      // 1. Fetch Orders from 'orders' table if it exists, otherwise fallback to inquiries for active
+      // 1. Fetch Orders with Order Items from Supabase
       const { data: ordersData, error: ordersError } = await supabase
         .from('orders')
-        .select('*')
+        .select('*, order_items(*)')
         .eq('user_id', user.id)
-        .order('created_at', { ascending: false })
-        .limit(5);
+        .order('created_at', { ascending: false });
 
-      if (ordersData) {
-        setActiveOrders(ordersData);
-        const active = ordersData.filter((o: any) => 
-          o.status !== 'delivered' && 
-          o.status !== 'cancelled' && 
-          o.payment_status !== 'failed' && 
-          o.payment_status !== 'abandoned'
-        );
-        setStats(s => ({ ...s, activeOrders: active.length, pendingDeliveries: active.filter((a: any) => a.status === 'out_for_delivery').length }));
+      if (ordersError) {
+        console.warn('Orders query warning:', ordersError);
       }
+      setAllOrders(ordersData || []);
 
-      // 2. Fetch Wishlist Items
-      const { data: wlData } = await supabase.from('wishlist_items').select('product_id').eq('user_id', user.id);
-      
-      let wlProducts: any[] = [];
-      if (wlData && wlData.length > 0) {
-        const productIds = wlData.map(w => w.product_id);
-        const { data: pData } = await supabase.from('products').select('*').in('id', productIds).limit(4);
-        if (pData) wlProducts = pData;
-      }
-      setWishlistItems(wlProducts);
-      setStats(s => ({ ...s, wishlistItems: wlData?.length || 0 }));
-
-      // 3. Fetch Cart Items
-      const { data: cartData } = await supabase.from('cart_items').select('*').eq('user_id', user.id);
-      setStats(s => ({ ...s, cartItems: cartData?.length || 0 }));
-
-      // 4. Fetch Recommended Products (just random popular products for now)
-      const { data: recProducts } = await supabase.from('products').select('*').limit(4);
-      if (recProducts) {
-        setRecommended(recProducts);
-      }
-
-      // 5. Fetch Recent Products (buy again)
-      const { data: recent } = await supabase.from('products').select('*').order('created_at', { ascending: false }).limit(4);
-      if (recent) {
-        setRecentProducts(recent);
-      }
-
-      
-      // 5.5 Fetch Rewards
-      let totalPoints = 0;
+      // 2. Fetch User Wishlist IDs
       try {
-        const { data: rewardsData } = await supabase
+        const { data: wlData } = await supabase
+          .from('wishlist_items')
+          .select('product_id')
+          .eq('user_id', user.id);
+        if (wlData) {
+          setWishlistIds(new Set(wlData.map(w => w.product_id)));
+        }
+      } catch (err) {
+        console.warn('Wishlist query error:', err);
+      }
+
+      // 3. Fetch Real Supermarket Products for Recommendations
+      try {
+        const { data: prodData } = await supabase
+          .from('products')
+          .select('id, name, slug, price, sale_price, image_url, category_id, stock, is_featured')
+          .eq('is_active', true)
+          .limit(8);
+        setRecommendedProducts(prodData || []);
+      } catch (err) {
+        console.warn('Products query error:', err);
+      }
+
+      // 4. Fetch Real Categories
+      try {
+        const { data: catData } = await supabase
+          .from('categories')
+          .select('id, name, slug, image_url, sort_order')
+          .is('parent_id', null)
+          .eq('is_active', true)
+          .order('sort_order', { ascending: true })
+          .limit(6);
+        setCategories(catData || []);
+      } catch (err) {
+        console.warn('Categories query error:', err);
+      }
+
+      // 5. Fetch Real Reward Points
+      try {
+        const { data: ptsData } = await supabase
           .from('reward_points')
           .select('points')
           .eq('user_id', user.id);
-        
-        totalPoints = rewardsData?.reduce((acc, curr) => acc + curr.points, 0) || 0;
-      } catch (e) {}
-
-      // 5.8 Fetch Categories
-      const { data: categoriesData } = await supabase
-        .from('categories')
-        .select('id, name, slug, image_url, sort_order')
-        .is('parent_id', null)
-        .eq('is_active', true)
-        .order('sort_order', { ascending: true })
-        .limit(6);
-      if (categoriesData) {
-        setPopularCategories(categoriesData);
-      }
-      
-      // 7. Fetch Flash Deals
-      const { data: flashData } = await supabase
-        .from('products')
-        .select('*')
-        .eq('is_flash_sale', true)
-        .eq('is_public', true)
-        .eq('is_active', true)
-        .limit(3);
-        
-      if (flashData) {
-        setFlashDeals(flashData);
+        const total = ptsData?.reduce((sum, curr) => sum + (curr.points || 0), 0) || 0;
+        setRewardPoints(total);
+      } catch (err) {
+        console.warn('Reward points error:', err);
       }
 
-      // 6. Savings (Coming Soon)
-      setStats(s => ({
-        ...s,
-        rewardPoints: totalPoints,
-        totalSavings: 0
-      }));
-      setSavingsData([]);
-
-
-    } catch (error) {
-      console.error('Error fetching dashboard data:', error); alert("Error fetching dashboard data: " + error.message);
+    } catch (err: any) {
+      console.error('Error loading dashboard data:', err);
+      setLoadError(err.message || 'Failed to load dashboard data. Please try again.');
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [user]);
 
-  
   useEffect(() => {
-    // Generate a fixed end time for today at midnight
-    const endOfDay = new Date();
-    endOfDay.setHours(23, 59, 59, 999);
-    
-    const updateTimer = () => {
-      const now = new Date();
-      const diff = endOfDay.getTime() - now.getTime();
-      
-      if (diff <= 0) {
-        setFlashDealTime("Ended");
-        return;
-      }
-      
-      const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
-      
-      setFlashDealTime(`${hours}h ${minutes}m ${seconds}s`);
-    };
-    
-    updateTimer();
-    const interval = setInterval(updateTimer, 1000);
-    return () => clearInterval(interval);
-  }, []);
+    fetchDashboardData();
+  }, [fetchDashboardData]);
 
+  // Derived real stats
+  const totalOrdersCount = allOrders.length;
+  const pendingOrders = allOrders.filter(o => 
+    o.status === 'pending' || 
+    o.status === 'confirmed' || 
+    o.status === 'processing' || 
+    o.status === 'out_for_delivery'
+  );
+  const deliveredOrdersCount = allOrders.filter(o => o.status === 'delivered').length;
+  const cancelledOrdersCount = allOrders.filter(o => o.status === 'cancelled').length;
 
+  // Active delivery (first non-finalized order)
+  const activeOrder = pendingOrders[0] || null;
+
+  // Recent orders (up to 4 for compact side card)
+  const recentOrders = allOrders.slice(0, 4);
+
+  // Time-aware greeting
   const getGreeting = () => {
     const hour = new Date().getHours();
-    if (hour < 12) return 'Good Morning';
-    if (hour < 18) return 'Good Afternoon';
-    return 'Good Evening';
+    if (hour < 12) return 'Good morning';
+    if (hour < 18) return 'Good afternoon';
+    return 'Good evening';
   };
 
+  const displayName = profile?.first_name 
+    ? profile.first_name.charAt(0).toUpperCase() + profile.first_name.slice(1)
+    : profile?.email?.split('@')[0] || 'Customer';
+
+  // Toggle Wishlist
+  const handleToggleWishlist = async (productId: string, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!user) {
+      toast.error('Please log in to save items to your wishlist');
+      return;
+    }
+
+    const isCurrentlySaved = wishlistIds.has(productId);
+    const updated = new Set(wishlistIds);
+
+    if (isCurrentlySaved) {
+      updated.delete(productId);
+      setWishlistIds(updated);
+      try {
+        await supabase
+          .from('wishlist_items')
+          .delete()
+          .eq('user_id', user.id)
+          .eq('product_id', productId);
+        toast.success('Removed from wishlist');
+      } catch {
+        updated.add(productId);
+        setWishlistIds(updated);
+      }
+    } else {
+      updated.add(productId);
+      setWishlistIds(updated);
+      try {
+        await supabase
+          .from('wishlist_items')
+          .insert([{ user_id: user.id, product_id: productId }]);
+        toast.success('Saved to wishlist');
+      } catch {
+        updated.delete(productId);
+        setWishlistIds(updated);
+      }
+    }
+  };
+
+  const handleAddToCart = (product: ProductRecord, e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const effectivePrice = product.sale_price && product.sale_price > 0 ? product.sale_price : product.price;
+    addCartItem({
+      id: product.id,
+      name: product.name,
+      price: effectivePrice.toString(),
+      image_url: product.image_url || ''
+    }, 1);
+    toast.success(`Added ${product.name} to cart`);
+  };
+
+  // Loading State
   if (isLoading) {
     return (
-      <div className="space-y-6 animate-pulse p-4 md:p-6">
-        <div className="h-48 bg-muted rounded-2xl"></div>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-          {[1,2,3,4,5,6].map(i => <div key={i} className="h-24 bg-muted rounded-xl"></div>)}
+      <div className="w-full grid grid-cols-1 lg:grid-cols-12 gap-6 items-start animate-pulse">
+        {/* Main Column Skeleton */}
+        <div className="lg:col-span-8 space-y-6">
+          <div className="h-28 rounded-2xl bg-white dark:bg-card border border-[#E8DCC9]/60 dark:border-border p-6"></div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="h-24 rounded-2xl bg-white dark:bg-card border border-[#E8DCC9]/60 dark:border-border"></div>
+            ))}
+          </div>
+          <div className="h-40 rounded-2xl bg-white dark:bg-card border border-[#E8DCC9]/60 dark:border-border"></div>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="h-24 rounded-2xl bg-white dark:bg-card border border-[#E8DCC9]/60 dark:border-border"></div>
+            ))}
+          </div>
+          <div className="h-64 rounded-2xl bg-white dark:bg-card border border-[#E8DCC9]/60 dark:border-border"></div>
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          <div className="lg:col-span-2 h-96 bg-muted rounded-xl"></div>
-          <div className="h-96 bg-muted rounded-xl"></div>
+
+        {/* Right Column Skeleton */}
+        <div className="lg:col-span-4 space-y-6">
+          <div className="h-36 rounded-2xl bg-white dark:bg-card border border-[#E8DCC9]/60 dark:border-border"></div>
+          <div className="h-80 rounded-2xl bg-white dark:bg-card border border-[#E8DCC9]/60 dark:border-border p-5 space-y-3">
+            <div className="h-5 bg-muted rounded w-1/3"></div>
+            {[1, 2, 3, 4].map(i => (
+              <div key={i} className="h-16 bg-muted rounded-xl"></div>
+            ))}
+          </div>
         </div>
       </div>
     );
   }
 
-  const getLoyaltyTier = (points: number) => {
-    if (points > 5000) return { name: 'Gold', color: 'text-yellow-500', bg: 'bg-yellow-500/10' };
-    if (points > 2000) return { name: 'Silver', color: 'text-gray-400', bg: 'bg-gray-400/10' };
-    return { name: 'Bronze', color: 'text-amber-700', bg: 'bg-amber-700/10' };
-  };
-
-  const loyalty = getLoyaltyTier(stats.rewardPoints);
-  const displayName = profile?.first_name || profile?.email?.split('@')[0] || 'Customer';
-
-  return (
-    <div className="space-y-6 md:space-y-8 pb-12">
-      {/* 1. HERO BANNER */}
-      <div className="relative overflow-hidden rounded-2xl bg-primary text-primary-foreground">
-        <div className="absolute inset-0 z-0 opacity-20 bg-[url('https://images.unsplash.com/photo-1542838132-92c53300491e?auto=format&fit=crop&w=1200&q=80')] bg-cover bg-center mix-blend-overlay"></div>
-        <div className="relative z-10 p-6 md:p-10 flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
-          <div className="space-y-2 max-w-xl">
-            <h1 className="text-3xl md:text-4xl font-bold tracking-tight">
-              {getGreeting()}, {displayName}!
-            </h1>
-            <p className="text-primary-foreground/80 text-lg">
-              Welcome back to OdaMarket. Ready for your next grocery run?
-            </p>
-            <div className="pt-4 flex flex-wrap items-center gap-4">
-              <Link to="/products">
-                <Button size="lg" className="bg-white text-primary hover:bg-white/90">Shop Groceries</Button>
-              </Link>
-              <div className="flex items-center gap-2 bg-primary-foreground/20 backdrop-blur-sm px-4 py-2 rounded-full">
-                <Search className="w-4 h-4" />
-                <span className="text-sm font-medium">Search for daily essentials...</span>
-              </div>
-            </div>
+  // Error State
+  if (loadError) {
+    return (
+      <div className="w-full py-16 text-center">
+        <div className="max-w-md mx-auto p-8 rounded-2xl bg-white dark:bg-card border border-destructive/20 shadow-sm space-y-4">
+          <div className="w-12 h-12 rounded-full bg-destructive/10 text-destructive flex items-center justify-center mx-auto">
+            <AlertCircle className="w-6 h-6" />
           </div>
-          
-          <div className="flex items-center gap-4 bg-primary-foreground/10 backdrop-blur-md p-4 rounded-xl border border-primary-foreground/20">
-            <div className="w-16 h-16 rounded-full bg-primary-foreground/20 flex items-center justify-center border-2 border-primary-foreground/30">
-              <span className="text-2xl font-bold">{displayName.charAt(0).toUpperCase()}</span>
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="font-semibold">{loyalty.name} Member</span>
-                <Star className="w-4 h-4 fill-yellow-400 text-yellow-400" />
-              </div>
-              <p className="text-sm text-primary-foreground/80">{stats.rewardPoints.toLocaleString()} Reward Points</p>
-            </div>
-          </div>
+          <h3 className="text-lg font-bold text-[#2D1F17] dark:text-foreground">
+            Unable to load dashboard
+          </h3>
+          <p className="text-sm text-[#736357] dark:text-muted-foreground">
+            {loadError}
+          </p>
+          <Button
+            onClick={fetchDashboardData}
+            className="rounded-full bg-[#D96A27] hover:bg-[#C65A28] text-white px-6"
+          >
+            <RefreshCcw className="w-4 h-4 mr-2" />
+            Try Again
+          </Button>
         </div>
       </div>
+    );
+  }
 
-      {/* 2. STATS GRID */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-        <StatCard icon={Package} label="Orders" value={stats.activeOrders} link="/buyer/dashboard/orders" />
-        <StatCard icon={ShoppingBag} label="In Cart" value={stats.cartItems} link="/cart" />
-        <StatCard icon={Heart} label="Wishlist" value={stats.wishlistItems} link="/wishlist" />
-        <StatCard icon={Gift} label="Points" value={stats.rewardPoints} link="/buyer/dashboard/rewards" />
-        <StatCard icon={TrendingUp} label="Savings" value="Coming Soon" link="/buyer/dashboard/rewards" />
-        <StatCard icon={Truck} label="Deliveries" value={stats.pendingDeliveries} link="/buyer/dashboard/track" />
+  // Helper component for Recent Orders Card to keep exact parity on desktop and mobile
+  const RecentOrdersCard = () => (
+    <div className="bg-white dark:bg-card border border-[#E8DCC9] dark:border-border rounded-2xl p-5 shadow-[0_2px_10px_rgba(45,31,23,0.03)] space-y-3">
+      {/* Header */}
+      <div className="flex items-center justify-between pb-3 border-b border-[#E8DCC9]/60 dark:border-border">
+        <h3 className="font-bold text-[#2D1F17] dark:text-foreground text-base">
+          Recent Orders
+        </h3>
+        <Link
+          to="/buyer/dashboard/orders"
+          className="text-xs font-semibold text-[#D96A27] hover:text-[#C65A28] hover:underline"
+        >
+          View all
+        </Link>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 lg:gap-8">
-        <div className="lg:col-span-2 space-y-6 md:space-y-8">
-                              {/* 3. TRACK ORDER */}
-          {stats.activeOrders > 0 ? (
-            <Card className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold flex items-center gap-2">
-                  <Truck className="w-5 h-5 text-primary" /> Active Delivery
-                </h2>
-                <Link to="/buyer/dashboard/track">
-                  <Button variant="outline" size="sm">View All Tracker</Button>
+      {recentOrders.length > 0 ? (
+        <div className="divide-y divide-[#E8DCC9]/50 dark:divide-border/50">
+          {recentOrders.map((order) => {
+            const formattedDate = new Date(order.created_at).toLocaleDateString('en-KE', {
+              month: 'short',
+              day: 'numeric',
+              year: 'numeric'
+            });
+            const itemCount = order.order_items?.length || 1;
+            const orderNum = order.order_number || `#ODM-${order.id.slice(0, 4).toUpperCase()}`;
+
+            return (
+              <Link
+                key={order.id}
+                to="/buyer/dashboard/orders"
+                className="block py-3 px-1.5 -mx-1.5 rounded-xl hover:bg-[#FAF7F2] dark:hover:bg-muted/40 transition-colors duration-150 group cursor-pointer"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  {/* Left: Order number, date, item count, total */}
+                  <div className="space-y-0.5 min-w-0">
+                    <span className="font-mono font-semibold text-sm text-[#2D1F17] dark:text-foreground block truncate group-hover:text-[#D96A27] transition-colors">
+                      {orderNum}
+                    </span>
+                    <p className="text-xs text-[#736357] dark:text-muted-foreground truncate">
+                      {formattedDate} • {itemCount} {itemCount === 1 ? 'item' : 'items'}
+                    </p>
+                    <p className="text-sm font-semibold text-[#2D1F17] dark:text-foreground pt-0.5">
+                      KES {order.total?.toLocaleString() || 0}
+                    </p>
+                  </div>
+
+                  {/* Right: Compact status pill and chevron */}
+                  <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
+                    <CompactOrderStatusBadge status={order.status} />
+                    <ChevronRight className="w-4 h-4 text-[#8C7A6B] group-hover:text-[#D96A27] group-hover:translate-x-0.5 transition-all" />
+                  </div>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="py-6 text-center text-[#736357] dark:text-muted-foreground space-y-2">
+          <Package className="w-7 h-7 mx-auto text-[#8C7A6B]/50" />
+          <p className="text-xs font-medium text-[#2D1F17] dark:text-foreground">
+            No recent orders
+          </p>
+          <p className="text-[11px] text-[#736357] dark:text-muted-foreground">
+            Your orders will appear here after you shop.
+          </p>
+          <div className="pt-1">
+            <Link to="/products">
+              <Button size="sm" className="rounded-full bg-[#D96A27] hover:bg-[#C65A28] text-white text-xs px-4 h-7">
+                Start Shopping
+              </Button>
+            </Link>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+
+  return (
+    <div className="w-full">
+      {/* 3-PART STRUCTURE ON DESKTOP:
+          [ LEFT: Sidebar in DashboardLayout ] | [ CENTER: Main 8-Col ] | [ RIGHT: Supporting 4-Col (300-340px) ]
+      */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* ========================================================= */}
+        {/* CENTER / MAIN DASHBOARD CONTENT (8 COLS ON DESKTOP)       */}
+        {/* ========================================================= */}
+        <div className="lg:col-span-8 space-y-6">
+          {/* 1. WELCOME SECTION */}
+          <section className="bg-white dark:bg-card border border-[#E8DCC9] dark:border-border rounded-2xl p-5 sm:p-6 shadow-[0_2px_10px_rgba(45,31,23,0.03)]">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[#2D1F17] dark:text-foreground">
+                  {getGreeting()}, {displayName}!
+                </h1>
+                <p className="text-xs sm:text-sm text-[#736357] dark:text-muted-foreground">
+                  Here&apos;s what&apos;s happening with your OdaMarket account today.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 shrink-0 self-start sm:self-auto">
+                <Link to="/products">
+                  <Button className="rounded-full bg-[#D96A27] hover:bg-[#C65A28] active:scale-[0.98] text-white font-medium text-xs sm:text-sm px-5 py-2.5 shadow-sm transition-all duration-150">
+                    <ShoppingBag className="w-4 h-4 mr-1.5" />
+                    Shop Groceries
+                  </Button>
                 </Link>
               </div>
-              
-              <div className="relative">
-                <div className="absolute top-1/2 left-0 right-0 h-1 bg-muted -translate-y-1/2 z-0 hidden md:block"></div>
-                <div className="absolute top-1/2 left-0 w-2/3 h-1 bg-primary -translate-y-1/2 z-0 hidden md:block transition-all duration-1000"></div>
-                
-                <div className="relative z-10 flex flex-col md:flex-row justify-between gap-6 md:gap-0">
-                  <DeliveryStep icon={CheckCircle2} title="Confirmed" date="Today, 10:00 AM" active={true} completed={true} />
-                  <DeliveryStep icon={Package} title="Packed" date="Today, 10:45 AM" active={true} completed={true} />
-                  <DeliveryStep icon={Truck} title="Out for Delivery" date="Estimated 2:00 PM" active={true} completed={false} />
-                  <DeliveryStep icon={MapPin} title="Delivered" date="Pending" active={false} completed={false} />
+            </div>
+          </section>
+
+          {/* 2. ORDER STATISTICS (REAL DB DATA) */}
+          <section>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
+              {/* Total Orders */}
+              <div className="bg-white dark:bg-card border border-[#E8DCC9] dark:border-border rounded-2xl p-4 shadow-2xs flex flex-col justify-between">
+                <span className="text-xs font-medium text-[#736357] dark:text-muted-foreground">
+                  Total Orders
+                </span>
+                <div className="mt-2 flex items-baseline justify-between">
+                  <span className="text-2xl sm:text-3xl font-bold tracking-tight text-[#2D1F17] dark:text-foreground">
+                    {totalOrdersCount}
+                  </span>
+                  <span className="w-2 h-2 rounded-full bg-[#8C7A6B]/50" />
                 </div>
               </div>
-            </Card>
-          ) : (
-            <Card className="p-6 md:p-8 flex flex-col items-center justify-center text-center overflow-hidden relative bg-white dark:bg-card border shadow-sm">
-              <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-12 w-full max-w-4xl mx-auto">
-                <div className="w-full max-w-[280px] md:max-w-[340px] flex-shrink-0">
-                  <img 
-                    src="/images/Untitled design.png" 
-                    alt="ODA Market Delivery Motorcycle" 
-                    className="w-full h-auto object-contain drop-shadow-xl"
-                  />
-                </div>
-                
-                <div className="flex flex-col items-center md:items-start text-center md:text-left flex-1 max-w-md">
-                  <h3 className="text-2xl md:text-3xl font-bold text-foreground mb-3">No Active Delivery</h3>
-                  <p className="text-muted-foreground text-base mb-8">
-                    You don't have any deliveries on the way right now. Once you place an order, you can track your delivery here.
-                  </p>
-                  <Link to="/products" className="inline-block">
-                    <Button size="lg" className="rounded-full shadow-md hover:shadow-lg transition-all px-8 font-medium">
-                      Start Shopping <ArrowRight className="w-5 h-5 ml-2" />
-                    </Button>
-                  </Link>
+
+              {/* Pending / Active */}
+              <div className="bg-white dark:bg-card border border-[#E8DCC9] dark:border-border rounded-2xl p-4 shadow-2xs flex flex-col justify-between">
+                <span className="text-xs font-medium text-[#736357] dark:text-muted-foreground">
+                  Pending
+                </span>
+                <div className="mt-2 flex items-baseline justify-between">
+                  <span className="text-2xl sm:text-3xl font-bold tracking-tight text-[#D96A27]">
+                    {pendingOrders.length}
+                  </span>
+                  <span className="w-2 h-2 rounded-full bg-[#D96A27]" />
                 </div>
               </div>
-            </Card>
-          )}
 
-          {/* 4. BUY AGAIN (Recent Purchases) */}
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold">Buy Again</h2>
-              <Link to="/buyer/dashboard/orders" className="text-sm text-primary font-medium hover:underline flex items-center">
-                View Past Orders <ChevronRight className="w-4 h-4" />
-              </Link>
-            </div>
-            <div className="flex overflow-x-auto pb-4 -mx-4 px-4 md:mx-0 md:px-0 sm:mx-0 sm:px-0 gap-4 scrollbar-hide [&::-webkit-scrollbar]:hidden snap-x snap-mandatory" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-              {recentProducts.length > 0 ? (
-                recentProducts.map(product => (
-                  <div key={product.id} className="snap-start shrink-0 w-[calc(45vw-12px)] sm:w-[calc(33.333vw-16px)] md:w-[calc(25vw-16px)] lg:w-[calc(20vw-16px)] xl:w-[220px]"><ProductCard product={product} /></div>
-                ))
-              ) : (
-                <div className="w-full p-8 text-center bg-muted/30 rounded-xl border border-dashed border-border">
-                  <ShoppingBag className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
-                  <p className="text-muted-foreground">You haven't made any orders yet.</p>
+              {/* Delivered */}
+              <div className="bg-white dark:bg-card border border-[#E8DCC9] dark:border-border rounded-2xl p-4 shadow-2xs flex flex-col justify-between">
+                <span className="text-xs font-medium text-[#736357] dark:text-muted-foreground">
+                  Delivered
+                </span>
+                <div className="mt-2 flex items-baseline justify-between">
+                  <span className="text-2xl sm:text-3xl font-bold tracking-tight text-[#00A859]">
+                    {deliveredOrdersCount}
+                  </span>
+                  <span className="w-2 h-2 rounded-full bg-[#00A859]" />
                 </div>
-              )}
-            </div>
-          </div>
+              </div>
 
-          {/* 5. RECOMMENDED FOR YOU */}
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold">Recommended For You</h2>
-              <Link to="/products" className="text-sm text-primary font-medium hover:underline flex items-center">
-                View All <ChevronRight className="w-4 h-4" />
-              </Link>
-            </div>
-            <div className="flex overflow-x-auto pb-4 -mx-4 px-4 md:mx-0 md:px-0 sm:mx-0 sm:px-0 gap-4 scrollbar-hide [&::-webkit-scrollbar]:hidden snap-x snap-mandatory" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-              {recommended.length > 0 ? (
-                recommended.map(product => (
-                  <div key={product.id} className="snap-start shrink-0 w-[calc(45vw-12px)] sm:w-[calc(33.333vw-16px)] md:w-[calc(25vw-16px)] lg:w-[calc(20vw-16px)] xl:w-[220px]"><ProductCard product={product} /></div>
-                ))
-              ) : (
-                <div className="w-full p-8 text-center bg-muted/30 rounded-xl border border-dashed border-border">
-                  <p className="text-muted-foreground">Check back later for personalized recommendations.</p>
+              {/* Cancelled */}
+              <div className="bg-white dark:bg-card border border-[#E8DCC9] dark:border-border rounded-2xl p-4 shadow-2xs flex flex-col justify-between">
+                <span className="text-xs font-medium text-[#736357] dark:text-muted-foreground">
+                  Cancelled
+                </span>
+                <div className="mt-2 flex items-baseline justify-between">
+                  <span className="text-2xl sm:text-3xl font-bold tracking-tight text-[#8C7A6B]">
+                    {cancelledOrdersCount}
+                  </span>
+                  <span className="w-2 h-2 rounded-full bg-[#8C7A6B]/30" />
                 </div>
-              )}
-            </div>
-          </div>
-          
-          {/* 6. POPULAR CATEGORIES */}
-          <div>
-            <h2 className="text-xl font-bold mb-4">Popular Categories</h2>
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4">
-              {popularCategories.length > 0 ? (
-                popularCategories.map((category) => (
-                  <CategoryCard key={category.id} category={category} />
-                ))
-              ) : (
-                <div className="col-span-full py-4 text-center text-sm text-muted-foreground border border-dashed rounded-xl">
-                  No popular categories found.
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* RIGHT SIDEBAR */}
-        <div className="space-y-6 md:space-y-8">
-          
-          {/* 7. SAVINGS PANEL */}
-          <Card className="p-6">
-            <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-              <TrendingUp className="w-5 h-5 text-primary" /> Monthly Savings
-            </h2>
-            <div className="mb-6 flex items-baseline gap-2">
-              <span className="text-3xl font-black">Ksh {stats.totalSavings.toLocaleString()}</span>
-              <span className="text-sm text-green-600 font-medium">+12% this month</span>
-            </div>
-            <div className="h-48 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={savingsData}>
-                  <defs>
-                    <linearGradient id="colorAmount" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#C65A28" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#C65A28" stopOpacity={0}/>
-                    </linearGradient>
-                  </defs>
-                  <Tooltip 
-                    contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
-                    formatter={(value) => [`Ksh ${value}`, 'Saved']}
-                  />
-                  <Area type="monotone" dataKey="amount" stroke="#C65A28" strokeWidth={3} fillOpacity={1} fill="url(#colorAmount)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
-          </Card>
-
-          
-          {/* 8. FLASH SALES / DEALS */}
-          <Card className="p-6 bg-gradient-to-br from-red-50 to-orange-50 border-orange-100 dark:from-red-950/20 dark:to-orange-950/20 dark:border-orange-900/30">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-bold text-red-600 dark:text-red-400 flex items-center gap-2">
-                🔥 Flash Deals
-              </h2>
-              <div className="text-xs font-bold bg-red-100 text-red-600 px-2 py-1 rounded-md">
-                {flashDealTime === "Ended" ? "Sale Ended" : `Ends in ${flashDealTime}`}
               </div>
             </div>
-            
-            {flashDeals.length > 0 ? (
-              <div className="space-y-4">
-                {flashDeals.map(deal => (
-                  <div key={deal.id} className="flex gap-4 items-center bg-white dark:bg-card p-3 rounded-xl shadow-sm border border-border">
-                    <div className="w-16 h-16 bg-muted rounded-lg shrink-0 overflow-hidden">
-                      {deal.image_url ? (
-                        <OptimizedImage src={deal.image_url} alt={deal.name} className="w-full h-full object-cover" />
-                      ) : (
-                        <Package className="w-6 h-6 m-auto mt-5 text-gray-400" />
-                      )}
+          </section>
+
+          {/* 3. ACTIVE DELIVERY TRACKER */}
+          <section>
+            {activeOrder ? (
+              <div className="bg-white dark:bg-card border border-[#E8DCC9] dark:border-border rounded-2xl p-5 sm:p-6 shadow-[0_2px_10px_rgba(45,31,23,0.03)] space-y-5">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-[#E8DCC9]/60 dark:border-border">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-[#00A859]/10 text-[#00A859] flex items-center justify-center shrink-0">
+                      <Truck className="w-5 h-5 stroke-[2]" />
                     </div>
-                    <div className="flex-1 overflow-hidden">
-                      <Link to={`/product/${deal.slug || deal.id}`} className="hover:underline">
-                        <h4 className="font-semibold text-sm line-clamp-1 truncate">{deal.name}</h4>
-                      </Link>
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-red-600 font-bold">Ksh {(deal.sale_price || deal.price).toLocaleString()}</span>
-                        {deal.sale_price && (
-                          <span className="text-xs text-muted-foreground line-through">Ksh {deal.price?.toLocaleString()}</span>
-                        )}
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs uppercase font-bold tracking-wider text-[#D96A27]">
+                          Active Delivery
+                        </span>
+                        <span className="text-xs text-[#8C7A6B]">·</span>
+                        <span className="font-mono text-xs font-semibold text-[#2D1F17] dark:text-foreground">
+                          {activeOrder.order_number || `#ODM-${activeOrder.id.slice(0, 4).toUpperCase()}`}
+                        </span>
                       </div>
+                      <h3 className="text-base font-bold text-[#2D1F17] dark:text-foreground">
+                        Order In Progress
+                      </h3>
                     </div>
-                    <Button 
-                      size="icon" 
-                      variant="ghost" 
-                      onClick={() => addCartItem({ id: deal.id, name: deal.name, price: (deal.sale_price || deal.price).toString(), image_url: deal.image_url || "" }, 1)}
-                      className="shrink-0 h-8 w-8 rounded-full bg-primary/10 text-primary hover:bg-primary hover:text-white"
-                    >
-                      <Plus className="w-4 h-4" />
-                    </Button>
                   </div>
-                ))}
+
+                  <div className="flex items-center gap-3 self-start sm:self-auto">
+                    <span className="text-xs font-semibold text-[#736357] dark:text-muted-foreground">
+                      KES {activeOrder.total?.toLocaleString() || 0}
+                    </span>
+                    <Link to="/buyer/dashboard/track">
+                      <Button size="sm" variant="outline" className="rounded-full border-[#E8DCC9] hover:bg-[#FAF7F2] text-xs">
+                        Track Order
+                      </Button>
+                    </Link>
+                  </div>
+                </div>
+
+                {/* Stepper Progression */}
+                <div className="py-2">
+                  <div className="grid grid-cols-4 gap-2 text-center relative">
+                    {/* Connecting Line */}
+                    <div className="absolute top-4 left-[12.5%] right-[12.5%] h-0.5 bg-[#E8DCC9] dark:bg-muted -z-0">
+                      <div
+                        className="h-full bg-[#00A859] transition-all duration-500"
+                        style={{
+                          width: activeOrder.status === 'out_for_delivery'
+                            ? '66%'
+                            : activeOrder.status === 'processing'
+                            ? '33%'
+                            : '0%'
+                        }}
+                      />
+                    </div>
+
+                    {/* Step 1: Confirmed */}
+                    <div className="flex flex-col items-center gap-1.5 z-10">
+                      <div className="w-8 h-8 rounded-full bg-[#00A859] text-white flex items-center justify-center ring-4 ring-white dark:ring-card">
+                        <Check className="w-4 h-4 stroke-[3]" />
+                      </div>
+                      <span className="text-[11px] font-semibold text-[#2D1F17] dark:text-foreground">
+                        Confirmed
+                      </span>
+                    </div>
+
+                    {/* Step 2: Packed */}
+                    <div className="flex flex-col items-center gap-1.5 z-10">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ring-4 ring-white dark:ring-card ${
+                        activeOrder.status === 'processing' || activeOrder.status === 'out_for_delivery'
+                          ? 'bg-[#00A859] text-white'
+                          : 'bg-[#FAF7F2] dark:bg-muted text-[#8C7A6B] border border-[#E8DCC9]'
+                      }`}>
+                        <Package className="w-4 h-4" />
+                      </div>
+                      <span className="text-[11px] font-medium text-[#736357] dark:text-muted-foreground">
+                        Packed
+                      </span>
+                    </div>
+
+                    {/* Step 3: Out for Delivery */}
+                    <div className="flex flex-col items-center gap-1.5 z-10">
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center ring-4 ring-white dark:ring-card ${
+                        activeOrder.status === 'out_for_delivery'
+                          ? 'bg-[#D96A27] text-white animate-pulse'
+                          : 'bg-[#FAF7F2] dark:bg-muted text-[#8C7A6B] border border-[#E8DCC9]'
+                      }`}>
+                        <Truck className="w-4 h-4" />
+                      </div>
+                      <span className="text-[11px] font-medium text-[#736357] dark:text-muted-foreground">
+                        On the Way
+                      </span>
+                    </div>
+
+                    {/* Step 4: Delivered */}
+                    <div className="flex flex-col items-center gap-1.5 z-10">
+                      <div className="w-8 h-8 rounded-full bg-[#FAF7F2] dark:bg-muted text-[#8C7A6B] border border-[#E8DCC9] flex items-center justify-center ring-4 ring-white dark:ring-card">
+                        <CheckCircle2 className="w-4 h-4" />
+                      </div>
+                      <span className="text-[11px] font-medium text-[#8C7A6B]">
+                        Delivered
+                      </span>
+                    </div>
+                  </div>
+                </div>
               </div>
             ) : (
-              <div className="text-center py-6">
-                <span className="text-sm text-gray-500">No active flash deals right now. Check back soon!</span>
+              <div className="bg-white dark:bg-card border border-[#E8DCC9] dark:border-border rounded-2xl p-5 shadow-2xs flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-11 h-11 rounded-xl bg-[#FAF7F2] dark:bg-muted flex items-center justify-center text-[#8C7A6B] shrink-0 border border-[#E8DCC9]/60">
+                    <Truck className="w-5 h-5 stroke-[1.8]" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-[#2D1F17] dark:text-foreground text-sm sm:text-base">
+                      No active delivery
+                    </h3>
+                    <p className="text-xs text-[#736357] dark:text-muted-foreground mt-0.5">
+                      Your current deliveries will appear here once you place an order.
+                    </p>
+                  </div>
+                </div>
+
+                <Link to="/products" className="shrink-0 w-full sm:w-auto">
+                  <Button
+                    variant="outline"
+                    className="w-full sm:w-auto rounded-full border-[#E8DCC9] hover:bg-[#FAF7F2] text-[#2D1F17] dark:text-foreground text-xs font-medium px-4 h-8"
+                  >
+                    Browse Supermarket <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                  </Button>
+                </Link>
               </div>
             )}
-          </Card>
+          </section>
 
-
-          {/* 9. AVAILABLE COUPONS */}
-          <Card className="p-6">
-            <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
-              <Ticket className="w-5 h-5 text-primary" /> Available Coupons
-            </h2>
-            <div className="space-y-3">
-              <div className="border border-dashed border-primary/50 bg-primary/5 p-4 rounded-xl relative overflow-hidden">
-                <div className="absolute -left-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-card rounded-full border-r border-primary/50"></div>
-                <div className="absolute -right-2 top-1/2 -translate-y-1/2 w-4 h-4 bg-card rounded-full border-l border-primary/50"></div>
-                
-                <div className="flex justify-between items-center px-2">
-                  <div>
-                    <h4 className="font-bold text-primary">15% OFF</h4>
-                    <p className="text-xs text-muted-foreground">Min. spend Ksh 2,000</p>
+          {/* 4. QUICK ACTIONS */}
+          <section>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {/* Orders */}
+              <Link
+                to="/buyer/dashboard/orders"
+                className="group bg-white dark:bg-card border border-[#E8DCC9] dark:border-border hover:border-[#D96A27] rounded-2xl p-3.5 shadow-2xs hover:shadow-[0_4px_12px_rgba(45,31,23,0.05)] transition-all flex flex-col justify-between"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="w-9 h-9 rounded-xl bg-[#FAF7F2] dark:bg-muted flex items-center justify-center text-[#D96A27] group-hover:scale-105 transition-transform">
+                    <Package className="w-4.5 h-4.5 stroke-[2]" />
                   </div>
-                  <Button size="sm" variant="outline" className="h-8 border-primary text-primary hover:bg-primary hover:text-white">
-                    Apply
-                  </Button>
+                  <ChevronRight className="w-3.5 h-3.5 text-[#8C7A6B] group-hover:text-[#D96A27] transition-colors" />
                 </div>
-              </div>
+                <div>
+                  <h4 className="font-semibold text-xs sm:text-sm text-[#2D1F17] dark:text-foreground">
+                    Orders
+                  </h4>
+                  <p className="text-[11px] text-[#736357] dark:text-muted-foreground mt-0.5">
+                    Track purchases
+                  </p>
+                </div>
+              </Link>
+
+              {/* Payment Methods */}
+              <Link
+                to="/buyer/dashboard/payments"
+                className="group bg-white dark:bg-card border border-[#E8DCC9] dark:border-border hover:border-[#D96A27] rounded-2xl p-3.5 shadow-2xs hover:shadow-[0_4px_12px_rgba(45,31,23,0.05)] transition-all flex flex-col justify-between"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="w-9 h-9 rounded-xl bg-[#00A859]/10 text-[#00A859] flex items-center justify-center group-hover:scale-105 transition-transform">
+                    <CreditCard className="w-4.5 h-4.5 stroke-[2]" />
+                  </div>
+                  <ChevronRight className="w-3.5 h-3.5 text-[#8C7A6B] group-hover:text-[#D96A27] transition-colors" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-xs sm:text-sm text-[#2D1F17] dark:text-foreground">
+                    Payments
+                  </h4>
+                  <p className="text-[11px] text-[#736357] dark:text-muted-foreground mt-0.5">
+                    Safaricom M-Pesa
+                  </p>
+                </div>
+              </Link>
+
+              {/* Addresses */}
+              <Link
+                to="/buyer/dashboard/addresses"
+                className="group bg-white dark:bg-card border border-[#E8DCC9] dark:border-border hover:border-[#D96A27] rounded-2xl p-3.5 shadow-2xs hover:shadow-[0_4px_12px_rgba(45,31,23,0.05)] transition-all flex flex-col justify-between"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="w-9 h-9 rounded-xl bg-[#FAF7F2] dark:bg-muted flex items-center justify-center text-[#8C7A6B] group-hover:scale-105 transition-transform">
+                    <MapPin className="w-4.5 h-4.5 stroke-[2]" />
+                  </div>
+                  <ChevronRight className="w-3.5 h-3.5 text-[#8C7A6B] group-hover:text-[#D96A27] transition-colors" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-xs sm:text-sm text-[#2D1F17] dark:text-foreground">
+                    Addresses
+                  </h4>
+                  <p className="text-[11px] text-[#736357] dark:text-muted-foreground mt-0.5">
+                    Saved locations
+                  </p>
+                </div>
+              </Link>
+
+              {/* Wishlist */}
+              <Link
+                to="/wishlist"
+                className="group bg-white dark:bg-card border border-[#E8DCC9] dark:border-border hover:border-[#D96A27] rounded-2xl p-3.5 shadow-2xs hover:shadow-[0_4px_12px_rgba(45,31,23,0.05)] transition-all flex flex-col justify-between"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="w-9 h-9 rounded-xl bg-red-50 dark:bg-red-950/20 text-red-500 flex items-center justify-center group-hover:scale-105 transition-transform">
+                    <Heart className="w-4.5 h-4.5 stroke-[2]" />
+                  </div>
+                  <ChevronRight className="w-3.5 h-3.5 text-[#8C7A6B] group-hover:text-[#D96A27] transition-colors" />
+                </div>
+                <div>
+                  <h4 className="font-semibold text-xs sm:text-sm text-[#2D1F17] dark:text-foreground">
+                    Wishlist
+                  </h4>
+                  <p className="text-[11px] text-[#736357] dark:text-muted-foreground mt-0.5">
+                    {wishlistIds.size} saved items
+                  </p>
+                </div>
+              </Link>
             </div>
-          </Card>
+          </section>
 
-        
-        </div>
-      </div>
-      
-      {/* Floating Action Button for WhatsApp (Mobile Only) */}
-      <div className="md:hidden fixed bottom-[84px] right-4 z-40">
-        <a
-          href={getWhatsAppLink("Hello ODA Market, I would like to place an order.")}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center justify-center w-14 h-14 bg-[#25D366] text-white rounded-full shadow-lg hover:scale-105 transition-transform"
-        >
-          <MessageCircle className="w-7 h-7" />
-        </a>
-      </div>
-    </div>
-  );
-}
-
-function StatCard({ icon: Icon, label, value, link }: { icon: any, label: string, value: string | number, link: string }) {
-  return (
-    <Link to={link}>
-      <Card className="p-4 flex flex-col items-center justify-center text-center hover:border-primary/50 transition-colors group h-full">
-        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-          <Icon className="w-5 h-5 text-primary" />
-        </div>
-        <div className="text-xl font-bold mb-1">{value}</div>
-        <div className="text-xs text-muted-foreground font-medium">{label}</div>
-      </Card>
-    </Link>
-  );
-}
-
-function DeliveryStep({ icon: Icon, title, date, active, completed }: { icon: any, title: string, date: string, active: boolean, completed: boolean }) {
-  return (
-    <div className="flex flex-row md:flex-col items-center gap-4 md:gap-2 z-10">
-      <div className={`
-        w-10 h-10 rounded-full flex items-center justify-center border-4 border-card transition-colors
-        ${completed ? 'bg-primary text-white' : active ? 'bg-primary/20 text-primary border-primary/30' : 'bg-muted text-muted-foreground'}
-      `}>
-        <Icon className="w-4 h-4" />
-      </div>
-      <div className="text-left md:text-center">
-        <div className={`font-semibold text-sm ${active || completed ? 'text-foreground' : 'text-muted-foreground'}`}>{title}</div>
-        <div className="text-xs text-muted-foreground">{date}</div>
-      </div>
-    </div>
-  );
-}
-
-function ProductCard({ product }: { product: any }) {
-  return (
-    <div className="group bg-card rounded-xl border border-border overflow-hidden hover:shadow-md transition-all flex flex-col h-full relative">
-      <div className="absolute top-2 right-2 z-10">
-        <button className="w-8 h-8 rounded-full bg-white/80 backdrop-blur-sm flex items-center justify-center shadow-sm text-muted-foreground hover:text-red-500 hover:bg-white transition-colors">
-          <Heart className="w-4 h-4" />
-        </button>
-      </div>
-      <Link to={`/products/${product.id}`} className="aspect-square bg-muted relative overflow-hidden block">
-        {product.image_url ? (
-          <OptimizedImage 
-            src={product.image_url} 
-            alt={product.name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center">
-            <ImageIcon className="w-8 h-8 text-muted-foreground/30" />
+          {/* MOBILE ONLY: RECENT ORDERS SECTION (On desktop, this is in the Right Column) */}
+          <div className="lg:hidden">
+            <RecentOrdersCard />
           </div>
-        )}
-      </Link>
-      <div className="p-3 flex-1 flex flex-col">
-        <h3 className="font-medium text-sm line-clamp-2 flex-1 group-hover:text-primary transition-colors">
-          {product.name}
-        </h3>
-        <div className="mt-2 flex items-center justify-between">
-          <span className="font-bold text-sm">
-            Ksh {product.regular_price || product.price || 0}
-          </span>
-          <button className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center hover:bg-primary hover:text-white transition-colors" title="Add to Cart">
-            <Plus className="w-4 h-4" />
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
-function CategoryCard({ category }: { category: any }) {
-  return (
-    <Link to={`/category/${category.slug || category.id}`}>
-      <div className="bg-white hover:bg-primary/5 border border-gray-100 shadow-sm hover:border-primary/20 p-3 md:p-4 rounded-[14px] md:rounded-xl flex flex-col items-center justify-center gap-3 transition-all hover:-translate-y-1 cursor-pointer h-full text-center overflow-hidden">
-        <div className="w-12 h-12 md:w-16 md:h-16 rounded-full bg-muted/30 flex items-center justify-center overflow-hidden border border-gray-50">
-          {category.image_url ? (
-            <OptimizedImage 
-              src={category.image_url} 
-              alt={category.name}
-              className="w-full h-full object-cover"
-              imageType="category"
-            />
-          ) : (
-            <span className="text-2xl text-muted-foreground/50">🛍️</span>
+          {/* 5. RECOMMENDED PRODUCTS (GRID ALIGNED) */}
+          <section className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-base sm:text-lg font-bold tracking-tight text-[#2D1F17] dark:text-foreground">
+                  Recommended Groceries
+                </h2>
+                <p className="text-xs text-[#736357] dark:text-muted-foreground">
+                  Fresh pantry picks and supermarket essentials
+                </p>
+              </div>
+
+              <Link
+                to="/products"
+                className="text-xs font-semibold text-[#D96A27] hover:text-[#C65A28] hover:underline flex items-center gap-1"
+              >
+                <span>Browse All</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </Link>
+            </div>
+
+            {recommendedProducts.length > 0 ? (
+              <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-3 sm:gap-4">
+                {recommendedProducts.map((product) => {
+                  const isWishlisted = wishlistIds.has(product.id);
+                  const effectivePrice = product.sale_price && product.sale_price > 0 ? product.sale_price : product.price;
+
+                  return (
+                    <div
+                      key={product.id}
+                      className="group bg-white dark:bg-card border border-[#E8DCC9] dark:border-border/80 hover:border-[#D96A27] rounded-2xl p-3 sm:p-3.5 shadow-2xs hover:shadow-[0_4px_16px_rgba(45,31,23,0.06)] transition-all duration-200 flex flex-col justify-between relative"
+                    >
+                      {/* Heart / Wishlist Toggle */}
+                      <button
+                        type="button"
+                        onClick={(e) => handleToggleWishlist(product.id, e)}
+                        className="absolute top-2.5 right-2.5 z-10 w-6.5 h-6.5 rounded-full bg-white/90 dark:bg-card/90 shadow-2xs flex items-center justify-center text-[#8C7A6B] hover:text-red-500 transition-colors cursor-pointer"
+                        title={isWishlisted ? 'Remove from wishlist' : 'Save to wishlist'}
+                      >
+                        <Heart
+                          className={`w-3.5 h-3.5 ${isWishlisted ? 'fill-red-500 text-red-500' : ''}`}
+                        />
+                      </button>
+
+                      {/* Product Image (Contained without distortion) */}
+                      <Link
+                        to={`/products/${product.slug || product.id}`}
+                        className="aspect-square bg-[#FAF7F2] dark:bg-muted/30 rounded-xl p-2.5 mb-2.5 flex items-center justify-center overflow-hidden block"
+                      >
+                        {product.image_url ? (
+                          <OptimizedImage
+                            src={product.image_url}
+                            alt={product.name}
+                            className="w-full h-full object-contain group-hover:scale-105 transition-transform duration-300"
+                            imageType="product"
+                          />
+                        ) : (
+                          <ImageIcon className="w-7 h-7 text-[#8C7A6B]/40" />
+                        )}
+                      </Link>
+
+                      {/* Product Details */}
+                      <div className="flex-1 flex flex-col justify-between space-y-1.5">
+                        <Link
+                          to={`/products/${product.slug || product.id}`}
+                          className="text-xs sm:text-sm font-semibold text-[#2D1F17] dark:text-foreground line-clamp-2 hover:text-[#D96A27] transition-colors leading-snug min-h-[2.4rem]"
+                        >
+                          {product.name}
+                        </Link>
+
+                        <div className="pt-1 flex items-center justify-between gap-1.5">
+                          <div>
+                            <span className="font-bold text-xs sm:text-sm text-[#2D1F17] dark:text-foreground">
+                              KES {effectivePrice?.toLocaleString() || 0}
+                            </span>
+                            {product.sale_price && product.sale_price > 0 && product.sale_price < product.price && (
+                              <span className="text-[10px] text-[#8C7A6B] line-through block">
+                                KES {product.price?.toLocaleString()}
+                              </span>
+                            )}
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={(e) => handleAddToCart(product, e)}
+                            className="w-7 h-7 rounded-full bg-[#D96A27] hover:bg-[#C65A28] active:scale-95 text-white flex items-center justify-center shadow-xs transition-all cursor-pointer shrink-0"
+                            title="Add to cart"
+                          >
+                            <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : null}
+          </section>
+
+          {/* 6. POPULAR AISLES / CATEGORIES */}
+          {categories.length > 0 && (
+            <section className="bg-white dark:bg-card border border-[#E8DCC9] dark:border-border rounded-2xl p-4 sm:p-5 shadow-2xs space-y-3">
+              <div className="flex items-center justify-between pb-2.5 border-b border-[#E8DCC9]/60 dark:border-border">
+                <h3 className="text-sm sm:text-base font-bold text-[#2D1F17] dark:text-foreground">
+                  Popular Supermarket Aisles
+                </h3>
+                <Link to="/categories" className="text-xs font-semibold text-[#D96A27] hover:underline">
+                  All Aisles →
+                </Link>
+              </div>
+
+              <div className="grid grid-cols-3 sm:grid-cols-6 gap-2.5">
+                {categories.map((cat) => (
+                  <Link
+                    key={cat.id}
+                    to={`/category/${cat.slug || cat.id}`}
+                    className="group p-2.5 rounded-xl bg-[#FAF7F2] dark:bg-muted/30 hover:bg-[#F3ECE2] dark:hover:bg-muted/60 border border-[#E8DCC9]/60 dark:border-border transition-all flex flex-col items-center justify-center text-center gap-1.5"
+                  >
+                    <div className="w-10 h-10 rounded-full bg-white dark:bg-card flex items-center justify-center overflow-hidden border border-[#E8DCC9]/80 group-hover:scale-105 transition-transform">
+                      {cat.image_url ? (
+                        <OptimizedImage
+                          src={cat.image_url}
+                          alt={cat.name}
+                          className="w-full h-full object-cover"
+                          imageType="category"
+                        />
+                      ) : (
+                        <span className="text-base select-none">🛒</span>
+                      )}
+                    </div>
+                    <span className="text-[11px] font-semibold text-[#2D1F17] dark:text-foreground line-clamp-1">
+                      {cat.name}
+                    </span>
+                  </Link>
+                ))}
+              </div>
+            </section>
           )}
         </div>
-        <span className="text-xs md:text-sm font-semibold text-foreground line-clamp-1">{category.name}</span>
+
+        {/* ========================================================= */}
+        {/* RIGHT COLUMN (4 COLS ON DESKTOP, ~300-340PX WIDE)         */}
+        {/* ========================================================= */}
+        <div className="lg:col-span-4 space-y-6">
+          {/* 1. NEED HELP / CUSTOMER SUPPORT CARD */}
+          <div className="bg-white dark:bg-card border border-[#E8DCC9] dark:border-border rounded-2xl p-5 shadow-[0_2px_10px_rgba(45,31,23,0.03)] space-y-3.5">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#25D366]/10 text-[#25D366] flex items-center justify-center shrink-0">
+                <MessageCircle className="w-5 h-5 stroke-[2]" />
+              </div>
+              <div>
+                <h3 className="font-bold text-[#2D1F17] dark:text-foreground text-sm sm:text-base leading-snug">
+                  Need Help?
+                </h3>
+                <p className="text-xs text-[#736357] dark:text-muted-foreground">
+                  OdaMarket customer care team
+                </p>
+              </div>
+            </div>
+
+            <p className="text-xs text-[#736357] dark:text-muted-foreground leading-relaxed">
+              Have questions about your order or prefer to place an order via WhatsApp? We&apos;re here daily from 7:00 AM to 9:00 PM.
+            </p>
+
+            <div className="pt-1 flex flex-col gap-2">
+              <a
+                href={getWhatsAppLink('Hello OdaMarket, I would like assistance with my order.')}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-full bg-[#25D366] hover:bg-[#20ba59] active:scale-[0.98] text-white text-xs font-semibold shadow-xs transition-all cursor-pointer"
+              >
+                <MessageCircle className="w-4 h-4" />
+                <span>Chat on WhatsApp</span>
+              </a>
+
+              <Link
+                to="/help-center"
+                className="w-full inline-flex items-center justify-center px-4 py-2 rounded-full border border-[#E8DCC9] hover:bg-[#FAF7F2] text-xs font-medium text-[#736357] transition-colors text-center"
+              >
+                Help Center & FAQs
+              </Link>
+            </div>
+          </div>
+
+          {/* 2. RECENT ORDERS CARD (DESKTOP VIEW) */}
+          <div className="hidden lg:block">
+            <RecentOrdersCard />
+          </div>
+
+          {/* 3. REWARDS & GROCERY SAVINGS CARD */}
+          <div className="bg-[#FAF7F2] dark:bg-muted/30 border border-[#E8DCC9] dark:border-border rounded-2xl p-5 shadow-2xs space-y-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Gift className="w-4 h-4 text-[#D96A27]" />
+                <h4 className="font-bold text-xs uppercase tracking-wider text-[#2D1F17] dark:text-foreground">
+                  Reward Points
+                </h4>
+              </div>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#D96A27]/10 text-[#D96A27]">
+                Active
+              </span>
+            </div>
+
+            <div className="flex items-baseline gap-1.5">
+              <span className="text-2xl font-bold tracking-tight text-[#2D1F17] dark:text-foreground">
+                {rewardPoints.toLocaleString()}
+              </span>
+              <span className="text-xs text-[#736357] dark:text-muted-foreground font-medium">
+                points available
+              </span>
+            </div>
+
+            <p className="text-xs text-[#736357] dark:text-muted-foreground leading-relaxed">
+              Earn 1 point for every KES 100 spent. Redeem points at checkout for instant discounts.
+            </p>
+
+            <Link
+              to="/buyer/dashboard/rewards"
+              className="inline-flex items-center gap-1 text-xs font-semibold text-[#D96A27] hover:underline pt-1"
+            >
+              <span>View reward benefits</span>
+              <ChevronRight className="w-3.5 h-3.5" />
+            </Link>
+          </div>
+        </div>
       </div>
-    </Link>
+    </div>
   );
 }
+
+// Compact Status Badge matching reference design specification
+function CompactOrderStatusBadge({ status }: { status: string }) {
+  const normalized = (status || '').toLowerCase();
+
+  if (normalized === 'delivered') {
+    return (
+      <span className="inline-flex items-center text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 rounded-full bg-[#ECFDF5] text-[#065F46] border border-[#A7F3D0] shrink-0">
+        Delivered
+      </span>
+    );
+  }
+
+  if (normalized === 'out_for_delivery') {
+    return (
+      <span className="inline-flex items-center text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 rounded-full bg-[#FFF7ED] text-[#C2410C] border border-[#FED7AA] shrink-0">
+        Out for delivery
+      </span>
+    );
+  }
+
+  if (normalized === 'cancelled') {
+    return (
+      <span className="inline-flex items-center text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 rounded-full bg-[#FEF2F2] text-[#991B1B] border border-[#FECACA] shrink-0">
+        Cancelled
+      </span>
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center text-[10px] sm:text-[11px] font-semibold px-2 py-0.5 rounded-full bg-[#FFFBEB] text-[#92400E] border border-[#FDE68A] shrink-0">
+      {normalized ? normalized.replace(/_/g, ' ') : 'Pending'}
+    </span>
+  );
+}
+
+export default BuyerDashboardHome;

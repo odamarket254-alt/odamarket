@@ -811,7 +811,7 @@ export default function CheckoutPage() {
               <h2 className="text-[slate-900] font-bold text-[20px] mb-6">4. Payment Method</h2>
               
               {/* Payment Methods */}
-              <div className="mb-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                 {/* Premium M-Pesa Card */}
                 <div className="border-2 border-[#C65A28] bg-[#ECFDF5] rounded-[16px] p-6 relative cursor-pointer overflow-hidden">
                   <div className="absolute top-0 right-0 bg-[#C65A28] text-white px-3 py-1 rounded-bl-[12px] font-bold text-[12px] flex items-center gap-1">
@@ -824,6 +824,22 @@ export default function CheckoutPage() {
                     <div>
                       <h3 className="text-[slate-900] font-bold text-[18px]">M-Pesa</h3>
                       <p className="text-[slate-900]/70 text-[13px] leading-tight mt-1">Pay securely with Safaricom M-Pesa</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Credit / Debit Card (Coming Soon) */}
+                <div className="border border-[#E5E7EB] bg-[#F8FAFC] opacity-75 rounded-[16px] p-6 relative cursor-not-allowed select-none">
+                  <div className="absolute top-0 right-0 bg-[#E5E7EB] text-[#6B7280] px-3 py-1 rounded-bl-[12px] font-bold text-[11px] uppercase tracking-wider">
+                    Coming Soon
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 bg-white rounded-[12px] shadow-sm flex items-center justify-center shrink-0 text-[#9CA3AF]">
+                      <CreditCard className="w-8 h-8" />
+                    </div>
+                    <div>
+                      <h3 className="text-slate-700 font-bold text-[18px]">Credit / Debit Card</h3>
+                      <p className="text-[#6B7280] text-[13px] leading-tight mt-1">Visa, Mastercard & Verve</p>
                     </div>
                   </div>
                 </div>

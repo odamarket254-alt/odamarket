@@ -2194,6 +2194,297 @@ export function buildOrderStatusEmailHtml(
   return { subject, html, text };
 }
 
+export interface BroadcastProductItem {
+  id: string;
+  name: string;
+  priceFormatted: string;
+  imageUrl: string;
+  productUrl: string;
+}
+
+export interface BroadcastEmailOptions {
+  headline?: string;
+  introMessage?: string;
+  products?: BroadcastProductItem[];
+  ctaText?: string;
+  ctaUrl?: string;
+  unsubscribeUrl?: string;
+}
+
+/**
+ * Builds a clean, premium, mobile-responsive HTML promotional broadcast email for ODA Market.
+ * Features real products, actual prices, live product images, and a single clear "Shop Now" button.
+ */
+export function buildBroadcastEmailHtml(options: BroadcastEmailOptions = {}): { subject: string; html: string; text: string } {
+  const {
+    headline = 'Featured Products',
+    introMessage = 'Explore current pricing on popular grocery essentials available for delivery across Nairobi.',
+    ctaText = 'Shop Now &rarr;',
+    ctaUrl = 'https://odamarket.co.ke',
+    unsubscribeUrl = 'https://odamarket.co.ke/profile'
+  } = options;
+
+  // Real ODA Market products directly from the database
+  const defaultProducts: BroadcastProductItem[] = [
+    {
+      id: '76862c1f-d8ce-4329-b1f8-ab7bef6c9706',
+      name: '25kg BIRIYANI Rice',
+      priceFormatted: 'KSh 2,100',
+      imageUrl: 'https://vjzgqhsvgknmnjpaefvy.supabase.co/storage/v1/object/public/products/product-images/0.9951940623077672.jpg',
+      productUrl: 'https://odamarket.co.ke/products/76862c1f-d8ce-4329-b1f8-ab7bef6c9706'
+    },
+    {
+      id: '2f0688a2-d7f4-4d10-84e2-df17629f8502',
+      name: 'CIL Blended Long Grain Rice 2Kg',
+      priceFormatted: 'KSh 360',
+      imageUrl: 'https://vjzgqhsvgknmnjpaefvy.supabase.co/storage/v1/object/public/products/product-images/0.6112465496460913.jpeg',
+      productUrl: 'https://odamarket.co.ke/products/2f0688a2-d7f4-4d10-84e2-df17629f8502'
+    },
+    {
+      id: 'b4511c9d-91dc-418c-af9a-58d24e68dad5',
+      name: 'Soko Maize Meal 2Kg',
+      priceFormatted: 'KSh 161',
+      imageUrl: 'https://vjzgqhsvgknmnjpaefvy.supabase.co/storage/v1/object/public/products/product-images/0.10452747601319312.jpeg',
+      productUrl: 'https://odamarket.co.ke/products/b4511c9d-91dc-418c-af9a-58d24e68dad5'
+    },
+    {
+      id: 'd3b143b6-20ee-4945-b19c-bbd9d01b7e2e',
+      name: 'Prestige Margarine Original 500G',
+      priceFormatted: 'KSh 300',
+      imageUrl: 'https://vjzgqhsvgknmnjpaefvy.supabase.co/storage/v1/object/public/products/product-images/0.39748895025458664.jpeg',
+      productUrl: 'https://odamarket.co.ke/products/d3b143b6-20ee-4945-b19c-bbd9d01b7e2e'
+    }
+  ];
+
+  const products = (options.products && options.products.length > 0) ? options.products : defaultProducts;
+
+  // Render products into a clean responsive 2-column email table
+  const productRowsHtml: string[] = [];
+  for (let i = 0; i < products.length; i += 2) {
+    const p1 = products[i];
+    const p2 = products[i + 1];
+
+    const renderCard = (p: BroadcastProductItem) => `
+      <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #FFFDF8; border: 1px solid #E8DCC9; border-radius: 12px; overflow: hidden; height: 100%;">
+        <tr>
+          <td align="center" style="background-color: #FAF5EC; padding: 14px;">
+            <a href="${p.productUrl}" target="_blank" style="text-decoration: none; display: block;">
+              <img src="${p.imageUrl}" alt="${p.name}" width="220" height="180" class="product-img" style="width: 100%; max-width: 220px; height: 180px; object-fit: contain; margin: 0 auto; border-radius: 8px;" />
+            </a>
+          </td>
+        </tr>
+        <tr>
+          <td style="padding: 16px;">
+            <h3 style="margin: 0 0 6px 0; font-size: 15px; font-weight: 700; line-height: 1.3;">
+              <a href="${p.productUrl}" target="_blank" class="product-link" style="color: #3A2418; text-decoration: none;">
+                ${p.name}
+              </a>
+            </h3>
+            <p style="margin: 0; font-size: 18px; font-weight: 800; color: #D96A27;">
+              ${p.priceFormatted}
+            </p>
+          </td>
+        </tr>
+      </table>
+    `;
+
+    productRowsHtml.push(`
+      <tr>
+        <td class="fluid-padding" style="padding: 0 24px ${i + 2 >= products.length ? '28px' : '16px'} 24px;">
+          <table border="0" cellpadding="0" cellspacing="0" width="100%">
+            <tr>
+              <td width="${p2 ? '48%' : '100%'}" class="col-stack ${p2 ? 'col-pad' : ''}" style="vertical-align: top;">
+                ${renderCard(p1)}
+              </td>
+              ${p2 ? `
+              <td width="4%" class="col-stack" style="font-size: 1px; line-height: 1px;">&nbsp;</td>
+              <td width="48%" class="col-stack" style="vertical-align: top;">
+                ${renderCard(p2)}
+              </td>` : ''}
+            </tr>
+          </table>
+        </td>
+      </tr>
+    `);
+  }
+
+  const subject = 'Featured Products - ODA Market';
+  const html = `<!DOCTYPE html>
+<html lang="en" xmlns="http://www.w3.org/1999/xhtml" xmlns:v="urn:schemas-microsoft-com:vml" xmlns:o="urn:schemas-microsoft-com:office:office">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="x-apple-disable-message-reformatting">
+  <meta name="format-detection" content="telephone=no,address=no,email=no,date=no,url=no">
+  <title>${subject}</title>
+  <!--[if mso]>
+  <noscript>
+    <xml>
+      <o:OfficeDocumentSettings>
+        <o:AllowPNG/>
+        <o:PixelsPerInch>96</o:PixelsPerInch>
+      </o:OfficeDocumentSettings>
+    </xml>
+  </noscript>
+  <![endif]-->
+  <style type="text/css">
+    body, table, td, a { -webkit-text-size-adjust: 100%; -ms-text-size-adjust: 100%; }
+    table, td { mso-table-lspace: 0pt; mso-table-rspace: 0pt; }
+    img { -ms-interpolation-mode: bicubic; border: 0; outline: none; text-decoration: none; display: block; }
+    body { height: 100% !important; margin: 0 !important; padding: 0 !important; width: 100% !important; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #FAF5EC; color: #3A2418; }
+    .btn-shop:hover { background-color: #C65A28 !important; }
+    .product-link:hover { color: #D96A27 !important; }
+    @media screen and (max-width: 600px) {
+      .email-container { width: 100% !important; margin: auto !important; }
+      .fluid-padding { padding-left: 20px !important; padding-right: 20px !important; }
+      .col-stack { display: block !important; width: 100% !important; max-width: 100% !important; box-sizing: border-box !important; }
+      .col-pad { padding-left: 0 !important; padding-right: 0 !important; padding-bottom: 16px !important; }
+      .product-img { width: 100% !important; height: auto !important; max-height: 220px !important; object-fit: contain !important; }
+      .btn-shop { width: 100% !important; display: block !important; padding: 16px 20px !important; box-sizing: border-box !important; text-align: center !important; }
+    }
+  </style>
+</head>
+<body style="margin: 0; padding: 0; background-color: #FAF5EC; -webkit-font-smoothing: antialiased;">
+  <!-- Hidden Preview Text -->
+  <div style="display: none; font-size: 1px; line-height: 1px; max-height: 0px; max-width: 0px; opacity: 0; overflow: hidden; mso-hide: all; font-family: sans-serif;">
+    Featured groceries and daily essentials available now on ODA Market.
+    &#847; &zwnj; &nbsp; &#8199; &shy; &#847; &zwnj; &nbsp; &#8199; &shy; &#847; &zwnj; &nbsp; &#8199; &shy; &#847; &zwnj; &nbsp; &#8199; &shy;
+  </div>
+
+  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #FAF5EC; table-layout: fixed;">
+    <tr>
+      <td align="center" style="padding: 24px 12px 40px 12px;">
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" class="email-container" style="max-width: 600px; background-color: #FFFFFF; border-radius: 16px; overflow: hidden; border: 1px solid #E8DCC9; box-shadow: 0 4px 20px rgba(58, 36, 24, 0.05);">
+          <!-- Top Brand Accent -->
+          <tr>
+            <td style="height: 6px; background-color: #D96A27;"></td>
+          </tr>
+
+          <!-- Brand Header -->
+          <tr>
+            <td align="center" style="padding: 32px 24px 20px 24px; text-align: center;">
+              <a href="${ctaUrl}" target="_blank" style="text-decoration: none;">
+                <h1 style="margin: 0; color: #D96A27; font-size: 28px; font-weight: 800; letter-spacing: -0.5px; line-height: 1.1;">
+                  ODA MARKET
+                </h1>
+                <p style="margin: 6px 0 0 0; color: #8B857D; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;">
+                  Fresh Groceries &bull; Nairobi
+                </p>
+              </a>
+            </td>
+          </tr>
+
+          <!-- Simple Headline -->
+          <tr>
+            <td class="fluid-padding" style="padding: 0 32px 24px 32px; text-align: center;">
+              <h2 style="margin: 0 0 8px 0; color: #3A2418; font-size: 24px; font-weight: 800; line-height: 1.3;">
+                ${headline}
+              </h2>
+              <p style="margin: 0; color: #5F5A54; font-size: 15px; line-height: 1.5;">
+                ${introMessage}
+              </p>
+            </td>
+          </tr>
+
+          <!-- Products Grid -->
+          ${productRowsHtml.join('')}
+
+          <!-- Single Clear "Shop Now" Button -->
+          <tr>
+            <td align="center" style="padding: 0 24px 36px 24px;">
+              <table border="0" cellpadding="0" cellspacing="0" align="center">
+                <tr>
+                  <td align="center" style="border-radius: 12px; background-color: #D96A27;">
+                    <a href="${ctaUrl}" target="_blank" class="btn-shop" style="display: inline-block; padding: 16px 48px; font-size: 16px; font-weight: 800; color: #FFFFFF; text-decoration: none; border-radius: 12px; background-color: #D96A27; text-align: center; letter-spacing: 0.2px;">
+                      ${ctaText}
+                    </a>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <!-- Clean Minimal Footer -->
+          <tr>
+            <td style="background-color: #FAF5EC; padding: 22px 24px; text-align: center; border-top: 1px solid #E8DCC9;">
+              <p style="margin: 0 0 6px 0; color: #3A2418; font-size: 12px; font-weight: 700;">
+                ODA Market &bull; Nairobi, Kenya
+              </p>
+              <p style="margin: 0 0 8px 0; color: #8B857D; font-size: 12px;">
+                <a href="${ctaUrl}" target="_blank" style="color: #D96A27; text-decoration: none; font-weight: 600;">odamarket.co.ke</a> &bull;
+                <a href="mailto:info@odamarket.co.ke" style="color: #D96A27; text-decoration: none; font-weight: 600;">info@odamarket.co.ke</a>
+              </p>
+              <p style="margin: 0; color: #8B857D; font-size: 11px;">
+                <a href="${unsubscribeUrl}" target="_blank" style="color: #8B857D; text-decoration: underline;">Unsubscribe</a>
+              </p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  const textLines = [
+    `ODA MARKET - Fresh Groceries Delivered • Nairobi`,
+    `================================================`,
+    headline,
+    ``,
+    introMessage,
+    ``,
+    `FEATURED PRODUCTS:`,
+    ...products.map(p => `• ${p.name} - ${p.priceFormatted} (${p.productUrl})`),
+    ``,
+    `Shop Now: ${ctaUrl}`,
+    ``,
+    `ODA Market • Nairobi, Kenya`,
+    `info@odamarket.co.ke | odamarket.co.ke`,
+    `Unsubscribe: ${unsubscribeUrl}`
+  ];
+
+  return { subject, html, text: textLines.join('\n') };
+}
+
+/**
+ * Dispatches an ODA Market promotional broadcast email to a recipient or list of recipients using Resend
+ * with automatic API key failover, rate-limit retry, and logging.
+ */
+export async function sendBroadcastEmail(params: {
+  to: string | string[];
+  subject?: string;
+  options?: BroadcastEmailOptions;
+  idempotencyKey?: string;
+}): Promise<{ success: boolean; resendId?: string; error?: string }> {
+  const { to, subject: customSubject, options = {}, idempotencyKey } = params;
+  const { subject, html, text } = buildBroadcastEmailHtml(options);
+  const fromSender = resolveValidFromEmail(
+    process.env.RESEND_FROM_EMAIL,
+    'ODA Market <orders@odamarket.co.ke>'
+  );
+
+  const recipientList = Array.isArray(to) ? to : [to];
+  const validRecipients = recipientList.map(r => (r || '').trim()).filter(r => isValidCustomerEmail(r));
+
+  if (validRecipients.length === 0) {
+    return { success: false, error: 'No valid recipient email address provided' };
+  }
+
+  // Resend supports sending to up to 50 recipients per batch or individual send
+  const targetRecipient = validRecipients.length === 1 ? validRecipients[0] : validRecipients;
+
+  return await sendResendHtmlEmailWithFailover({
+    from: fromSender,
+    to: targetRecipient as any,
+    replyTo: 'info@odamarket.co.ke',
+    subject: customSubject || subject,
+    html,
+    text,
+    idempotencyKey
+  });
+}
+
 /**
  * 1. ORDER CONFIRMATION EMAIL
  * Strictly requires verified payment before dispatching.

@@ -6,6 +6,7 @@ interface Profile {
   role: "customer" | "buyer" | "seller" | "admin" | "super_admin" | "moderator" | "support_agent" | "content_manager";
   first_name?: string | null;
   last_name?: string | null;
+  full_name?: string | null;
   email?: string | null;
   business_name: string | null;
   company_type: string | null;
@@ -15,6 +16,8 @@ interface Profile {
   location: string | null;
   country: string | null;
   phone: string | null;
+  phone_number?: string | null;
+  address?: string | null;
   whatsapp: string | null;
   verified: boolean;
 }

@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { getEmailDiagnostics, logEmailDiagnostics } from "../src/lib/emailDiagnostics.js";
+import { buildBroadcastEmailHtml } from "../emailService.js";
 
 const router = Router();
 
@@ -44,6 +45,21 @@ router.get("/email", async (req, res) => {
   } catch (err: any) {
     console.error("[Email Diagnostics] Error generating report:", err);
     return res.status(500).json({ error: err?.message || "Failed to generate email diagnostics" });
+  }
+});
+
+/**
+ * GET /api/debug/email/broadcast-preview
+ * Renders the live HTML broadcast email template in the browser for testing and visual QA.
+ */
+router.get("/email/broadcast-preview", (req, res) => {
+  try {
+    const { html } = buildBroadcastEmailHtml();
+    res.setHeader("Content-Type", "text/html; charset=utf-8");
+    return res.status(200).send(html);
+  } catch (err: any) {
+    console.error("[Email Diagnostics] Error rendering broadcast preview:", err);
+    return res.status(500).send(`<pre>Error: ${err?.message}</pre>`);
   }
 });
 

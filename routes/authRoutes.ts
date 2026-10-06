@@ -906,6 +906,69 @@ router.post('/admin/delete-user', async (req, res) => {
 });
 
 /**
+ * Endpoint for authenticated buyers to safely deactivate/delete their own account
+ */
+router.post('/delete-own-account', async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return res.status(401).json({ error: 'Missing authentication token' });
+    }
+
+    const token = authHeader.split(' ')[1];
+    const { data: { user }, error: userError } = await supabaseAdmin.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: 'Invalid or expired session. Please log in again.' });
+    }
+
+    const targetUserId = user.id;
+    const nowIso = new Date().toISOString();
+
+    console.log(`[Auth:self-delete] Buyer ${targetUserId} requested account deactivation.`);
+
+    // 1. Update user auth metadata
+    const updatedUserMetadata = {
+      ...(user.user_metadata || {}),
+      is_deleted: true,
+      deleted_at: nowIso,
+      status: 'deactivated'
+    };
+
+    await supabaseAdmin.auth.admin.updateUserById(targetUserId, {
+      ban_duration: '876600h',
+      user_metadata: updatedUserMetadata
+    });
+
+    // 2. Mark profile as deleted
+    try {
+      await supabaseAdmin.from('profiles').update({
+        is_deleted: true,
+        deleted_at: nowIso,
+        updated_at: nowIso
+      } as any).eq('id', targetUserId);
+    } catch (profileErr) {
+      console.warn('[Auth:self-delete] Could not update profiles table soft-delete:', profileErr);
+    }
+
+    // 3. Sign out sessions
+    try {
+      await supabaseAdmin.auth.admin.signOut(targetUserId);
+    } catch (soErr) {
+      console.warn('[Auth:self-delete] signOut warning:', soErr);
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: 'Your ODA Market account has been safely deactivated.'
+    });
+  } catch (err: any) {
+    console.error('[Auth:self-delete] Error deactivating account:', err);
+    return res.status(500).json({ error: err.message || 'Failed to deactivate account.' });
+  }
+});
+
+/**
  * Admin endpoint to restore a soft-deleted user
  */
 router.post('/admin/restore-user', async (req, res) => {

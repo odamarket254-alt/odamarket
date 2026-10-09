@@ -215,7 +215,10 @@ async function startServer() {
   // Vite middleware for development
   if (process.env.NODE_ENV !== "production") {
     const vite = await createViteServer({
-      server: { middlewareMode: true },
+      server: {
+        middlewareMode: true,
+        hmr: false, // HMR is disabled in AI Studio preview environment
+      },
       appType: "spa", // Handles SPA frontend routing fallback automatically in dev
     });
     app.use(vite.middlewares);

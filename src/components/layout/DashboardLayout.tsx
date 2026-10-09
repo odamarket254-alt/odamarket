@@ -41,6 +41,8 @@ import { Button } from "../ui/Button";
 import { getWhatsAppLink } from "../../utils/whatsapp";
 import { NotificationBell } from "./NotificationBell";
 import { MobileBottomNav } from "./MobileBottomNav";
+import { OfflineIndicator } from "../pwa/OfflineIndicator";
+import { PWAInstallButton } from "../pwa/PWAInstallButton";
 import { Logo } from "../ui/Logo";
 import { getNavItems } from "../../utils/navigation";
 
@@ -184,7 +186,8 @@ export default function DashboardLayout() {
           })}
         </nav>
 
-        <div className="p-4 border-t border-[#E8DCC9]/60 dark:border-border">
+        <div className="p-4 border-t border-[#E8DCC9]/60 dark:border-border space-y-2">
+          <PWAInstallButton variant="inline" className="w-full justify-center !text-xs !py-2" />
           <Button
             variant="ghost"
             className="w-full justify-start text-[#736357] dark:text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-xl"
@@ -225,6 +228,7 @@ export default function DashboardLayout() {
         </div>
       </main>
       <MobileBottomNav />
+      <OfflineIndicator />
     </div>
   );
 }

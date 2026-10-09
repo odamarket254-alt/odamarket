@@ -7,6 +7,7 @@ import { useWishlistStore } from "../../store/useWishlistStore";
 import { getWhatsAppLink } from "../../utils/whatsapp";
 import { supabase } from "../../lib/supabase";
 import { NotificationBell } from "./NotificationBell";
+import { PWAInstallButton } from "../pwa/PWAInstallButton";
 import {
   Smartphone,
   MapPin,
@@ -314,6 +315,7 @@ export function Header() {
 
             {/* Right Side */}
             <div className="flex items-center h-full gap-4">
+              <PWAInstallButton variant="header" />
               <Link to="/help-center" className="flex items-center gap-1.5 hover:text-[#D9A62E] transition-colors">
                 <HelpCircle className="w-4 h-4" /> Help Center
               </Link>

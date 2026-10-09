@@ -36,6 +36,8 @@ import { Logo } from "../ui/Logo";
 import { Header } from "./Header";
 import { Footer } from "./Footer";
 import { useCartStore } from "../../store/useCartStore";
+import { PWASmartBanner } from "../pwa/PWASmartBanner";
+import { OfflineIndicator } from "../pwa/OfflineIndicator";
 
 const fallbackCategories = [
   { name: 'Groceries', items: ['Fresh Produce', 'Bakery', 'Dairy', 'Frozen Foods'] },
@@ -117,7 +119,8 @@ export default function RootLayout() {
 
   return (
     <div className="min-h-screen flex flex-col font-sans bg-background text-foreground overflow-x-hidden w-full max-w-full">
-        {!isAuthRoute && <Header />}
+      {!isAuthRoute && <PWASmartBanner />}
+      {!isAuthRoute && <Header />}
 
       {/* Main Content Area */}
       <main className="flex-1 flex flex-col w-full relative z-0">
@@ -126,6 +129,7 @@ export default function RootLayout() {
 
       {!isAuthRoute && <Footer />}
       {!isAuthRoute && <MobileBottomNav />}
+      <OfflineIndicator />
     </div>
   );
 }

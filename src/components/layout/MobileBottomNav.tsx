@@ -6,6 +6,7 @@ import { useCartStore } from "../../store/useCartStore";
 import { useMobileMenuStore } from "../../store/useMobileMenuStore";
 import { getWhatsAppLink } from "../../utils/whatsapp";
 import { getNavItems } from "../../utils/navigation";
+import { PWAInstallButton } from "../pwa/PWAInstallButton";
 import { motion, AnimatePresence } from "motion/react";
 import { supabase } from "../../lib/supabase";
 
@@ -132,6 +133,7 @@ export function MobileBottomNav() {
               </div>
 
               <div className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
+                <PWAInstallButton variant="drawer" onInstalled={() => setIsOpen(false)} />
                 {!user && (
                    <Link
                       to="/products"

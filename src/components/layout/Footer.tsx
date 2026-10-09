@@ -2,6 +2,7 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, Phone, MapPin, Send } from 'lucide-react';
 import { Logo } from '../ui/Logo';
+import { PWAInstallButton } from '../pwa/PWAInstallButton';
 
 export function Footer() {
   return (
@@ -63,6 +64,7 @@ export function Footer() {
             <li><Link to="/faq" className="text-[#FAF5EC]/80 hover:text-[#D9A62E] transition-colors text-sm">FAQ</Link></li>
             <li><Link to="/help-center" className="text-[#FAF5EC]/80 hover:text-[#D9A62E] transition-colors text-sm">Help Center</Link></li>
             <li><Link to="/terms-and-conditions" className="text-[#FAF5EC]/80 hover:text-[#D9A62E] transition-colors text-sm">Terms &amp; Conditions</Link></li>
+            <li><PWAInstallButton variant="footer" /></li>
           </ul>
         </div>
 

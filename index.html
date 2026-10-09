@@ -5,14 +5,22 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0" />
     
     <!-- Primary Meta Tags -->
-    <title>OdaMarket -A Premium Online Shopping Experience</title>
-    <meta name="description" content="OdaMarket Your Premium Online Supermarket Everything You Need.deliveredto your doorstep.[Shop now]" />
-    <meta name="theme-color" content="#2E5E3E" />
+    <title>OdaMarket - A Premium Online Shopping Experience</title>
+    <meta name="description" content="OdaMarket - Your Premium Online Supermarket. Fresh groceries, farm-to-table quality, and daily essentials delivered to your doorstep." />
     <link rel="canonical" href="https://odamarket.co.ke" />
     <meta name="robots" content="index, follow" />
 
+    <!-- PWA & Mobile Web App Meta Tags -->
+    <meta name="theme-color" content="#C65A28" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="ODA Market" />
+    <meta name="application-name" content="ODA Market" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+
     <!-- Favicon and Touch Icons -->
-    <link rel="icon" type="image/jpeg" href="/images/oda-logo.png.jpeg" />
+    <link rel="icon" type="image/png" sizes="192x192" href="/pwa-192x192.png" />
     <link rel="icon" type="image/png" sizes="48x48" href="/favicon.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     
@@ -51,13 +59,21 @@
     <div id="root"></div>
     <script>
       window.addEventListener('error', function(event) {
+        // Ignore harmless WebSocket errors in preview iframe environments
+        const msg = event?.message || event?.error?.message || '';
+        if (typeof msg === 'string' && (msg.includes('WebSocket') || msg.includes('ws://') || msg.includes('wss://'))) {
+          return;
+        }
         console.error('Global error caught:', event.error);
         if (!document.getElementById('root').innerHTML) {
           document.getElementById('root').innerHTML = '<div style="padding: 20px; font-family: sans-serif; color: red;"><h2>Application Error</h2><p>' + (event.error ? event.error.message : event.message) + '</p></div>';
         }
       });
       window.addEventListener('unhandledrejection', function(event) {
-        // console.error('Unhandled promise rejection caught:', event.reason?.message || event.reason);
+        const msg = event?.reason?.message || event?.reason || '';
+        if (typeof msg === 'string' && (msg.includes('WebSocket') || msg.includes('ws://') || msg.includes('wss://'))) {
+          event.preventDefault();
+        }
       });
     </script>
 

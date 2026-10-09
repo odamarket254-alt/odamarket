@@ -3,10 +3,32 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 import { ThemeProvider } from "./components/theme-provider";
+import { registerSW } from "virtual:pwa-register";
 
-// Suppress Supabase refresh token errors globally
+// Register Service Worker for PWA compliance
+if (typeof window !== "undefined" && "serviceWorker" in navigator) {
+  registerSW({
+    immediate: true,
+    onNeedRefresh() {
+      console.log("[PWA] New content available; will update automatically.");
+    },
+    onOfflineReady() {
+      console.log("[PWA] App ready for offline caching of static assets.");
+    },
+  });
+}
+
+// Suppress Supabase refresh token and WebSocket errors globally
 const handleAuthError = (event: any) => {
   const errorMsg = event.reason?.message || event.message || "";
+  if (
+    errorMsg.includes("WebSocket") ||
+    errorMsg.includes("ws://") ||
+    errorMsg.includes("wss://")
+  ) {
+    event.preventDefault?.();
+    return;
+  }
   if (
     errorMsg.includes("Refresh Token Not Found") ||
     errorMsg.includes("Invalid Refresh Token") ||

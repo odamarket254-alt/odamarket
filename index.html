@@ -10,6 +10,68 @@
     <link rel="canonical" href="https://odamarket.co.ke" />
     <meta name="robots" content="index, follow" />
 
+    <!-- Safe WebSocket Shim for Vite HMR in iframe/dev server environment -->
+    <script>
+      (function() {
+        if (typeof window !== 'undefined' && window.WebSocket) {
+          const NativeWebSocket = window.WebSocket;
+          window.WebSocket = function(url, protocols) {
+            const isViteHmr = (protocols === 'vite-hmr') || (typeof url === 'string' && (url.includes('@vite') || url.includes('vite-hmr')));
+            if (isViteHmr) {
+              const fakeWs = new EventTarget();
+              fakeWs.binaryType = 'blob';
+              fakeWs.readyState = 1; // WebSocket.OPEN
+              fakeWs.url = url;
+              fakeWs.protocol = 'vite-hmr';
+              fakeWs.send = function() {};
+              fakeWs.close = function() {};
+              setTimeout(function() {
+                fakeWs.dispatchEvent(new Event('open'));
+              }, 10);
+              return fakeWs;
+            }
+            return new NativeWebSocket(url, protocols);
+          };
+          window.WebSocket.prototype = NativeWebSocket.prototype;
+          window.WebSocket.CONNECTING = 0;
+          window.WebSocket.OPEN = 1;
+          window.WebSocket.CLOSING = 2;
+          window.WebSocket.CLOSED = 3;
+        }
+
+        const isWsError = function(err) {
+          const msg = err?.message || err?.reason?.message || err?.reason || String(err || '');
+          return typeof msg === 'string' && (
+            msg.includes('WebSocket') ||
+            msg.includes('ws://') ||
+            msg.includes('wss://') ||
+            msg.includes('closed without opened') ||
+            msg.includes('@vite/client')
+          );
+        };
+
+        window.addEventListener('error', function(event) {
+          if (isWsError(event?.error || event)) {
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+            return true;
+          }
+          if (event?.error && !document.getElementById('root')?.innerHTML) {
+            console.error('Global error caught:', event.error);
+          }
+        }, true);
+
+        window.addEventListener('unhandledrejection', function(event) {
+          if (isWsError(event?.reason)) {
+            event.preventDefault();
+            event.stopPropagation();
+            event.stopImmediatePropagation();
+          }
+        }, true);
+      })();
+    </script>
+
     <!-- PWA & Mobile Web App Meta Tags -->
     <meta name="theme-color" content="#C65A28" />
     <meta name="mobile-web-app-capable" content="yes" />
@@ -57,25 +119,6 @@
   </head>
   <body>
     <div id="root"></div>
-    <script>
-      window.addEventListener('error', function(event) {
-        // Ignore harmless WebSocket errors in preview iframe environments
-        const msg = event?.message || event?.error?.message || '';
-        if (typeof msg === 'string' && (msg.includes('WebSocket') || msg.includes('ws://') || msg.includes('wss://'))) {
-          return;
-        }
-        console.error('Global error caught:', event.error);
-        if (!document.getElementById('root').innerHTML) {
-          document.getElementById('root').innerHTML = '<div style="padding: 20px; font-family: sans-serif; color: red;"><h2>Application Error</h2><p>' + (event.error ? event.error.message : event.message) + '</p></div>';
-        }
-      });
-      window.addEventListener('unhandledrejection', function(event) {
-        const msg = event?.reason?.message || event?.reason || '';
-        if (typeof msg === 'string' && (msg.includes('WebSocket') || msg.includes('ws://') || msg.includes('wss://'))) {
-          event.preventDefault();
-        }
-      });
-    </script>
 
     <script type="module" src="/src/main.tsx"></script>
   </body>

@@ -20,13 +20,17 @@ if (typeof window !== "undefined" && "serviceWorker" in navigator) {
 
 // Suppress Supabase refresh token and WebSocket errors globally
 const handleAuthError = (event: any) => {
-  const errorMsg = event.reason?.message || event.message || "";
+  const errorMsg = String(event?.reason?.message || event?.message || event?.reason || "");
   if (
     errorMsg.includes("WebSocket") ||
     errorMsg.includes("ws://") ||
-    errorMsg.includes("wss://")
+    errorMsg.includes("wss://") ||
+    errorMsg.includes("closed without opened") ||
+    errorMsg.includes("vite")
   ) {
     event.preventDefault?.();
+    event.stopPropagation?.();
+    event.stopImmediatePropagation?.();
     return;
   }
   if (
@@ -34,7 +38,7 @@ const handleAuthError = (event: any) => {
     errorMsg.includes("Invalid Refresh Token") ||
     errorMsg.includes("refresh_token")
   ) {
-    event.preventDefault(); // Stop it from surfacing as an unhandled error
+    event.preventDefault?.();
     try {
       const keys = Object.keys(window.localStorage);
       for (const key of keys) {
@@ -43,15 +47,14 @@ const handleAuthError = (event: any) => {
         }
       }
     } catch (e) {}
-    // We can choose to reload to login, but only if not already there
     if (!window.location.pathname.includes("/login")) {
       window.location.href = "/login";
     }
   }
 };
 
-window.addEventListener("unhandledrejection", handleAuthError);
-window.addEventListener("error", handleAuthError);
+window.addEventListener("unhandledrejection", handleAuthError, true);
+window.addEventListener("error", handleAuthError, true);
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

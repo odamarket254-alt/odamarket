@@ -36,7 +36,6 @@ import { Logo } from "../ui/Logo";
 import { Header } from "./Header";
 import { Footer } from "./Footer";
 import { useCartStore } from "../../store/useCartStore";
-import { PWASmartBanner } from "../pwa/PWASmartBanner";
 import { OfflineIndicator } from "../pwa/OfflineIndicator";
 
 const fallbackCategories = [
@@ -119,7 +118,6 @@ export default function RootLayout() {
 
   return (
     <div className="min-h-screen flex flex-col font-sans bg-background text-foreground overflow-x-hidden w-full max-w-full">
-      {!isAuthRoute && <PWASmartBanner />}
       {!isAuthRoute && <Header />}
 
       {/* Main Content Area */}

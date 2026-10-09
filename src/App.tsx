@@ -11,6 +11,7 @@ import { useAuthStore, loadStoredPendingOtpChallenge } from "./store/useAuthStor
 import { Loader2 } from "lucide-react";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { CookieConsent } from "./components/ui/CookieConsent";
+import { PWAInstallPromptPopup } from "./components/pwa/PWAInstallPromptPopup";
 import OneSignal from 'react-onesignal';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
@@ -310,6 +311,7 @@ export default function App() {
       </ErrorBoundary>
       <Toaster position="top-center" richColors />
       <CookieConsent />
+      <PWAInstallPromptPopup />
     </BrowserRouter>
     </QueryClientProvider>
   );

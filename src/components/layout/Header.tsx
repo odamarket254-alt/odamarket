@@ -7,6 +7,7 @@ import { useWishlistStore } from "../../store/useWishlistStore";
 import { getWhatsAppLink } from "../../utils/whatsapp";
 import { supabase } from "../../lib/supabase";
 import { NotificationBell } from "./NotificationBell";
+import { HeaderPWAInstallPrompt } from "../pwa/HeaderPWAInstallPrompt";
 import {
   MapPin,
   HelpCircle,
@@ -216,7 +217,9 @@ export function Header() {
 
   return (
     <header className={`w-full z-50 transition-all duration-300 ${scrolled ? "bg-white shadow-md fixed top-0" : "bg-white relative"}`}>
-      
+      {/* Compact Built-in Header PWA Install Prompt */}
+      <HeaderPWAInstallPrompt />
+
       {/* =========================================================
           MOBILE HEADER (Visible only on < md screens)
           ========================================================= */}

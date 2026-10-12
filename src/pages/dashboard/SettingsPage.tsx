@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
 import { toast } from 'sonner';
+import { useTranslation } from '../../context/LanguageContext';
 
 // Kenyan Counties List
 const KENYA_COUNTIES = [
@@ -128,6 +129,7 @@ export interface SettingsPageProps {
 
 export default function SettingsPage({ defaultTab }: SettingsPageProps = {}) {
   const { profile, user, setProfile, signOut } = useAuthStore();
+  const { language, setLanguage, t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -1078,23 +1080,32 @@ export default function SettingsPage({ defaultTab }: SettingsPageProps = {}) {
           .maybeSingle();
 
         if (!error && data) {
+          const prefLang = (data.language === 'sw' || data.language === 'en') ? data.language : 'en';
           setPreferences({
             currency: data.currency || 'KES',
-            language: data.language || 'en',
+            language: prefLang,
             theme: data.theme || 'system',
             delivery_window: data.delivery_window || 'anytime',
             packaging_preference: data.packaging_preference || 'eco_friendly',
             substitution_rule: data.substitution_rule || 'call_first',
             save_cart: data.save_cart ?? true,
           });
+          if (prefLang !== language) {
+            setLanguage(prefLang as any);
+          }
           return;
         }
 
         if (user.user_metadata?.buyer_preferences) {
+          const metaLang = user.user_metadata.buyer_preferences.language;
           setPreferences({
             ...DEFAULT_PREFERENCES,
-            ...user.user_metadata.buyer_preferences
+            ...user.user_metadata.buyer_preferences,
+            language: (metaLang === 'sw' || metaLang === 'en') ? metaLang : language
           });
+          if ((metaLang === 'sw' || metaLang === 'en') && metaLang !== language) {
+            setLanguage(metaLang);
+          }
         }
       } catch (err) {
         if (user.user_metadata?.buyer_preferences) {
@@ -1111,6 +1122,10 @@ export default function SettingsPage({ defaultTab }: SettingsPageProps = {}) {
 
   const handleUpdatePreference = async <K extends keyof BuyerPreferences>(key: K, value: BuyerPreferences[K]) => {
     if (!user) return;
+
+    if (key === 'language' && (value === 'en' || value === 'sw')) {
+      await setLanguage(value as any);
+    }
 
     const updated = {
       ...preferences,
@@ -1139,10 +1154,10 @@ export default function SettingsPage({ defaultTab }: SettingsPageProps = {}) {
         data: { buyer_preferences: updated }
       });
 
-      toast.success('Shopping preferences updated.');
+      toast.success(t('settings.saved_success', 'Shopping preferences updated.'));
     } catch (err) {
       console.error('Error saving preference:', err);
-      toast.error('Failed to save preference.');
+      toast.error(t('settings.save_error', 'Failed to save preference.'));
     } finally {
       setIsSavingPreferences(false);
     }
@@ -1952,16 +1967,19 @@ export default function SettingsPage({ defaultTab }: SettingsPageProps = {}) {
                 {/* Language */}
                 <div>
                   <label className="block text-sm font-medium text-foreground mb-1.5">
-                    Preferred Language
+                    {t('settings.preferred_language', 'Preferred Language')}
                   </label>
                   <select
-                    value={preferences.language}
+                    value={language}
                     onChange={(e) => handleUpdatePreference('language', e.target.value)}
-                    className="w-full px-4 py-2.5 border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm"
+                    className="w-full px-4 py-2.5 border rounded-lg bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm font-medium"
                   >
                     <option value="en">English (Default)</option>
                     <option value="sw">Kiswahili</option>
                   </select>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {t('settings.language_desc', 'Choose the language for browsing, notifications, and shopping.')}
+                  </p>
                 </div>
 
                 {/* Preferred Delivery Window */}

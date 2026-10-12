@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import { Flame, ArrowRight, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useRef } from 'react';
 import { cn } from '../../../lib/utils';
+import { useTranslation } from '../../../context/LanguageContext';
 
 interface ProductGridSectionProps {
   section: HomepageSection;
@@ -14,9 +15,27 @@ interface ProductGridSectionProps {
 }
 
 export const ProductGridSection = ({ section, sectionProducts, allProducts }: ProductGridSectionProps) => {
+  const { t, language } = useTranslation();
   const [products, setProducts] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(!allProducts);
   const scrollRef = useRef<HTMLDivElement>(null);
+
+  const getSectionTitle = () => {
+    const rawTitle = section.title || section.name || '';
+    if (language !== 'sw') return rawTitle;
+
+    const lower = rawTitle.toLowerCase();
+    if (lower.includes('featured') || section.type === 'featured_products') return 'Bidhaa Zilizoteuliwa';
+    if (lower.includes('flash') || section.type === 'flash_deals') return 'Ofa za Papo Hapo';
+    if (lower.includes('best deal') || lower.includes('deal of the week') || section.type === 'best_deals') return 'Ofa Bora za Wiki';
+    if (lower.includes('new arrival') || section.type === 'new_arrivals') return 'Bidhaa Mpya Zilizowasili';
+    if (lower.includes('wholesale') || section.type === 'wholesale_products') return 'Bidhaa za Jumla';
+    if (lower.includes('lowest price') || section.type === 'lowest_price') return 'Bei ya Chini Zaidi Kila Siku';
+    if (lower.includes('electronics') || section.type === 'electronics_zone') return 'Vifaa vya Kielektroniki';
+    if (lower.includes('choice') || section.type === 'odamarket_choice') return 'Chaguo la ODA Market';
+    if (lower.includes('best seller') || section.type === 'best_sellers') return 'Zinazouzwa Zaidi';
+    return rawTitle;
+  };
 
   const scrollLeft = () => {
     if (scrollRef.current) {
@@ -287,7 +306,7 @@ export const ProductGridSection = ({ section, sectionProducts, allProducts }: Pr
               "text-2xl md:text-3xl font-bold",
               section.settings?.background_color ? "text-white" : "text-[#3A2418]"
             )}>
-              {section.title || section.name}
+              {getSectionTitle()}
             </h2>
             {section.subtitle && (
               <p className={cn(
@@ -308,7 +327,7 @@ export const ProductGridSection = ({ section, sectionProducts, allProducts }: Pr
               section.settings?.background_color ? "text-white" : "text-[#C65A28]"
             )}
           >
-            View All <ArrowRight className="w-4 h-4" />
+            {t('home.view_all', 'View All')} <ArrowRight className="w-4 h-4" />
           </Link>
         )}
       </div>

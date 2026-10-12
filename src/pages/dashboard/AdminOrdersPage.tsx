@@ -85,6 +85,13 @@ export default function AdminOrdersPage() {
         return;
       }
 
+      // Guard: Fulfillment statuses require verified payment
+      const fulfillmentStatuses = ['processing', 'confirmed', 'ready_for_pickup', 'packed', 'ready', 'out_for_delivery', 'shipped', 'delivered'];
+      if (fulfillmentStatuses.includes(status.toLowerCase()) && existingOrder?.payment_status !== 'success') {
+        toast.error(`Cannot advance fulfillment for unpaid order. Payment is still ${existingOrder?.payment_status || 'pending'}.`);
+        return;
+      }
+
       // Map intermediate statuses to valid Postgres order_status enum values ('pending', 'processing', 'shipped', 'delivered', 'cancelled', 'refunded')
       const dbStatusMap: Record<string, string> = {
         confirmed: 'processing',
@@ -271,10 +278,22 @@ export default function AdminOrdersPage() {
                         </span>
                       </td>
                       <td className="px-6 py-4">
-                        <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold capitalize", statusConf.bg, statusConf.color)}>
-                          <StatusIcon className="w-3.5 h-3.5" />
-                          {order.status}
-                        </span>
+                        <div className="flex flex-col items-start gap-1">
+                          <span className={cn("inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize", statusConf.bg, statusConf.color)}>
+                            <StatusIcon className="w-3.5 h-3.5" />
+                            {order.status}
+                          </span>
+                          <span className={cn(
+                            "inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider",
+                            order.payment_status === 'success' 
+                              ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                              : order.payment_status === 'failed' || order.payment_status === 'abandoned'
+                              ? "bg-rose-50 text-rose-700 border border-rose-200"
+                              : "bg-amber-50 text-amber-700 border border-amber-200"
+                          )}>
+                            Payment: {order.payment_status === 'success' ? 'PAID' : (order.payment_status || 'PENDING')}
+                          </span>
+                        </div>
                       </td>
                       <td className="px-6 py-4">
                         <span className="text-sm font-bold text-[#3A2418] dark:text-white">

@@ -8,6 +8,7 @@ import { getWhatsAppLink } from "../../utils/whatsapp";
 import { supabase } from "../../lib/supabase";
 import { NotificationBell } from "./NotificationBell";
 import { HeaderPWAInstallPrompt } from "../pwa/HeaderPWAInstallPrompt";
+import { useTranslation } from "../../context/LanguageContext";
 import {
   MapPin,
   HelpCircle,
@@ -28,6 +29,9 @@ import {
 
 export function Header() {
   const { user, profile } = useAuthStore();
+  const { language, setLanguage, t } = useTranslation();
+  const [showLangMenu, setShowLangMenu] = useState(false);
+  const langDropdownRef = useRef<HTMLDivElement>(null);
   const cartCount = useCartStore((state) => state.getCartCount());
   const cartTotal = useCartStore((state) => state.getCartTotal());
   const { items: wishlistItems } = useWishlistStore();
@@ -48,6 +52,9 @@ export function Header() {
         mobileSearchContainerRef.current && !mobileSearchContainerRef.current.contains(event.target as Node)
       ) {
         setShowDropdown(false);
+      }
+      if (langDropdownRef.current && !langDropdownRef.current.contains(event.target as Node)) {
+        setShowLangMenu(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -231,6 +238,16 @@ export function Header() {
           </Link>
           
           <div className="flex items-center gap-1 sm:gap-2">
+            <button
+              type="button"
+              onClick={() => setLanguage(language === 'en' ? 'sw' : 'en')}
+              className="px-2 py-1 bg-[#FAF5EC] hover:bg-[#E8DCC9] border border-[#D9A62E]/30 rounded-lg text-xs font-bold text-[#3A2418] flex items-center gap-1 transition-colors shrink-0"
+              title={language === 'en' ? "Badilisha kwa Kiswahili" : "Switch to English"}
+              aria-label="Language switcher"
+            >
+              <Globe className="w-3.5 h-3.5 text-[#C65A28]" />
+              <span>{language === 'en' ? 'SW' : 'EN'}</span>
+            </button>
             <NotificationBell isMobile triggerClassName="w-11 h-11" />
             <Link to={user ? (profile?.role === 'admin' ? '/admin/dashboard' : `/${profile?.role === 'customer' ? 'buyer' : profile?.role || 'buyer'}/dashboard`) : '/login'} className="w-11 h-11 flex items-center justify-center text-[#5F5A54] hover:bg-gray-100 rounded-full transition-colors shrink-0">
               <User className="w-[22px] h-[22px]" />
@@ -295,34 +312,78 @@ export function Header() {
         <div className="bg-[#C65A28] text-white h-10 hidden md:flex items-center text-[13px]">
           <div className="w-full max-w-[1400px] mx-auto px-6 flex justify-between items-center h-full">
             {/* Left Side */}
+            {/* Left Side */}
             <div className="flex items-center h-full gap-4">
               <a href={getWhatsAppLink("Hello ODA Market, I would like to place an order.")} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 hover:text-[#D9A62E] transition-colors">
-                <MessageCircle className="w-4 h-4" /> WhatsApp Ordering
+                <MessageCircle className="w-4 h-4" /> {t('nav.whatsapp_ordering', 'WhatsApp Ordering')}
               </a>
               <span className="w-px h-4 bg-white/20"></span>
               <Link to="/track-order" className="flex items-center gap-1.5 hover:text-[#D9A62E] transition-colors">
-                <Package className="w-4 h-4" /> Track Order
+                <Package className="w-4 h-4" /> {t('nav.track_order', 'Track Order')}
               </Link>
               <span className="w-px h-4 bg-white/20"></span>
               <Link to="/store-locator" className="flex items-center gap-1.5 hover:text-[#D9A62E] transition-colors">
-                <MapPin className="w-4 h-4" /> Store Locator
+                <MapPin className="w-4 h-4" /> {t('nav.store_locator', 'Store Locator')}
               </Link>
             </div>
             
             {/* Center Banner */}
             <div className="flex items-center justify-center font-medium">
-              <span className="text-[#D9A62E] mr-2">🚚</span> Free delivery on orders over KSh 5,000!
+              <span className="text-[#D9A62E] mr-2">🚚</span> {t('nav.free_delivery_banner', 'Free delivery on orders over KSh 5,000!')}
             </div>
 
             {/* Right Side */}
             <div className="flex items-center h-full gap-4">
               <Link to="/help-center" className="flex items-center gap-1.5 hover:text-[#D9A62E] transition-colors">
-                <HelpCircle className="w-4 h-4" /> Help Center
+                <HelpCircle className="w-4 h-4" /> {t('nav.help_center', 'Help Center')}
               </Link>
               <span className="w-px h-4 bg-white/20"></span>
-              <button className="flex items-center gap-1.5 hover:text-[#D9A62E] transition-colors">
-                <Globe className="w-4 h-4" /> EN <ChevronDown className="w-3 h-3" />
-              </button>
+
+              {/* Language Switcher Dropdown */}
+              <div className="relative" ref={langDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setShowLangMenu(!showLangMenu)}
+                  className="flex items-center gap-1.5 hover:text-[#D9A62E] transition-colors font-medium text-xs uppercase"
+                  title="Switch Language / Badilisha Lugha"
+                  aria-expanded={showLangMenu}
+                >
+                  <Globe className="w-4 h-4 text-[#D9A62E]" />
+                  <span>{language.toUpperCase()}</span>
+                  <ChevronDown className="w-3 h-3" />
+                </button>
+                {showLangMenu && (
+                  <div className="absolute right-0 top-full mt-2 w-36 bg-white text-[#3A2418] rounded-xl shadow-xl border border-[#D9A62E]/20 py-1.5 z-[70]">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLanguage('en');
+                        setShowLangMenu(false);
+                      }}
+                      className={`w-full text-left px-3.5 py-2 text-xs font-medium flex items-center justify-between hover:bg-[#FAF5EC] transition-colors ${
+                        language === 'en' ? 'text-[#C65A28] font-bold bg-[#FAF5EC]/60' : 'text-gray-700'
+                      }`}
+                    >
+                      <span>English</span>
+                      {language === 'en' && <span className="text-[#C65A28] font-bold">✓</span>}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLanguage('sw');
+                        setShowLangMenu(false);
+                      }}
+                      className={`w-full text-left px-3.5 py-2 text-xs font-medium flex items-center justify-between hover:bg-[#FAF5EC] transition-colors ${
+                        language === 'sw' ? 'text-[#C65A28] font-bold bg-[#FAF5EC]/60' : 'text-gray-700'
+                      }`}
+                    >
+                      <span>Kiswahili</span>
+                      {language === 'sw' && <span className="text-[#C65A28] font-bold">✓</span>}
+                    </button>
+                  </div>
+                )}
+              </div>
+
               <span className="w-px h-4 bg-white/20"></span>
               <button className="flex items-center gap-1.5 hover:text-[#D9A62E] transition-colors">
                 <DollarSign className="w-4 h-4" /> KSh <ChevronDown className="w-3 h-3" />
@@ -346,7 +407,7 @@ export function Header() {
             <div ref={searchContainerRef} className="relative flex flex-1 w-full max-w-3xl mx-6 xl:mx-12 order-last md:order-none mt-3 md:mt-0">
               <div className="w-full flex items-center h-[50px] rounded-full border-2 border-[#C65A28] bg-white overflow-hidden focus-within:ring-2 focus-within:ring-[#C65A28]/20 transition-all">
                 <div className="hidden lg:flex items-center h-full px-4 border-r border-[#EAEAEA] bg-[#FAF5EC] cursor-pointer hover:bg-[#E8DCC9] shrink-0">
-                  <span className="text-sm font-medium text-[#5F5A54]">All Categories</span>
+                  <span className="text-sm font-medium text-[#5F5A54]">{t('nav.all_categories', 'All Categories')}</span>
                   <ChevronDown className="w-4 h-4 ml-2 text-[#5F5A54]" />
                 </div>
                 <form onSubmit={handleSearch} className="flex-1 flex items-center h-full">
@@ -355,14 +416,14 @@ export function Header() {
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                     onFocus={() => { if (searchQuery.trim()) setShowDropdown(true); }}
-                    placeholder="I'm shopping for..." 
+                    placeholder={t('nav.search_placeholder', "I'm shopping for...")} 
                     className="w-full h-full px-4 bg-transparent outline-none text-[#3A2418] placeholder-[#8B857D] text-[15px]"
                   />
                   <button 
                     type="submit"
                     className="h-full px-8 bg-[#C65A28] text-white flex items-center justify-center hover:bg-[#C65A28] transition-colors shrink-0 font-semibold"
                   >
-                    <Search className="w-5 h-5 mr-2" /> Search
+                    <Search className="w-5 h-5 mr-2" /> {t('nav.search_button', 'Search')}
                   </button>
                 </form>
               </div>
@@ -377,9 +438,9 @@ export function Header() {
                   <User className="w-5 h-5" strokeWidth={2} />
                 </div>
                 <div className="hidden xl:flex flex-col">
-                  <span className="text-[12px] text-[#5F5A54] group-hover:text-[#C65A28] transition-colors">Welcome</span>
+                  <span className="text-[12px] text-[#5F5A54] group-hover:text-[#C65A28] transition-colors">{t('nav.welcome', 'Welcome')}</span>
                   <span className="text-[14px] font-semibold text-[#3A2418] leading-tight">
-                    {user ? (profile?.first_name?.split(' ')[0] || 'My Account') : 'ODAMARKET'}
+                    {user ? (profile?.first_name?.split(' ')[0] || t('nav.my_account', 'My Account')) : 'ODAMARKET'}
                   </span>
                 </div>
               </Link>
@@ -410,7 +471,7 @@ export function Header() {
                   </span>
                 </div>
                 <div className="hidden lg:flex flex-col">
-                  <span className="text-[12px] text-[#5F5A54] group-hover:text-[#C65A28] transition-colors">My Cart</span>
+                  <span className="text-[12px] text-[#5F5A54] group-hover:text-[#C65A28] transition-colors">{t('nav.cart', 'My Cart')}</span>
                   <span className="text-[14px] font-bold text-[#3A2418] leading-tight">KSh {cartTotal.toLocaleString('en-US', { minimumFractionDigits: 2 })}</span>
                 </div>
               </Link>
@@ -426,22 +487,36 @@ export function Header() {
             <Link to="/categories" className="hidden md:flex w-[260px] h-full bg-[#C65A28] items-center justify-between px-5 text-white cursor-pointer hover:bg-[#C65A28] transition-colors shrink-0 group">
               <div className="flex items-center gap-3">
                 <Menu className="w-5 h-5" />
-                <span className="font-semibold text-[15px]">Browse Categories</span>
+                <span className="font-semibold text-[15px]">{t('nav.all_categories', 'Browse Categories')}</span>
               </div>
               <ChevronDown className="w-4 h-4" />
             </Link>
             
             {/* Scrollable Categories */}
             <div className="flex-1 flex overflow-x-auto gap-6 md:gap-8 h-full items-center scrollbar-hide [&::-webkit-scrollbar]:hidden scroll-smooth whitespace-nowrap px-4 md:px-0" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-              {categories.map((cat, idx) => (
-                <Link 
-                  key={idx} 
-                  to={`/products?category=${cat.slug}`} 
-                  className={`flex items-center text-[14px] font-medium transition-all duration-300 h-full relative shrink-0 group ${cat.highlight ? 'text-[#C65A28] font-bold' : 'text-[#3A2418] hover:text-[#C65A28]'}`}
-                >
-                  {cat.name}<span className="absolute bottom-0 left-0 w-full h-0.5 bg-[#D9A62E] transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left"></span>
-                </Link>
-              ))}
+              {categories.map((cat, idx) => {
+                let displayName = cat.name;
+                if (language === 'sw') {
+                  const lower = (cat.name || '').toLowerCase();
+                  if (lower.includes('deal') || lower.includes('offer')) displayName = 'Ofa Maalum';
+                  else if (lower.includes('produce')) displayName = 'Mazao ya Shambani';
+                  else if (lower.includes('meat') || lower.includes('seafood')) displayName = 'Nyama & Samaki';
+                  else if (lower.includes('dairy') || lower.includes('egg')) displayName = 'Maziwa & Mayai';
+                  else if (lower.includes('bakery')) displayName = 'Keki & Mikate';
+                  else if (lower.includes('beverage')) displayName = 'Vinywaji';
+                  else if (lower.includes('snack')) displayName = 'Vitafunwa';
+                  else if (lower.includes('household') || lower.includes('living')) displayName = 'Vifaa vya Nyumbani';
+                }
+                return (
+                  <Link 
+                    key={idx} 
+                    to={`/products?category=${cat.slug}`} 
+                    className={`flex items-center text-[14px] font-medium transition-all duration-300 h-full relative shrink-0 group ${cat.highlight ? 'text-[#C65A28] font-bold' : 'text-[#3A2418] hover:text-[#C65A28]'}`}
+                  >
+                    {displayName}<span className="absolute bottom-0 left-0 w-full h-0.5 bg-[#D9A62E] transform scale-x-0 group-hover:scale-x-100 transition-transform duration-300 origin-left"></span>
+                  </Link>
+                );
+              })}
             </div>
           </div>
         </div>

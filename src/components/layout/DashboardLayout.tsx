@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Outlet, Navigate, Link, useLocation } from "react-router-dom";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useMobileMenuStore } from "../../store/useMobileMenuStore";
+import { useTranslation } from "../../context/LanguageContext";
 import {
   Store,
   Heart,
@@ -32,6 +33,7 @@ import {
   Image as ImageIcon,
   Megaphone,
   StarHalf,
+  Globe
 } from "lucide-react";
 import { Truck, RefreshCcw, MapPin, CreditCard, Gift, Star, User, Headphones } from 'lucide-react';
 import { motion, AnimatePresence } from "motion/react";
@@ -48,6 +50,7 @@ import { getNavItems } from "../../utils/navigation";
 
 export default function DashboardLayout() {
   const { user, profile, isLoading, pendingOtpChallenge, signOut } = useAuthStore();
+  const { language, setLanguage, t } = useTranslation();
   const location = useLocation();
   const { isOpen: isMobileMenuOpen, setIsOpen: setIsMobileMenuOpen } = useMobileMenuStore();
 
@@ -89,7 +92,7 @@ export default function DashboardLayout() {
     await supabase.auth.signOut().catch(console.error);
   };
 
-  const navItems = getNavItems(profile?.role, profile?.verified);
+  const navItems = getNavItems(profile?.role, profile?.verified, t);
 
   return (
     <div className="min-h-[100dvh] flex bg-background font-sans text-foreground w-full max-w-full overflow-x-hidden">
@@ -187,6 +190,33 @@ export default function DashboardLayout() {
         </nav>
 
         <div className="p-4 border-t border-[#E8DCC9]/60 dark:border-border space-y-2">
+          {/* Language Switcher */}
+          <div className="flex items-center justify-between px-3 py-2 bg-[#FAF5EC]/60 dark:bg-muted/40 rounded-xl border border-[#D9A62E]/20 text-xs">
+            <span className="font-semibold text-foreground flex items-center gap-1.5">
+              <Globe className="w-3.5 h-3.5 text-[#C65A28]" /> {t('nav.switch_language', 'Language')}
+            </span>
+            <div className="flex items-center bg-white dark:bg-card rounded-lg p-0.5 border border-border">
+              <button
+                type="button"
+                onClick={() => setLanguage('en')}
+                className={`px-2 py-0.5 rounded text-[11px] font-bold transition-colors ${
+                  language === 'en' ? 'bg-[#3A2418] text-white shadow-xs' : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                EN
+              </button>
+              <button
+                type="button"
+                onClick={() => setLanguage('sw')}
+                className={`px-2 py-0.5 rounded text-[11px] font-bold transition-colors ${
+                  language === 'sw' ? 'bg-[#3A2418] text-white shadow-xs' : 'text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                SW
+              </button>
+            </div>
+          </div>
+
           <PWAInstallButton variant="inline" className="w-full justify-center !text-xs !py-2" />
           <Button
             variant="ghost"
@@ -194,7 +224,7 @@ export default function DashboardLayout() {
             onClick={handleSignOut}
           >
             <LogOut className="mr-2 h-4 w-4" />
-            Sign Out
+            {t('common.close', 'Sign Out')}
           </Button>
         </div>
       </aside>

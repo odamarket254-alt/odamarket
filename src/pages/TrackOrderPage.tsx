@@ -214,8 +214,15 @@ export default function TrackOrderPage() {
                     Placed on {order.created_at ? format(new Date(order.created_at), 'MMMM d, yyyy h:mm a') : 'Unknown date'}
                   </p>
                 </div>
-                <div className="px-4 py-2 bg-[#FAF5EC] text-[#C65A28] font-bold rounded-lg uppercase tracking-wider text-sm border border-[#E8DCC9]">
-                  {order.status || 'Pending'}
+                <div className="flex flex-col items-end gap-1">
+                  <div className="px-4 py-2 bg-[#FAF5EC] text-[#C65A28] font-bold rounded-lg uppercase tracking-wider text-sm border border-[#E8DCC9]">
+                    {order.status || 'Pending'}
+                  </div>
+                  <span className={`text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded ${
+                    order.payment_status === 'success' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'
+                  }`}>
+                    Payment: {order.payment_status === 'success' ? 'Verified Paid' : 'Pending Verification'}
+                  </span>
                 </div>
               </div>
 

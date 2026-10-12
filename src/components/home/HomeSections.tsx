@@ -7,6 +7,7 @@ import { Button } from '../ui/Button';
 import { ProductCard } from '../products/ProductCard';
 import useEmblaCarousel from 'embla-carousel-react';
 import { toast } from 'sonner';
+import { useTranslation } from '../../context/LanguageContext';
 
 export const HeroSection = ({ slides }: { slides: any[] }) => {
   const [heroRef, heroApi] = useEmblaCarousel({ loop: true });
@@ -84,6 +85,7 @@ export const PromoCardsSection = ({ banners }: { banners: any[] }) => {
 export const ProductCarouselSection = ({ title, icon: Icon, iconColor, products }: any) => {
   const [emblaRef] = useEmblaCarousel({ align: 'start', containScroll: 'trimSnaps' });
   const navigate = useNavigate();
+  const { t } = useTranslation();
 
   if (!products || products.length === 0) return null;
 
@@ -95,10 +97,10 @@ export const ProductCarouselSection = ({ title, icon: Icon, iconColor, products 
             <Icon className={`w-5 h-5 ${iconColor}`} />
             <span className={`text-sm font-semibold uppercase tracking-wider ${iconColor}`}>{title}</span>
           </div>
-          <h2 className="text-2xl md:text-3xl font-bold text-[#3A2418]">Featured For You</h2>
+          <h2 className="text-2xl md:text-3xl font-bold text-[#3A2418]">{t('home.featured_for_you', 'Featured For You')}</h2>
         </div>
         <Button variant="ghost" className="text-[#C65A28] hover:bg-[#C65A28]/10 hidden md:flex" onClick={() => navigate('/products')}>
-          View All <ArrowRight className="ml-2 w-4 h-4" />
+          {t('home.view_all', 'View All')} <ArrowRight className="ml-2 w-4 h-4" />
         </Button>
       </div>
       <div className="overflow-hidden" ref={emblaRef}>
@@ -115,25 +117,41 @@ export const ProductCarouselSection = ({ title, icon: Icon, iconColor, products 
 };
 
 export const WeeklyDealsSection = () => {
+  const { t } = useTranslation();
+  const navigate = useNavigate();
+
   return (
     <section className="w-full bg-[#E8F5E9] py-16 mb-20">
       <div className="max-w-[1400px] mx-auto px-4 sm:px-6">
         <div className="flex flex-col lg:flex-row items-center gap-12">
           <div className="flex-1 text-center lg:text-left">
-            <span className="inline-block px-3 py-1 bg-red-100 text-red-600 font-semibold rounded-full mb-4">Ends Soon!</span>
-            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#3A2418] mb-4">Deal of the Week</h2>
+            <span className="inline-block px-3 py-1 bg-red-100 text-red-600 font-semibold rounded-full mb-4">
+              {t('home.ends_soon', 'Ends Soon!')}
+            </span>
+            <h2 className="text-3xl md:text-4xl lg:text-5xl font-bold text-[#3A2418] mb-4">
+              {t('home.deal_of_week', 'Deal of the Week')}
+            </h2>
             <p className="text-[#5F5A54] text-lg mb-8 max-w-xl mx-auto lg:mx-0">
-              Don't miss out on our spectacular weekly deals. Grab premium products at massive discounts before the timer runs out.
+              {t('home.deal_desc', "Don't miss out on our spectacular weekly deals. Grab premium products at massive discounts before the timer runs out.")}
             </p>
             <div className="flex justify-center lg:justify-start mb-8 gap-4">
-              <div className="flex flex-col items-center"><div className="w-14 h-14 bg-[#FFFDF8] rounded-xl flex items-center justify-center text-xl font-bold text-[#C65A28] shadow-sm mb-1">02</div><span className="text-xs text-[#5F5A54] font-medium uppercase tracking-wider">Days</span></div>
+              <div className="flex flex-col items-center">
+                <div className="w-14 h-14 bg-[#FFFDF8] rounded-xl flex items-center justify-center text-xl font-bold text-[#C65A28] shadow-sm mb-1">02</div>
+                <span className="text-xs text-[#5F5A54] font-medium uppercase tracking-wider">{t('home.days', 'Days')}</span>
+              </div>
               <div className="text-2xl font-bold text-[#8B857D] mt-3">:</div>
-              <div className="flex flex-col items-center"><div className="w-14 h-14 bg-[#FFFDF8] rounded-xl flex items-center justify-center text-xl font-bold text-[#C65A28] shadow-sm mb-1">14</div><span className="text-xs text-[#5F5A54] font-medium uppercase tracking-wider">Hours</span></div>
+              <div className="flex flex-col items-center">
+                <div className="w-14 h-14 bg-[#FFFDF8] rounded-xl flex items-center justify-center text-xl font-bold text-[#C65A28] shadow-sm mb-1">14</div>
+                <span className="text-xs text-[#5F5A54] font-medium uppercase tracking-wider">{t('home.hours', 'Hours')}</span>
+              </div>
               <div className="text-2xl font-bold text-[#8B857D] mt-3">:</div>
-              <div className="flex flex-col items-center"><div className="w-14 h-14 bg-[#FFFDF8] rounded-xl flex items-center justify-center text-xl font-bold text-[#C65A28] shadow-sm mb-1">45</div><span className="text-xs text-[#5F5A54] font-medium uppercase tracking-wider">Mins</span></div>
+              <div className="flex flex-col items-center">
+                <div className="w-14 h-14 bg-[#FFFDF8] rounded-xl flex items-center justify-center text-xl font-bold text-[#C65A28] shadow-sm mb-1">45</div>
+                <span className="text-xs text-[#5F5A54] font-medium uppercase tracking-wider">{t('home.mins', 'Mins')}</span>
+              </div>
             </div>
-            <Button className="bg-[#C65A28] hover:bg-[#C65A28] text-white px-8 py-6 rounded-full text-lg shadow-lg shadow-[#C65A28]/30 hover:-translate-y-1 transition-all">
-              View All Deals <ArrowRight className="ml-2 w-5 h-5" />
+            <Button onClick={() => navigate('/products')} className="bg-[#C65A28] hover:bg-[#C65A28] text-white px-8 py-6 rounded-full text-lg shadow-lg shadow-[#C65A28]/30 hover:-translate-y-1 transition-all">
+              {t('home.view_all_deals', 'View All Deals')} <ArrowRight className="ml-2 w-5 h-5" />
             </Button>
           </div>
           <div className="flex-1 w-full relative">
@@ -149,30 +167,38 @@ export const WeeklyDealsSection = () => {
   );
 };
 
-export const WhyUsSection = () => (
-  <section className="w-full max-w-[1400px] mx-auto px-4 sm:px-6 mb-20">
-    <div className="text-center mb-12">
-      <h2 className="text-2xl md:text-3xl font-bold text-[#3A2418] mb-4">Why Shop With ODA Market</h2>
-      <p className="text-[#5F5A54] max-w-2xl mx-auto">We are committed to providing you with the best shopping experience, premium quality products, and exceptional customer service.</p>
-    </div>
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      {[
-        { icon: ShieldCheck, title: "100% Secure Payments", desc: "Your transactions are protected with enterprise-grade security." },
-        { icon: Truck, title: "Same Day Delivery", desc: "Get your groceries delivered fresh to your door in hours." },
-        { icon: RefreshCw, title: "Easy Returns", desc: "Not satisfied? Return products easily within 7 days." },
-        { icon: Zap, title: "Daily Flash Sales", desc: "Enjoy massive discounts on everyday essentials." }
-      ].map((feature, idx) => (
-        <div key={idx} className="bg-[#FFFDF8] p-6 rounded-2xl border border-[#E8DCC9] shadow-sm text-center hover:shadow-md transition-all group">
-          <div className="w-16 h-16 bg-[#C65A28]/10 text-[#C65A28] rounded-full flex items-center justify-center mx-auto mb-6 group-hover:scale-110 group-hover:bg-[#C65A28] group-hover:text-white transition-all duration-300">
-            <feature.icon className="w-8 h-8" />
+export const WhyUsSection = () => {
+  const { t } = useTranslation();
+
+  return (
+    <section className="w-full max-w-[1400px] mx-auto px-4 sm:px-6 mb-20">
+      <div className="text-center mb-12">
+        <h2 className="text-2xl md:text-3xl font-bold text-[#3A2418] mb-4">
+          {t('home.why_shop', 'Why Shop With ODA Market')}
+        </h2>
+        <p className="text-[#5F5A54] max-w-2xl mx-auto">
+          {t('home.why_shop_desc', 'We are committed to providing you with the best shopping experience, premium quality products, and exceptional customer service.')}
+        </p>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {[
+          { icon: ShieldCheck, title: t('home.secure_payments', '100% Secure Payments'), desc: t('home.secure_payments_desc', 'Your transactions are protected with enterprise-grade security.') },
+          { icon: Truck, title: t('home.same_day_delivery', 'Same Day Delivery'), desc: t('home.same_day_delivery_desc', 'Get your groceries delivered fresh to your door in hours.') },
+          { icon: RefreshCw, title: t('home.easy_returns', 'Easy Returns'), desc: t('home.easy_returns_desc', 'Not satisfied? Return products easily within 7 days.') },
+          { icon: Zap, title: t('home.flash_sales', 'Daily Flash Sales'), desc: t('home.flash_sales_desc', 'Enjoy massive discounts on everyday essentials.') }
+        ].map((feature, idx) => (
+          <div key={idx} className="bg-[#FFFDF8] p-6 rounded-2xl border border-[#E8DCC9] shadow-sm text-center hover:shadow-md transition-all group">
+            <div className="w-16 h-16 bg-[#C65A28]/10 text-[#C65A28] rounded-full flex items-center justify-center mx-auto mb-6 group-hover:scale-110 group-hover:bg-[#C65A28] group-hover:text-white transition-all duration-300">
+              <feature.icon className="w-8 h-8" />
+            </div>
+            <h3 className="text-lg font-bold text-[#3A2418] mb-3">{feature.title}</h3>
+            <p className="text-[#5F5A54] text-sm leading-relaxed">{feature.desc}</p>
           </div>
-          <h3 className="text-lg font-bold text-[#3A2418] mb-3">{feature.title}</h3>
-          <p className="text-[#5F5A54] text-sm leading-relaxed">{feature.desc}</p>
-        </div>
-      ))}
-    </div>
-  </section>
-);
+        ))}
+      </div>
+    </section>
+  );
+};
 
 export const BrandsSection = ({ brands }: { brands: any[] }) => {
   const [brandsRef, brandsApi] = useEmblaCarousel({ align: 'start', loop: true, dragFree: true });

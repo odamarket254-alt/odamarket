@@ -1,9 +1,10 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, Store, MessageCircle, User, ShoppingCart, Package, Menu, X, ShieldCheck, LogOut, Tags, LayoutDashboard, Truck, Heart, Gift, Ticket, CreditCard, MapPin, Bell, Headphones, Settings, FolderTree } from "lucide-react";
+import { Home, Store, MessageCircle, User, ShoppingCart, Package, Menu, X, ShieldCheck, LogOut, Tags, LayoutDashboard, Truck, Heart, Gift, Ticket, CreditCard, MapPin, Bell, Headphones, Settings, FolderTree, Globe } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useCartStore } from "../../store/useCartStore";
 import { useMobileMenuStore } from "../../store/useMobileMenuStore";
+import { useTranslation } from "../../context/LanguageContext";
 import { getWhatsAppLink } from "../../utils/whatsapp";
 import { getNavItems } from "../../utils/navigation";
 import { PWAInstallButton } from "../pwa/PWAInstallButton";
@@ -14,6 +15,7 @@ export function MobileBottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, profile } = useAuthStore();
+  const { language, setLanguage, t } = useTranslation();
   const cartCount = useCartStore((state) => state.getCartCount());
   
   const { isOpen, setIsOpen } = useMobileMenuStore();
@@ -25,15 +27,15 @@ export function MobileBottomNav() {
 
   const isPremium = profile?.role === "seller" && profile?.verified;
   
-  // Use dynamically generated items based on role
-  const drawerItems = getNavItems(profile?.role, profile?.verified);
+  // Use dynamically generated items based on role, translated with t
+  const drawerItems = getNavItems(profile?.role, profile?.verified, t);
 
   const bottomNavItems = [
-    { name: "Home", href: "/", icon: Home },
-    { name: "Shop", href: "/products", icon: Store },
-    { name: "Cart", href: "/cart", icon: ShoppingCart },
-    { name: "Orders", href: "/buyer/dashboard/orders", icon: Package },
-    { name: "More", href: "#", icon: Menu, action: () => setIsOpen(true) },
+    { name: t('nav.home', "Home"), href: "/", icon: Home },
+    { name: t('nav.shop', "Shop"), href: "/products", icon: Store },
+    { name: t('nav.cart', "Cart"), href: "/cart", icon: ShoppingCart },
+    { name: t('nav.orders', "Orders"), href: "/buyer/dashboard/orders", icon: Package },
+    { name: t('nav.more', "More"), href: "#", icon: Menu, action: () => setIsOpen(true) },
   ];
 
   return (
@@ -133,6 +135,33 @@ export function MobileBottomNav() {
               </div>
 
               <div className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
+                {/* Language Switcher in Drawer */}
+                <div className="flex items-center justify-between p-3 bg-muted/40 rounded-xl mb-3 border border-border">
+                  <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                    <Globe className="w-4 h-4 text-[#C65A28]" /> {t('nav.switch_language', 'Language')}:
+                  </span>
+                  <div className="flex items-center text-xs font-semibold bg-background rounded-lg p-0.5 border border-border">
+                    <button
+                      type="button"
+                      onClick={() => setLanguage('en')}
+                      className={`px-2.5 py-1 rounded-md transition-colors ${
+                        language === 'en' ? 'bg-[#3A2418] text-white shadow-xs' : 'text-muted-foreground'
+                      }`}
+                    >
+                      English
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLanguage('sw')}
+                      className={`px-2.5 py-1 rounded-md transition-colors ${
+                        language === 'sw' ? 'bg-[#3A2418] text-white shadow-xs' : 'text-muted-foreground'
+                      }`}
+                    >
+                      Kiswahili
+                    </button>
+                  </div>
+                </div>
+
                 <PWAInstallButton variant="drawer" onInstalled={() => setIsOpen(false)} />
                 {!user && (
                    <Link
@@ -144,7 +173,7 @@ export function MobileBottomNav() {
                       )}
                     >
                       <Store className="h-6 w-6" />
-                      Shop
+                      {t('nav.shop', 'Shop')}
                   </Link>
                 )}
                 {drawerItems.map((item) => {
@@ -192,13 +221,13 @@ export function MobileBottomNav() {
                     }}
                     className="flex items-center justify-center w-full gap-2 px-4 h-12 text-sm font-bold bg-muted hover:bg-muted-foreground/10 text-foreground border border-border rounded-xl transition-colors"
                   >
-                    Back to Market
+                    {t('common.back', 'Back to Market')}
                   </button>
                   <button
                     onClick={handleSignOut}
                     className="flex items-center justify-start w-full gap-2 px-4 h-12 text-sm font-bold text-[#B94A48] hover:bg-[#B94A48]/10 hover:text-red-400 rounded-xl transition-colors"
                   >
-                    <LogOut className="h-5 w-5 mr-2" /> Sign Out
+                    <LogOut className="h-5 w-5 mr-2" /> {t('common.close', 'Sign Out')}
                   </button>
                 </div>
               ) : (
@@ -208,7 +237,7 @@ export function MobileBottomNav() {
                     onClick={() => setIsOpen(false)}
                     className="flex items-center justify-center w-full gap-2 px-4 h-12 text-sm font-bold bg-[#C65A28] text-white rounded-xl transition-colors"
                   >
-                    Sign In to your Account
+                    {t('nav.sign_in', 'Sign In to your Account')}
                   </Link>
                 </div>
               )}

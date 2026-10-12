@@ -82,8 +82,8 @@ async function startServer() {
   app.set("trust proxy", 1);
   const PORT = 3000;
 
-  // Webhook must be parsed as raw text/buffer for signature verification
-  app.post("/api/webhook/paystack", express.raw({ type: 'application/json' }), handlePaystackWebhook);
+  // Webhook must be parsed as raw buffer for cryptographic signature verification
+  app.post("/api/webhook/paystack", express.raw({ type: '*/*' }), handlePaystackWebhook);
 
   app.use(express.json({ limit: "50mb" })); // Increase limit for file uploads
 

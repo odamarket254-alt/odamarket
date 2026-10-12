@@ -5,10 +5,12 @@ import { supabase } from "../lib/supabase";
 import { Search, ChevronDown, ChevronRight, LayoutGrid, List, SlidersHorizontal, X, Loader2, Star } from "lucide-react";
 import { cn } from "../lib/utils";
 import { ProductCard } from "../components/products/ProductCard";
+import { useTranslation } from "../context/LanguageContext";
 
 const ITEMS_PER_PAGE = 20;
 
 export default function ProductsPage() {
+  const { t, language } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   
   const query = searchParams.get("q") || "";
@@ -213,11 +215,11 @@ export default function ProductsPage() {
       <div className="border-b border-[#E5E7EB] bg-[#FFFDF8]">
         <div className="max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <nav className="flex text-[13px] font-medium text-[#6B7280]">
-            <Link to="/" className="hover:text-[slate-900] transition-colors">Home</Link>
+            <Link to="/" className="hover:text-[slate-900] transition-colors">{t('nav.home', 'Home')}</Link>
             <ChevronRight className="w-4 h-4 mx-2" />
-            <Link to="/categories" className="hover:text-[slate-900] transition-colors cursor-pointer">Categories</Link>
+            <Link to="/categories" className="hover:text-[slate-900] transition-colors cursor-pointer">{t('nav.categories', 'Categories')}</Link>
             <ChevronRight className="w-4 h-4 mx-2" />
-            <span className="text-[slate-900] font-bold">All Products</span>
+            <span className="text-[slate-900] font-bold">{t('products.all_products', 'All Products')}</span>
           </nav>
         </div>
       </div>
@@ -226,10 +228,10 @@ export default function ProductsPage() {
         <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-6 mb-8">
           <div>
             <h1 className="text-[28px] lg:text-[32px] font-black tracking-tight text-[slate-900] mb-2">
-              {query ? `Search results for "${query}"` : "All Products"}
+              {query ? `${t('products.results_for', 'Results for')} "${query}"` : t('products.all_products', 'All Products')}
             </h1>
             <p className="text-[#6B7280] font-medium">
-              Showing {(pageParam - 1) * ITEMS_PER_PAGE + 1}–{Math.min(pageParam * ITEMS_PER_PAGE, totalProducts)} of {totalProducts} Products
+              {t('products.showing_results', 'Showing products')} {(pageParam - 1) * ITEMS_PER_PAGE + 1}–{Math.min(pageParam * ITEMS_PER_PAGE, totalProducts)} / {totalProducts}
             </p>
           </div>
 
@@ -239,7 +241,7 @@ export default function ProductsPage() {
               className="lg:hidden flex items-center gap-2 h-10 px-4 bg-[#FFFDF8] border border-[#E5E7EB] rounded-lg text-[#374151] font-medium text-[14px]"
             >
               <SlidersHorizontal className="w-4 h-4" />
-              Filters
+              {t('products.filter_by', 'Filters')}
             </button>
 
             <div className="hidden sm:flex bg-[#FFFDF8] border border-[#E5E7EB] rounded-lg p-1">
@@ -263,9 +265,9 @@ export default function ProductsPage() {
                 onChange={(e) => updateParams({ sort: e.target.value })}
                 className="h-10 pl-4 pr-10 bg-[#FFFDF8] border border-[#E5E7EB] rounded-lg text-[#374151] font-medium text-[14px] appearance-none focus:outline-none focus:border-[slate-900] cursor-pointer"
               >
-                <option value="latest">Latest Arrivals</option>
-                <option value="price_asc">Price: Low to High</option>
-                <option value="price_desc">Price: High to Low</option>
+                <option value="latest">{t('products.sort_newest', 'Latest Arrivals')}</option>
+                <option value="price_asc">{t('products.sort_price_low', 'Price: Low to High')}</option>
+                <option value="price_desc">{t('products.sort_price_high', 'Price: High to Low')}</option>
               </select>
               <ChevronDown className="w-4 h-4 absolute right-3 top-1/2 -translate-y-1/2 text-[#6B7280] pointer-events-none" />
             </div>

@@ -8,12 +8,14 @@ import { useCartStore } from '../../store/useCartStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useWishlistStore } from '../../store/useWishlistStore';
 import { toast } from 'sonner';
+import { useTranslation } from '../../context/LanguageContext';
 
 interface WholesaleSectionProps {
   products?: any[];
 }
 
 export const WholesaleSection = ({ products: initialProducts }: WholesaleSectionProps) => {
+  const { t, language } = useTranslation();
   const [products, setProducts] = useState<any[]>(initialProducts || []);
   const [isLoading, setIsLoading] = useState(!initialProducts);
 
@@ -67,15 +69,17 @@ export const WholesaleSection = ({ products: initialProducts }: WholesaleSection
         <div className="flex justify-between items-end mb-6">
           <div>
             <h2 className="text-2xl sm:text-3xl font-bold flex items-center gap-3 text-[#3A2418]">
-              Wholesale Products
+              {language === 'sw' ? 'Bidhaa za Jumla' : 'Wholesale Products'}
             </h2>
-            <p className="text-[#5F5A54] mt-1.5 text-sm md:text-base">Buy in bulk and save more everyday</p>
+            <p className="text-[#5F5A54] mt-1.5 text-sm md:text-base">
+              {language === 'sw' ? 'Nunua kwa jumla na uokoe zaidi kila siku' : 'Buy in bulk and save more everyday'}
+            </p>
           </div>
           <Link
             to="/products?is_wholesale=true"
             className="hidden sm:flex items-center gap-2 text-sm font-semibold text-[#C65A28] hover:underline"
           >
-            View All <ArrowRight className="w-4 h-4" />
+            {t('home.view_all', 'View All')} <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
         {/* Horizontal Carousel (All Devices) */}
@@ -96,7 +100,7 @@ export const WholesaleSection = ({ products: initialProducts }: WholesaleSection
             to="/products?is_wholesale=true"
             className="flex items-center justify-center gap-2 w-full max-w-[200px] py-2.5 px-4 border border-[#C65A28] text-[#C65A28] rounded-full text-sm font-medium hover:bg-[#C65A28] hover:text-white transition-colors"
           >
-            View All Products <ArrowRight className="w-4 h-4" />
+            {language === 'sw' ? 'Tazama Bidhaa Zote' : 'View All Products'} <ArrowRight className="w-4 h-4" />
           </Link>
         </div>
       </div>

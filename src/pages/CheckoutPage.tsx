@@ -30,8 +30,10 @@ import {
   PackageCheck,
   Headphones
 } from "lucide-react";
+import { useTranslation } from "../context/LanguageContext";
 
 export default function CheckoutPage() {
+  const { t, language } = useTranslation();
   const { 
     items, 
     deliveryMethod, 
@@ -57,6 +59,8 @@ export default function CheckoutPage() {
   const [receiptError, setReceiptError] = useState<string | null>(null);
   const [loadingText, setLoadingText] = useState("");
   const [isEditingDeliveryMethod, setIsEditingDeliveryMethod] = useState(false);
+  const [activePendingOrderId, setActivePendingOrderId] = useState<string | null>(null);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
 
   // Load Paystack Script
   useEffect(() => {
@@ -160,6 +164,7 @@ export default function CheckoutPage() {
 
   const handlePlaceOrder = async () => {
     setIsProcessing(true);
+    setPaymentError(null);
     setLoadingText("Connecting to secure checkout...");
     
     try {
@@ -188,37 +193,57 @@ export default function CheckoutPage() {
           contactDetails: contactDetails,
           paymentMethod: 'M-Pesa',
           deliveryMethod: deliveryMethod,
-          deliveryFee: deliveryFee
+          deliveryFee: deliveryFee,
+          existingOrderId: activePendingOrderId
         })
       });
 
       const data = await response.json();
 
-      if (!response.ok) {
+      if (!response.ok || !data.orderId) {
         throw new Error(data.error + (data.details ? " " + JSON.stringify(data.details) : ''));
       }
 
+      const currentOrderId = data.orderId;
+      setActivePendingOrderId(currentOrderId);
+
       const verifyAndComplete = async (reference?: string) => {
-        setLoadingText("Verifying payment...");
+        setLoadingText("Verifying payment with Paystack...");
         try {
           const verifyResponse = await fetch('/api/checkout/verify', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ orderId: data.orderId, reference })
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`
+            },
+            body: JSON.stringify({ orderId: currentOrderId, reference })
           });
           const verifyData = await verifyResponse.json();
-          if (verifyResponse.ok) {
+
+          if (verifyResponse.ok && verifyData.success) {
             setConfirmedOrder(verifyData);
+            setIsProcessing(false);
+            setIsSuccess(true);
+            setPaymentError(null);
+            clearCart();
+            toast.success("Payment verified! Order placed successfully.");
           } else {
-            setReceiptError("Your payment was successful, but we couldn't generate the receipt. Please contact support.");
+            // AUTHORITATIVE FAILURE: Do NOT mark success, do NOT clear cart
+            const errorMsg = verifyData.message || "Payment verification failed. Your card or M-Pesa account was not charged.";
+            console.error("Payment verification failed:", verifyData);
+            setPaymentError(errorMsg);
+            toast.error(errorMsg);
+            setIsProcessing(false);
+            setIsSuccess(false);
           }
-        } catch (e) {
-          console.error(e);
-          setReceiptError("Your payment was successful, but we couldn't generate the receipt. Please try again.");
+        } catch (e: any) {
+          console.error("Verification error:", e);
+          const errorMsg = "Network timeout verifying payment. If you completed M-Pesa payment, your order will automatically be confirmed within 1-2 minutes.";
+          setPaymentError(errorMsg);
+          toast.error(errorMsg);
+          setIsProcessing(false);
+          setIsSuccess(false);
         }
-        setIsProcessing(false);
-        setIsSuccess(true);
-        clearCart();
       };
 
       const paystackKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || "pk_live_placeholder";
@@ -237,11 +262,11 @@ export default function CheckoutPage() {
         key: paystackKey,
         email: contactDetails.userEmail || "customer@example.com",
         amount: Math.round(cartTotal * 100), // in cents/kobo
-        currency: 'KES', // adjust to your currency
+        currency: 'KES',
         channels: ['mobile_money'], // Force M-Pesa/Mobile Money only
-        ref: `ord_${data.orderId}_${Math.floor((Math.random() * 1000000000) + 1)}`,
+        ref: `ord_${currentOrderId}_${Math.floor((Math.random() * 1000000000) + 1)}`,
         onClose: function(){
-          toast.error("Payment window closed.");
+          toast.info("Payment window closed. Your order is pending payment. You can retry payment whenever you are ready.");
           setIsProcessing(false);
         },
         callback: function(response: any){
@@ -493,11 +518,11 @@ export default function CheckoutPage() {
         
         {/* Breadcrumb */}
         <div className="text-[13px] text-[#6B7280] mb-6 flex items-center gap-2">
-          <Link to="/" className="hover:text-[slate-900]">Home</Link>
+          <Link to="/" className="hover:text-[slate-900]">{t('nav.home', 'Home')}</Link>
           <span>&gt;</span>
-          <Link to="/cart" className="hover:text-[slate-900]">Cart</Link>
+          <Link to="/cart" className="hover:text-[slate-900]">{t('nav.cart', 'Cart')}</Link>
           <span>&gt;</span>
-          <span className="text-[slate-900] font-medium">Checkout</span>
+          <span className="text-[slate-900] font-medium">{t('checkout.title', 'Checkout')}</span>
         </div>
 
         {/* Checkout Progress */}
@@ -507,27 +532,27 @@ export default function CheckoutPage() {
               <div className="w-8 h-8 rounded-full bg-[#C65A28] text-white flex items-center justify-center font-bold text-[14px]">
                 <CheckCircle2 className="w-5 h-5" />
               </div>
-              <span className="text-[slate-900] font-bold text-[15px]">Cart</span>
+              <span className="text-[slate-900] font-bold text-[15px]">{t('nav.cart', 'Cart')}</span>
             </div>
             <div className="w-8 sm:w-12 h-[2px] bg-[#C65A28] shrink-0" />
             <div className="flex items-center gap-2 shrink-0">
               <div className="w-8 h-8 rounded-full bg-[slate-900] text-white flex items-center justify-center font-bold text-[14px]">
                 2
               </div>
-              <span className="text-[slate-900] font-bold text-[15px]">Checkout</span>
+              <span className="text-[slate-900] font-bold text-[15px]">{t('checkout.title', 'Checkout')}</span>
             </div>
             <div className="w-8 sm:w-12 h-[2px] bg-[#E5E7EB] shrink-0" />
             <div className="flex items-center gap-2 shrink-0 opacity-50">
               <div className="w-8 h-8 rounded-full bg-[#FFFDF8] border-2 border-[#E5E7EB] text-[#6B7280] flex items-center justify-center font-bold text-[14px]">
                 3
               </div>
-              <span className="text-[#6B7280] font-bold text-[15px]">Order Complete</span>
+              <span className="text-[#6B7280] font-bold text-[15px]">{language === 'sw' ? 'Agizo Limekamilika' : 'Order Complete'}</span>
             </div>
           </div>
 
           <div className="flex items-center gap-2 text-[#C65A28] bg-[#ECFDF5] px-4 py-2 rounded-full border border-[#A7F3D0] shrink-0 self-start md:self-auto">
             <ShieldCheck className="w-5 h-5" />
-            <span className="font-bold text-[13px]">Secure Checkout</span>
+            <span className="font-bold text-[13px]">{t('cart.secure_checkout', 'Secure Checkout')}</span>
           </div>
         </div>
 
@@ -863,13 +888,27 @@ export default function CheckoutPage() {
               />
             </div>
 
+            {/* Payment Error Banner if verification failed */}
+            {paymentError && (
+              <div className="bg-rose-50 border border-rose-200 rounded-[16px] p-4 flex items-start gap-3 text-rose-800">
+                <Info className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
+                <div className="flex-1 text-sm">
+                  <p className="font-semibold mb-1">Payment Unsuccessful</p>
+                  <p className="text-rose-700">{paymentError}</p>
+                  <p className="text-xs text-rose-600 mt-2">
+                    Your items are safely retained. Click below to retry payment securely.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Place Order Button */}
             <button 
               onClick={handlePlaceOrder}
               disabled={items.length === 0}
               className="w-full h-[64px] bg-[#C65A28] hover:bg-[#C65A28] text-white rounded-[16px] font-bold text-[20px] flex items-center justify-center gap-3 transition-colors shadow-lg shadow-[#C65A28]/20 hover:scale-[1.01] transform duration-300 disabled:opacity-70 disabled:hover:scale-100"
             >
-              <Lock className="w-6 h-6" /> Place Order with M-Pesa
+              <Lock className="w-6 h-6" /> {activePendingOrderId ? "Retry Payment with M-Pesa" : "Place Order with M-Pesa"}
             </button>
 
           </div>

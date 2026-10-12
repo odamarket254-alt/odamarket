@@ -22,14 +22,15 @@ const fetchKPIData = async () => {
     { data: revenueData },
     { data: lowStockData }
   ] = await Promise.all([
-    supabase.from('orders').select('*', { count: 'exact', head: true }).neq('status', 'pending').neq('status', 'cancelled').gte('created_at', today.toISOString()),
-    supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'pending'),
-    supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'delivered'),
-    supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'cancelled'),
+    // Authoritative revenue and orders strictly count verified successful payments
+    supabase.from('orders').select('*', { count: 'exact', head: true }).eq('payment_status', 'success').gte('created_at', today.toISOString()),
+    supabase.from('orders').select('*', { count: 'exact', head: true }).or('status.eq.pending,payment_status.eq.pending'),
+    supabase.from('orders').select('*', { count: 'exact', head: true }).eq('status', 'delivered').eq('payment_status', 'success'),
+    supabase.from('orders').select('*', { count: 'exact', head: true }).or('status.eq.cancelled,payment_status.eq.failed,payment_status.eq.abandoned'),
     supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', today.toISOString()),
     supabase.from('products').select('*', { count: 'exact', head: true }),
     supabase.from('profiles').select('*', { count: 'exact', head: true }).eq('role', 'supplier'),
-    supabase.from('orders').select('total').neq('status', 'pending').neq('status', 'cancelled').gte('created_at', today.toISOString()),
+    supabase.from('orders').select('total').eq('payment_status', 'success').gte('created_at', today.toISOString()),
     supabase.from('products').select('stock, low_stock_threshold').limit(100)
   ]);
 

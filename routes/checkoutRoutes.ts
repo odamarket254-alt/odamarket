@@ -1,18 +1,25 @@
 import { Router } from "express";
 import { createClient } from "@supabase/supabase-js";
-import { sendOrderSMS } from "../src/lib/sms.js";
+import crypto from "crypto";
+import {
+  processAuthoritativePaymentVerification,
+  logPaymentEvent
+} from "./paymentVerificationService.js";
 import {
   sendOrderConfirmationEmailForOrder,
-  sendPaymentFailedEmailForOrder,
   sendOrderStatusEmailForOrder
 } from "../emailService.js";
-import crypto from "crypto";
 
 const router = Router();
 
+/**
+ * POST /api/checkout
+ * Creates a new order or updates an existing pending order (safe payment retry)
+ * Initially marks order with status: 'pending', payment_status: 'pending'.
+ */
 router.post("/", async (req, res) => {
   try {
-    const { items, shippingDetails, contactDetails, paymentMethod, deliveryMethod } = req.body;
+    const { items, shippingDetails, contactDetails, paymentMethod, deliveryMethod, existingOrderId } = req.body;
     
     // Auth token check
     const authHeader = req.headers.authorization;
@@ -33,8 +40,11 @@ router.post("/", async (req, res) => {
     const { data: { user }, error: userError } = await supabase.auth.getUser(token);
     if (userError || !user) {
       console.error("Auth error:", userError);
-
       return res.status(401).json({ error: "Invalid or expired token" });
+    }
+
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ error: "Cart items are required" });
     }
 
     let totalAmount = 0;
@@ -54,7 +64,7 @@ router.post("/", async (req, res) => {
       }
 
       if (product.stock < item.quantity) {
-        return res.status(400).json({ error: `Insufficient stock for product. Available: ${product.stock}, Requested: ${item.quantity}` });
+        return res.status(400).json({ error: `Insufficient stock for ${product.name || 'product'}. Available: ${product.stock}, Requested: ${item.quantity}` });
       }
 
       let price = Number(product.sale_price || product.price || 0);
@@ -70,7 +80,7 @@ router.post("/", async (req, res) => {
         quantity: item.quantity,
         unit_price: price,
         subtotal: price * item.quantity,
-        total_price: price * item.quantity // Keep for backwards compatibility during migration
+        total_price: price * item.quantity
       });
     }
 
@@ -81,22 +91,66 @@ router.post("/", async (req, res) => {
     const deliveryFee = validDeliveryMethod === 'express' ? 250 : 0;
     const finalTotal = totalAmount + deliveryFee;
 
-    // 3. Create the order
+    // 3. Check for safe retry of existing pending order for this user to prevent duplicate orders
+    if (existingOrderId) {
+      const { data: existingOrder } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('id', existingOrderId)
+        .eq('user_id', user.id)
+        .maybeSingle();
+
+      if (existingOrder && existingOrder.payment_status !== 'success' && existingOrder.status === 'pending') {
+        // Reuse existing pending order with refreshed pricing/shipping
+        await supabase
+          .from('orders')
+          .update({
+            subtotal: totalAmount,
+            delivery_fee: deliveryFee,
+            total: finalTotal,
+            updated_at: new Date().toISOString(),
+            notes: JSON.stringify({
+              shippingDetails,
+              contactDetails,
+              paymentMethod: paymentMethod || 'M-Pesa',
+              deliveryMethod: validDeliveryMethod,
+              deliveryFee,
+              orderNumber: existingOrder.order_number
+            })
+          })
+          .eq('id', existingOrder.id);
+
+        // Refresh order items
+        await supabase.from('order_items').delete().eq('order_id', existingOrder.id);
+        await supabase.from('order_items').insert(orderItems.map(item => ({ ...item, order_id: existingOrder.id })));
+
+        logPaymentEvent('info', 'EXISTING_PENDING_ORDER_REUSED', {
+          orderId: existingOrder.id,
+          userId: user.id,
+          total: finalTotal
+        });
+
+        return res.status(200).json({ success: true, orderId: existingOrder.id, isRetry: true });
+      }
+    }
+
+    // 4. Create new pending order
     const odaNumber = 'ODA-' + crypto.randomBytes(4).toString('hex').toUpperCase();
-    const orderNumber = odaNumber; // keep for notes backwards compatibility
+    const orderNumber = odaNumber;
     const { data: orderData, error: orderError } = await supabase
       .from('orders')
       .insert({
         user_id: user.id,
         order_number: odaNumber,
         status: 'pending',
+        payment_status: 'pending',
         subtotal: totalAmount,
         delivery_fee: deliveryFee,
         total: finalTotal,
         notes: JSON.stringify({ 
           shippingDetails, 
           contactDetails, 
-          paymentMethod, 
+          paymentMethod: paymentMethod || 'M-Pesa', 
           deliveryMethod: validDeliveryMethod,
           deliveryFee,
           orderNumber 
@@ -110,14 +164,12 @@ router.post("/", async (req, res) => {
       return res.status(500).json({ error: "Failed to create order", details: orderError });
     }
 
-    // 3. Create order items
+    // 5. Create order items
     let { error: itemsError } = await supabase
       .from('order_items')
       .insert(orderItems.map(item => ({ ...item, order_id: orderData.id })));
       
     if (itemsError && itemsError.code === 'PGRST204') {
-      // Fallback for before migration is run
-      console.warn('Migration not run. Falling back to old order_items schema.');
       const fallbackItems = orderItems.map(item => ({
         product_id: item.product_id,
         product_name: item.product_name,
@@ -134,7 +186,11 @@ router.post("/", async (req, res) => {
       console.error("Order items error:", itemsError);
     }
 
-    // 4. Removed stock deduction here. It now happens securely in /verify upon successful payment.
+    logPaymentEvent('info', 'PENDING_ORDER_CREATED', {
+      orderId: orderData.id,
+      userId: user.id,
+      total: finalTotal
+    });
 
     res.status(200).json({ success: true, orderId: orderData.id });
   } catch (error: any) {
@@ -143,6 +199,11 @@ router.post("/", async (req, res) => {
   }
 });
 
+/**
+ * POST /api/checkout/verify
+ * Verifies Paystack transaction authoritatively on the server.
+ * Requires authentic user token and verifies ownership.
+ */
 router.post("/verify", async (req, res) => {
   try {
     const { orderId, reference } = req.body;
@@ -150,138 +211,57 @@ router.post("/verify", async (req, res) => {
       return res.status(400).json({ error: "Missing orderId" });
     }
 
-    const supabaseUrl = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "").trim().replace(/^["']|["']$/g, "");
-    const supabaseServiceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim().replace(/^["']|["']$/g, "");
+    // User authentication & ownership verification
+    let authenticatedUserId: string | undefined;
+    let isAdmin = false;
 
-    if (!supabaseUrl || !supabaseServiceKey) {
-      return res.status(500).json({ error: "Supabase configuration missing on server" });
-    }
-
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // 1. First, fetch the pending order BEFORE verifying
-    let finalOrder = null;
-    let finalProfile = null;
-
-    const { data: order, error: orderErr } = await supabase
-      .from('orders')
-      .select('*, profiles!orders_customer_id_fkey(full_name, phone, email)')
-      .eq('id', orderId)
-      .single();
-
-    if (orderErr || !order) {
-      const { data: o, error: e } = await supabase.from('orders').select('*').eq('id', orderId).single();
-      if (e || !o) return res.status(404).json({ error: "Order not found" });
-      const { data: p } = await supabase.from('profiles').select('*').eq('id', o.user_id || o.buyer_id || o.customer_id).single();
-      finalOrder = o;
-      finalProfile = p;
-    } else {
-      finalOrder = order;
-      finalProfile = order.profiles;
-    }
-
-    // Protect against double verification
-    if (finalOrder.status !== 'pending' && finalOrder.status !== 'failed') {
-      // Already processed (e.g., by Paystack webhook): ensure confirmation email was sent idempotently
-      try {
-        await sendOrderConfirmationEmailForOrder(orderId);
-      } catch (emailErr) {
-        console.error("[Checkout Verify] Idempotent confirmation email check error:", emailErr);
-      }
-      const { data: items } = await supabase.from('order_items').select('*').eq('order_id', orderId);
-      return res.status(200).json({ success: true, order: finalOrder, profile: finalProfile, items: items || [], message: "Already processed" });
-    }
-
-    // 2. Server-Side Verification
-    if (!reference) {
-      // Missing reference means payment didn't happen or was abandoned
-      await supabase.from('orders').update({ payment_status: 'abandoned' }).eq('id', orderId);
-      return res.status(400).json({ error: "Missing Paystack reference. Payment abandoned or failed." });
-    }
-
-    const paystackSecret = (process.env.PAYSTACK_SECRET_KEY || "").trim().replace(/^["']|["']$/g, "");
-    if (!paystackSecret) {
-      console.warn("Paystack secret key missing. Failing payment securely.");
-      return res.status(500).json({ error: "Server payment configuration missing." });
-    }
-
-    const verifyRes = await fetch(`https://api.paystack.co/transaction/verify/${reference}`, {
-      headers: { "Authorization": `Bearer ${paystackSecret}` }
-    });
-    const verifyData = await verifyRes.json();
-
-    if (!verifyData.status || verifyData.data?.status !== "success") {
-      // Payment explicitly failed or unverified
-      await supabase.from('orders').update({ payment_status: 'failed', payment_reference: reference }).eq('id', orderId);
-      try {
-        await sendPaymentFailedEmailForOrder(orderId, reference);
-      } catch (failEmailErr) {
-        console.error("[Checkout Verify] Payment failed email dispatch error:", failEmailErr);
-      }
-      return res.status(400).json({ error: "Payment verification failed with Paystack. Transaction not successful." });
-    }
-
-    // 3. Verify Amount & Currency
-    const expectedAmountKobo = Math.round(finalOrder.total * 100);
-    const actualAmountKobo = verifyData.data.amount;
-    const actualCurrency = verifyData.data.currency;
-
-    if (actualCurrency !== "KES" || actualAmountKobo !== expectedAmountKobo) {
-      console.error(`Payment mismatch: Expected ${expectedAmountKobo} KES, got ${actualAmountKobo} ${actualCurrency}`);
-      await supabase.from('orders').update({ payment_status: 'failed', payment_reference: reference }).eq('id', orderId);
-      return res.status(400).json({ error: "Payment amount or currency mismatch. Order not confirmed." });
-    }
-
-    // 4. Update order to paid/processing
-    const { data: items } = await supabase.from('order_items').select('*').eq('order_id', orderId);
-    
-    await supabase.from('orders').update({ 
-      status: 'processing', 
-      payment_status: 'success',
-      payment_reference: reference
-    }).eq('id', orderId);
-
-    // 5. Deduct Product Stock safely ONLY on successful payment
-    if (items) {
-      for (const item of items) {
-        const { data: product } = await supabase.from('products').select('stock').eq('id', item.product_id).single();
-        if (product) {
-          await supabase.from('products').update({ stock: Math.max(0, product.stock - item.quantity) }).eq('id', item.product_id);
-        }
-      }
-    }
-
-    // 6. Send Order Confirmation SMS
-    try {
-      const currentNotes = finalOrder.notes ? (typeof finalOrder.notes === 'string' ? JSON.parse(finalOrder.notes) : finalOrder.notes) : {};
+    const authHeader = req.headers.authorization;
+    if (authHeader) {
+      const token = authHeader.replace("Bearer ", "").trim();
+      const supabaseUrl = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "").trim().replace(/^["']|["']$/g, "");
+      const supabaseServiceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim().replace(/^["']|["']$/g, "");
       
-      if (currentNotes.sms_status !== 'sent') {
-        const customerName = currentNotes.contactDetails?.fullName || currentNotes.shippingDetails?.recipientName || finalProfile?.full_name || 'Customer';
-        const phone = currentNotes.contactDetails?.userPhone || currentNotes.shippingDetails?.recipientPhone || finalProfile?.phone;
-
-        if (phone) {
-          await sendOrderSMS(orderId, phone, customerName, finalOrder.total);
+      if (supabaseUrl && supabaseServiceKey) {
+        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+        const { data: { user } } = await supabase.auth.getUser(token);
+        if (user) {
+          authenticatedUserId = user.id;
+          const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).maybeSingle();
+          if (profile && ['admin', 'super_admin', 'moderator'].includes(profile.role)) {
+            isAdmin = true;
+          }
         }
       }
-    } catch (smsError) {
-      console.error("Order SMS error during verification:", smsError);
     }
 
-    // 7. Send Professional Order Confirmation Email via Resend (Strictly After Confirmed Payment)
-    // NOTE: In serverless environments (Vercel), this MUST be awaited before returning the HTTP response;
-    // otherwise the runtime container terminates/freezes immediately and drops background promises.
-    try {
-      await sendOrderConfirmationEmailForOrder(orderId);
-    } catch (emailErr) {
-      console.error("[Checkout Verify] Order confirmation email dispatch failed:", emailErr);
-    }
-
-    return res.status(200).json({
-      success: true,
-      order: { ...finalOrder, status: 'processing', payment_status: 'success', payment_reference: reference },
-      profile: finalProfile,
-      items: items || []
+    const result = await processAuthoritativePaymentVerification({
+      orderId,
+      reference,
+      source: 'inline_checkout',
+      authenticatedUserId,
+      isAdmin
     });
+
+    if (!result.success) {
+      if (result.retryable) {
+        return res.status(503).json({
+          success: false,
+          retryable: true,
+          status: result.status,
+          message: result.message,
+          orderId
+        });
+      }
+      return res.status(400).json({
+        success: false,
+        retryable: false,
+        status: result.status,
+        message: result.message,
+        orderId
+      });
+    }
+
+    return res.status(200).json(result);
   } catch (err: any) {
     console.error("Verification error:", err);
     res.status(500).json({ error: err.message || "Internal server error" });
@@ -289,9 +269,7 @@ router.post("/verify", async (req, res) => {
 });
 
 /**
- * Server-side endpoint to dispatch Resend transactional emails when an order status transitions
- * (confirmed, ready_for_pickup/packed/ready, shipped/out_for_delivery, delivered, cancelled/refunded).
- * Verifies the actual status in Supabase before sending.
+ * Server-side endpoint to dispatch Resend transactional emails when an order status transitions.
  */
 router.post("/order-status-email", async (req, res) => {
   try {
@@ -305,7 +283,6 @@ router.post("/order-status-email", async (req, res) => {
     let result: any = { success: true, skipped: true };
 
     if (normStatus === 'confirmed') {
-      // Ensure initial order confirmation is sent; if already sent, dispatch order_confirmed status update
       const confirmRes = await sendOrderConfirmationEmailForOrder(orderId, opts);
       if (confirmRes.alreadySent) {
         result = await sendOrderStatusEmailForOrder(orderId, 'order_confirmed', opts);
@@ -344,7 +321,6 @@ router.post("/admin/resend-confirmation-email", async (req, res) => {
       return res.status(400).json({ error: "Missing orderId" });
     }
 
-    // Authorization check
     const authHeader = req.headers.authorization;
     if (!authHeader) {
       return res.status(401).json({ error: "Unauthorized" });
@@ -361,7 +337,6 @@ router.post("/admin/resend-confirmation-email", async (req, res) => {
       return res.status(401).json({ error: "Invalid admin token" });
     }
 
-    // Verify role in profiles
     const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single();
     const allowedRoles = ['admin', 'super_admin', 'moderator', 'support_agent'];
     if (!profile || !allowedRoles.includes(profile.role)) {

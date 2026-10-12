@@ -4,6 +4,7 @@ import { HomepageSection } from '../../../types/homepage';
 import { Link } from "react-router-dom";
 import { OptimizedImage } from "../../ui/OptimizedImage";
 import { Layers, ArrowRight } from 'lucide-react';
+import { useTranslation } from '../../../context/LanguageContext';
 
 interface CategoryGridSectionProps {
   section: HomepageSection;
@@ -12,6 +13,7 @@ interface CategoryGridSectionProps {
 }
 
 export const CategoryGridSection = ({ section, categories: initialCategories, products: allProducts }: CategoryGridSectionProps) => {
+  const { t, language } = useTranslation();
   const [categories, setCategories] = useState<any[]>(initialCategories || []);
   const [isLoading, setIsLoading] = useState(!initialCategories);
 
@@ -124,7 +126,7 @@ export const CategoryGridSection = ({ section, categories: initialCategories, pr
       <div className="flex items-center justify-between mb-8">
         <div>
           <h2 className="text-[24px] md:text-[28px] font-bold text-gray-900 tracking-tight font-['Inter']">
-            {section.title || "Top Categories"}
+            {language === 'sw' ? 'Kategoria Kuu' : (section.title || "Top Categories")}
           </h2>
           {section.subtitle && <p className="text-gray-500 mt-1 hidden md:block text-[15px] font-['Inter']">{section.subtitle}</p>}
         </div>
@@ -132,42 +134,60 @@ export const CategoryGridSection = ({ section, categories: initialCategories, pr
           to="/categories" 
           className="group flex items-center text-[15px] font-semibold text-gray-900 hover:text-[#C65A28] transition-colors font-['Inter']"
         >
-          View All
+          {t('home.view_all', 'View All')}
           <ArrowRight className="w-5 h-5 ml-1 group-hover:translate-x-1 transition-transform" />
         </Link>
       </div>
       
       <div className="grid grid-cols-4 lg:grid-cols-8 gap-2 md:gap-4 lg:gap-5">
-        {categories.map((category) => (
-          <Link
-            key={category.id}
-            to={`/category/${category.slug || category.id}`}
-            className="group flex flex-col bg-white rounded-[14px] md:rounded-[18px] shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-gray-100 hover:shadow-[0_12px_24px_rgba(0,0,0,0.08)] hover:-translate-y-[4px] md:hover:-translate-y-[6px] transition-all duration-300 ease-out cursor-pointer h-full overflow-hidden"
-          >
-            {/* Image Container (approx 70%) */}
-            <div className="w-full aspect-square bg-[#F9FAFB] flex items-center justify-center overflow-hidden relative border-b border-gray-50/50">
-              {category.image_url ? (
-                <OptimizedImage 
-                  src={category.image_url} 
-                  alt={category.name} 
-                  className="w-full h-full flex items-center justify-center"
-                  imgClassName="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ease-out" 
-                  loading="lazy"
-                  imageType="category"
-                />
-              ) : (
-                <Layers className="w-6 h-6 md:w-10 md:h-10 text-gray-300 group-hover:scale-105 transition-transform duration-300 ease-out" />
-              )}
-            </div>
-            
-            {/* Text Container (approx 30%) */}
-            <div className="flex-1 flex flex-col justify-center items-center w-full p-2 md:p-3">
-              <span className="text-[10px] sm:text-[11px] md:text-[14px] font-semibold text-[#1F2937] text-center font-['Inter'] line-clamp-2 leading-tight md:leading-snug">
-                {category.name}
-              </span>
-            </div>
-          </Link>
-        ))}
+        {categories.map((category) => {
+          let catName = category.name;
+          if (language === 'sw') {
+            const lower = (category.name || '').toLowerCase();
+            if (lower.includes('produce')) catName = 'Mazao Safi';
+            else if (lower.includes('dairy') || lower.includes('egg')) catName = 'Maziwa & Mayai';
+            else if (lower.includes('meat') || lower.includes('poultry') || lower.includes('seafood')) catName = 'Nyama & Kuku';
+            else if (lower.includes('bakery')) catName = 'Keki & Mikate';
+            else if (lower.includes('beverage')) catName = 'Vinywaji';
+            else if (lower.includes('snack')) catName = 'Vitafunwa';
+            else if (lower.includes('grocer')) catName = 'Vyakula';
+            else if (lower.includes('electronic')) catName = 'Kielektroniki';
+            else if (lower.includes('fashion')) catName = 'Mavazi';
+            else if (lower.includes('beauty')) catName = 'Urembo';
+            else if (lower.includes('household') || lower.includes('living')) catName = 'Vifaa vya Nyumba';
+          }
+
+          return (
+            <Link
+              key={category.id}
+              to={`/category/${category.slug || category.id}`}
+              className="group flex flex-col bg-white rounded-[14px] md:rounded-[18px] shadow-[0_2px_12px_rgba(0,0,0,0.03)] border border-gray-100 hover:shadow-[0_12px_24px_rgba(0,0,0,0.08)] hover:-translate-y-[4px] md:hover:-translate-y-[6px] transition-all duration-300 ease-out cursor-pointer h-full overflow-hidden"
+            >
+              {/* Image Container (approx 70%) */}
+              <div className="w-full aspect-square bg-[#F9FAFB] flex items-center justify-center overflow-hidden relative border-b border-gray-50/50">
+                {category.image_url ? (
+                  <OptimizedImage 
+                    src={category.image_url} 
+                    alt={catName} 
+                    className="w-full h-full flex items-center justify-center"
+                    imgClassName="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ease-out" 
+                    loading="lazy"
+                    imageType="category"
+                  />
+                ) : (
+                  <Layers className="w-6 h-6 md:w-10 md:h-10 text-gray-300 group-hover:scale-105 transition-transform duration-300 ease-out" />
+                )}
+              </div>
+              
+              {/* Text Container (approx 30%) */}
+              <div className="flex-1 flex flex-col justify-center items-center w-full p-2 md:p-3">
+                <span className="text-[10px] sm:text-[11px] md:text-[14px] font-semibold text-[#1F2937] text-center font-['Inter'] line-clamp-2 leading-tight md:leading-snug">
+                  {catName}
+                </span>
+              </div>
+            </Link>
+          );
+        })}
       </div>
     </section>
   );

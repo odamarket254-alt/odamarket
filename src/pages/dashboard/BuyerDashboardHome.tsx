@@ -15,6 +15,7 @@ import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { getWhatsAppLink } from '../../utils/whatsapp';
 import { toast } from 'sonner';
+import { useTranslation } from '../../context/LanguageContext';
 
 interface OrderItem {
   id: string;
@@ -61,6 +62,7 @@ interface CategoryRecord {
 export function BuyerDashboardHome() {
   const { profile, user } = useAuthStore();
   const { addItem: addCartItem } = useCartStore();
+  const { t, language } = useTranslation();
 
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -153,19 +155,22 @@ export function BuyerDashboardHome() {
     fetchDashboardData();
   }, [fetchDashboardData]);
 
-  // Derived real stats
+  // Derived real stats based on authoritative payment state
   const totalOrdersCount = allOrders.length;
+  const paidOrdersCount = allOrders.filter(o => o.payment_status === 'success').length;
   const pendingOrders = allOrders.filter(o => 
-    o.status === 'pending' || 
-    o.status === 'confirmed' || 
-    o.status === 'processing' || 
-    o.status === 'out_for_delivery'
+    (o.status === 'pending' || o.payment_status === 'pending') && 
+    o.status !== 'cancelled'
   );
-  const deliveredOrdersCount = allOrders.filter(o => o.status === 'delivered').length;
-  const cancelledOrdersCount = allOrders.filter(o => o.status === 'cancelled').length;
+  const activeProcessingOrders = allOrders.filter(o =>
+    o.payment_status === 'success' &&
+    ['confirmed', 'processing', 'out_for_delivery', 'shipped'].includes(o.status)
+  );
+  const deliveredOrdersCount = allOrders.filter(o => o.status === 'delivered' && o.payment_status === 'success').length;
+  const cancelledOrdersCount = allOrders.filter(o => o.status === 'cancelled' || o.payment_status === 'failed' || o.payment_status === 'abandoned').length;
 
-  // Active delivery (first non-finalized order)
-  const activeOrder = pendingOrders[0] || null;
+  // Active delivery (first non-finalized paid order, or pending order)
+  const activeOrder = activeProcessingOrders[0] || pendingOrders[0] || null;
 
   // Recent orders (up to 4 for compact side card)
   const recentOrders = allOrders.slice(0, 4);
@@ -173,6 +178,11 @@ export function BuyerDashboardHome() {
   // Time-aware greeting
   const getGreeting = () => {
     const hour = new Date().getHours();
+    if (language === 'sw') {
+      if (hour < 12) return 'Habari ya asubuhi';
+      if (hour < 18) return 'Habari ya mchana';
+      return 'Habari ya jioni';
+    }
     if (hour < 12) return 'Good morning';
     if (hour < 18) return 'Good afternoon';
     return 'Good evening';
@@ -303,13 +313,13 @@ export function BuyerDashboardHome() {
       {/* Header */}
       <div className="flex items-center justify-between pb-3 border-b border-[#E8DCC9]/60 dark:border-border">
         <h3 className="font-bold text-[#2D1F17] dark:text-foreground text-base">
-          Recent Orders
+          {t('dashboard.recent_orders', 'Recent Orders')}
         </h3>
         <Link
           to="/buyer/dashboard/orders"
           className="text-xs font-semibold text-[#D96A27] hover:text-[#C65A28] hover:underline"
         >
-          View all
+          {t('home.view_all', 'View all')}
         </Link>
       </div>
 
@@ -393,7 +403,9 @@ export function BuyerDashboardHome() {
                   {getGreeting()}, {displayName}!
                 </h1>
                 <p className="text-xs sm:text-sm text-[#736357] dark:text-muted-foreground">
-                  Here&apos;s what&apos;s happening with your OdaMarket account today.
+                  {language === 'sw' 
+                    ? 'Tazama muhtasari wa akaunti yako ya ODA Market leo.'
+                    : "Here's what's happening with your OdaMarket account today."}
                 </p>
               </div>
 
@@ -401,7 +413,7 @@ export function BuyerDashboardHome() {
                 <Link to="/products">
                   <Button className="rounded-full bg-[#D96A27] hover:bg-[#C65A28] active:scale-[0.98] text-white font-medium text-xs sm:text-sm px-5 py-2.5 shadow-sm transition-all duration-150">
                     <ShoppingBag className="w-4 h-4 mr-1.5" />
-                    Shop Groceries
+                    {language === 'sw' ? 'Nunua Bidhaa' : 'Shop Groceries'}
                   </Button>
                 </Link>
               </div>
@@ -414,7 +426,7 @@ export function BuyerDashboardHome() {
               {/* Total Orders */}
               <div className="bg-white dark:bg-card border border-[#E8DCC9] dark:border-border rounded-2xl p-4 shadow-2xs flex flex-col justify-between">
                 <span className="text-xs font-medium text-[#736357] dark:text-muted-foreground">
-                  Total Orders
+                  {language === 'sw' ? 'Jumla ya Maagizo' : 'Total Orders'}
                 </span>
                 <div className="mt-2 flex items-baseline justify-between">
                   <span className="text-2xl sm:text-3xl font-bold tracking-tight text-[#2D1F17] dark:text-foreground">
@@ -427,7 +439,7 @@ export function BuyerDashboardHome() {
               {/* Pending / Active */}
               <div className="bg-white dark:bg-card border border-[#E8DCC9] dark:border-border rounded-2xl p-4 shadow-2xs flex flex-col justify-between">
                 <span className="text-xs font-medium text-[#736357] dark:text-muted-foreground">
-                  Pending
+                  {language === 'sw' ? 'Yanayosubiri' : 'Pending'}
                 </span>
                 <div className="mt-2 flex items-baseline justify-between">
                   <span className="text-2xl sm:text-3xl font-bold tracking-tight text-[#D96A27]">
@@ -440,7 +452,7 @@ export function BuyerDashboardHome() {
               {/* Delivered */}
               <div className="bg-white dark:bg-card border border-[#E8DCC9] dark:border-border rounded-2xl p-4 shadow-2xs flex flex-col justify-between">
                 <span className="text-xs font-medium text-[#736357] dark:text-muted-foreground">
-                  Delivered
+                  {language === 'sw' ? 'Yaliyowasilishwa' : 'Delivered'}
                 </span>
                 <div className="mt-2 flex items-baseline justify-between">
                   <span className="text-2xl sm:text-3xl font-bold tracking-tight text-[#00A859]">
@@ -453,7 +465,7 @@ export function BuyerDashboardHome() {
               {/* Cancelled */}
               <div className="bg-white dark:bg-card border border-[#E8DCC9] dark:border-border rounded-2xl p-4 shadow-2xs flex flex-col justify-between">
                 <span className="text-xs font-medium text-[#736357] dark:text-muted-foreground">
-                  Cancelled
+                  {language === 'sw' ? 'Yaliyoahirishwa' : 'Cancelled'}
                 </span>
                 <div className="mt-2 flex items-baseline justify-between">
                   <span className="text-2xl sm:text-3xl font-bold tracking-tight text-[#8C7A6B]">

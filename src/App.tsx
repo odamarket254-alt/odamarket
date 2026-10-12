@@ -13,6 +13,7 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 import { CookieConsent } from "./components/ui/CookieConsent";
 import OneSignal from 'react-onesignal';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { LanguageProvider } from './context/LanguageContext';
 
 const queryClient = new QueryClient();
 
@@ -219,8 +220,9 @@ export default function App() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <ErrorBoundary>
+      <LanguageProvider>
+        <BrowserRouter>
+          <ErrorBoundary>
         <Suspense fallback={<LoadingFallback />}>
           <Routes>
             <Route element={<RootLayout />}>
@@ -311,6 +313,7 @@ export default function App() {
       <Toaster position="top-center" richColors />
       <CookieConsent />
     </BrowserRouter>
+    </LanguageProvider>
     </QueryClientProvider>
   );
 }

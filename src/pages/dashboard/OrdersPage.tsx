@@ -183,10 +183,11 @@ export default function OrdersPage() {
   };
 
   const getDisplayStatus = (order: any) => {
+    if (order.status === 'cancelled') return 'Cancelled';
     if (order.payment_status === 'failed') return 'Payment Failed';
     if (order.payment_status === 'abandoned') return 'Payment Abandoned';
-    if (order.status === 'pending') return 'Payment Pending';
-    return order.status ? order.status.replace(/_/g, ' ') : 'Unknown';
+    if (order.payment_status !== 'success') return 'Payment Pending';
+    return order.status ? order.status.replace(/_/g, ' ') : 'Processing';
   };
 
   if (isLoading) {
@@ -259,14 +260,23 @@ export default function OrdersPage() {
                   {getDisplayStatus(order).toUpperCase()}
                 </div>
                 <h3 className="font-semibold">{order.items_count || 1} items in this order</h3>
-                <p className="text-sm text-muted-foreground mt-1">Paid via {order.payment_method || 'M-Pesa'}</p>
+                <p className="text-sm text-muted-foreground mt-1">
+                  {order.payment_status === 'success' 
+                    ? `Paid via ${order.payment_method || 'M-Pesa'}` 
+                    : `Payment ${order.payment_status || 'Pending'} via ${order.payment_method || 'M-Pesa'}`}
+                </p>
               </div>
               
               <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                {order.payment_status !== 'success' && order.status !== 'cancelled' && (
+                  <Button onClick={() => handleBuyAgain(order)} className="w-full sm:w-auto bg-[#C65A28] text-white hover:bg-[#C65A28]/90">
+                    <Clock className="w-4 h-4 mr-2" /> Complete Payment
+                  </Button>
+                )}
                 <Button variant="outline" onClick={() => handleBuyAgain(order)} disabled={buyingAgainId === order.id} className="w-full sm:w-auto text-primary border-primary hover:bg-primary/5">
                   <RefreshCcw className="w-4 h-4 mr-2" /> Buy Again
                 </Button>
-                {order.status === 'delivered' && (
+                {order.status === 'delivered' && order.payment_status === 'success' && (
                   <Button variant="outline" onClick={() => handleOpenRateModal(order)} className="w-full sm:w-auto">
                     Rate Products
                   </Button>

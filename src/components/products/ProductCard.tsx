@@ -6,11 +6,13 @@ import { useAuthStore } from "../../store/useAuthStore";
 import { toast } from "sonner";
 import { cn } from "../../lib/utils";
 import { OptimizedImage } from "../ui/OptimizedImage";
+import { useTranslation } from "../../context/LanguageContext";
 
 export const ProductCard = ({ product, index, viewMode = "grid" }: { product: any; index?: number; viewMode?: "grid" | "list" }) => {
   const addItem = useCartStore((state) => state.addItem);
   const { user } = useAuthStore();
   const { toggleWishlist, isInWishlist } = useWishlistStore();
+  const { t } = useTranslation();
   const isWished = isInWishlist(product.id);
 
   const handleAdd = (e: any) => {
@@ -23,14 +25,14 @@ export const ProductCard = ({ product, index, viewMode = "grid" }: { product: an
       image_url: product.image_url || "https://images.unsplash.com/photo-1542838132-92c53300491e?w=400&q=80",
       seller_id: product.seller_id,
     }, product.wholesale_min_qty || 1);
-    toast.success("Added to cart");
+    toast.success(t('product.added', "Added to cart"));
   };
 
   const handleWishlist = (e: any) => {
     e.preventDefault();
     e.stopPropagation();
     if (!user) {
-      toast.error("Please login to manage your wishlist");
+      toast.error(t('common.error', "Please login to manage your wishlist"));
       return;
     }
     toggleWishlist(user.id, product.id);
@@ -68,7 +70,7 @@ export const ProductCard = ({ product, index, viewMode = "grid" }: { product: an
 
           {typeof product.stock === 'number' && product.stock <= 0 && (
             <div className="absolute top-2 left-2 bg-[#B94A48] text-white text-[9px] md:text-[10px] font-bold px-2 py-1 rounded-md tracking-wide z-10 shadow-sm pointer-events-none uppercase">
-              Out of Stock
+              {t('product.out_of_stock', 'Out of Stock')}
             </div>
           )}
 

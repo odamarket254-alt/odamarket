@@ -19,8 +19,7 @@ export default function SalesAnalytics() {
       const { data: orders, error } = await supabase
         .from('orders')
         .select('created_at, total')
-        .neq('status', 'pending')
-        .neq('status', 'cancelled')
+        .eq('payment_status', 'success')
         .gte('created_at', startOfDay(startDate).toISOString())
         .lte('created_at', endOfDay(new Date()).toISOString());
         

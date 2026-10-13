@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Settings, Shield, X, Check } from "lucide-react";
+import { Settings, Shield, X, Check, Globe } from "lucide-react";
 import { Button } from "./Button";
 import { useTranslation } from "../../context/LanguageContext";
 
@@ -87,6 +87,13 @@ export function CookieConsent() {
         setIsVisible(true);
       }
     }
+
+    const handleOpen = () => {
+      setIsVisible(true);
+      setShowSettings(true);
+    };
+    window.addEventListener("oda_open_cookie_preferences", handleOpen);
+    return () => window.removeEventListener("oda_open_cookie_preferences", handleOpen);
   }, []);
 
   const applyConsent = (currentConsent: ConsentState) => {
@@ -156,7 +163,8 @@ export function CookieConsent() {
                     <Settings className="w-4 h-4 text-[#C65A28]" />
                     {t.preferencesTitle}
                   </h3>
-                  <div className="flex items-center text-[10px] sm:text-[11px] font-medium bg-[#3A2418]/5 border border-[#D9A62E]/30 rounded-full p-0.5 shrink-0" aria-label="Language selection">
+                  <div className="flex items-center text-[10px] sm:text-[11px] font-medium bg-[#3A2418]/5 border border-[#D9A62E]/30 rounded-full p-0.5 shrink-0 gap-1 pl-1.5" aria-label="Language selection">
+                    <Globe className="w-3 h-3 text-[#C65A28]" />
                     <button
                       type="button"
                       onClick={() => setLanguage("en")}
@@ -274,7 +282,8 @@ export function CookieConsent() {
                   </div>
 
                   {/* Language Switcher: English | Kiswahili */}
-                  <div className="flex items-center text-[10px] sm:text-[11px] font-medium bg-[#3A2418]/5 border border-[#D9A62E]/30 rounded-full p-0.5 shrink-0" aria-label="Language selection">
+                  <div className="flex items-center text-[10px] sm:text-[11px] font-medium bg-[#3A2418]/5 border border-[#D9A62E]/30 rounded-full p-0.5 shrink-0 gap-1 pl-1.5" aria-label="Language selection">
+                    <Globe className="w-3 h-3 text-[#C65A28]" />
                     <button
                       type="button"
                       onClick={() => setLanguage("en")}

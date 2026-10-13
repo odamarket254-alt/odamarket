@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { Home, Store, MessageCircle, User, ShoppingCart, Package, Menu, X, ShieldCheck, LogOut, Tags, LayoutDashboard, Truck, Heart, Gift, Ticket, CreditCard, MapPin, Bell, Headphones, Settings, FolderTree, Globe } from "lucide-react";
+import { Home, Store, MessageCircle, User, ShoppingCart, Package, Menu, X, ShieldCheck, LogOut, Tags, LayoutDashboard, Truck, Heart, Gift, Ticket, CreditCard, MapPin, Bell, Headphones, Settings, FolderTree } from "lucide-react";
 import { cn } from "../../lib/utils";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useCartStore } from "../../store/useCartStore";
@@ -15,7 +15,7 @@ export function MobileBottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, profile } = useAuthStore();
-  const { language, setLanguage, t } = useTranslation();
+  const { t } = useTranslation();
   const cartCount = useCartStore((state) => state.getCartCount());
   
   const { isOpen, setIsOpen } = useMobileMenuStore();
@@ -135,33 +135,6 @@ export function MobileBottomNav() {
               </div>
 
               <div className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
-                {/* Language Switcher in Drawer */}
-                <div className="flex items-center justify-between p-3 bg-muted/40 rounded-xl mb-3 border border-border">
-                  <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                    <Globe className="w-4 h-4 text-[#C65A28]" /> {t('nav.switch_language', 'Language')}:
-                  </span>
-                  <div className="flex items-center text-xs font-semibold bg-background rounded-lg p-0.5 border border-border">
-                    <button
-                      type="button"
-                      onClick={() => setLanguage('en')}
-                      className={`px-2.5 py-1 rounded-md transition-colors ${
-                        language === 'en' ? 'bg-[#3A2418] text-white shadow-xs' : 'text-muted-foreground'
-                      }`}
-                    >
-                      English
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setLanguage('sw')}
-                      className={`px-2.5 py-1 rounded-md transition-colors ${
-                        language === 'sw' ? 'bg-[#3A2418] text-white shadow-xs' : 'text-muted-foreground'
-                      }`}
-                    >
-                      Kiswahili
-                    </button>
-                  </div>
-                </div>
-
                 <PWAInstallButton variant="drawer" onInstalled={() => setIsOpen(false)} />
                 {!user && (
                    <Link

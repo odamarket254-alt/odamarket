@@ -4,7 +4,8 @@ import {
   Package, ShoppingBag, MapPin, CreditCard, Heart, Clock, TrendingUp, 
   ChevronRight, Star, Gift, Truck, ArrowRight,
   CheckCircle2, AlertCircle, RefreshCcw, Search, Plus, Ticket, 
-  MessageCircle, ExternalLink, ShieldCheck, Check, ShoppingCart, Image as ImageIcon
+  MessageCircle, ExternalLink, ShieldCheck, Check, ShoppingCart, Image as ImageIcon,
+  Settings
 } from 'lucide-react';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useCartStore } from '../../store/useCartStore';
@@ -611,7 +612,7 @@ export function BuyerDashboardHome() {
 
           {/* 4. QUICK ACTIONS */}
           <section>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
               {/* Orders */}
               <Link
                 to="/buyer/dashboard/orders"
@@ -625,10 +626,10 @@ export function BuyerDashboardHome() {
                 </div>
                 <div>
                   <h4 className="font-semibold text-xs sm:text-sm text-[#2D1F17] dark:text-foreground">
-                    Orders
+                    {language === 'sw' ? 'Maagizo' : 'Orders'}
                   </h4>
                   <p className="text-[11px] text-[#736357] dark:text-muted-foreground mt-0.5">
-                    Track purchases
+                    {language === 'sw' ? 'Fuatilia manunuzi' : 'Track purchases'}
                   </p>
                 </div>
               </Link>
@@ -646,7 +647,7 @@ export function BuyerDashboardHome() {
                 </div>
                 <div>
                   <h4 className="font-semibold text-xs sm:text-sm text-[#2D1F17] dark:text-foreground">
-                    Payments
+                    {language === 'sw' ? 'Njia za Malipo' : 'Payments'}
                   </h4>
                   <p className="text-[11px] text-[#736357] dark:text-muted-foreground mt-0.5">
                     Safaricom M-Pesa
@@ -667,10 +668,10 @@ export function BuyerDashboardHome() {
                 </div>
                 <div>
                   <h4 className="font-semibold text-xs sm:text-sm text-[#2D1F17] dark:text-foreground">
-                    Addresses
+                    {language === 'sw' ? 'Anwani' : 'Addresses'}
                   </h4>
                   <p className="text-[11px] text-[#736357] dark:text-muted-foreground mt-0.5">
-                    Saved locations
+                    {language === 'sw' ? 'Maeneo uliyohifadhi' : 'Saved locations'}
                   </p>
                 </div>
               </Link>
@@ -688,10 +689,33 @@ export function BuyerDashboardHome() {
                 </div>
                 <div>
                   <h4 className="font-semibold text-xs sm:text-sm text-[#2D1F17] dark:text-foreground">
-                    Wishlist
+                    {language === 'sw' ? 'Vipendwa' : 'Wishlist'}
                   </h4>
                   <p className="text-[11px] text-[#736357] dark:text-muted-foreground mt-0.5">
-                    {wishlistIds.size} saved items
+                    {wishlistIds.size} {language === 'sw' ? 'vitu vimehifadhiwa' : 'saved items'}
+                  </p>
+                </div>
+              </Link>
+
+              {/* Account Settings & Language */}
+              <Link
+                to="/buyer/dashboard/settings"
+                className="group bg-white dark:bg-card border border-[#D9A62E]/40 hover:border-[#D96A27] rounded-2xl p-3.5 shadow-2xs hover:shadow-[0_4px_12px_rgba(45,31,23,0.05)] transition-all flex flex-col justify-between col-span-2 sm:col-span-1"
+              >
+                <div className="flex items-center justify-between mb-2">
+                  <div className="w-9 h-9 rounded-xl bg-[#D9A62E]/15 text-[#C65A28] flex items-center justify-center group-hover:scale-105 transition-transform">
+                    <Settings className="w-4.5 h-4.5 stroke-[2]" />
+                  </div>
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-[#FAF5EC] dark:bg-muted text-[#C65A28] uppercase border border-[#D9A62E]/30">
+                    {language.toUpperCase()}
+                  </span>
+                </div>
+                <div>
+                  <h4 className="font-semibold text-xs sm:text-sm text-[#2D1F17] dark:text-foreground">
+                    {language === 'sw' ? 'Mipangilio & Lugha' : 'Account Settings'}
+                  </h4>
+                  <p className="text-[11px] text-[#736357] dark:text-muted-foreground mt-0.5">
+                    {language === 'sw' ? 'Badili lugha / Taarifa' : 'Language & profile'}
                   </p>
                 </div>
               </Link>

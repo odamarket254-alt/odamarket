@@ -114,6 +114,14 @@ export function Footer() {
           <Link to="/terms-and-conditions" className="text-[#FAF5EC]/60 hover:text-[#D9A62E] transition-colors text-sm">Terms &amp; Conditions</Link>
           <span className="text-[#FAF5EC]/20">•</span>
           <Link to="/cookie-policy" className="text-[#FAF5EC]/60 hover:text-[#D9A62E] transition-colors text-sm">Cookie Policy</Link>
+          <span className="text-[#FAF5EC]/20">•</span>
+          <button
+            type="button"
+            onClick={() => window.dispatchEvent(new CustomEvent('oda_open_cookie_preferences'))}
+            className="text-[#FAF5EC]/60 hover:text-[#D9A62E] transition-colors text-sm cursor-pointer underline-offset-4 hover:underline"
+          >
+            Cookie Preferences
+          </button>
           <span className="text-[#FAF5EC]/60 text-sm">Supported Payment:</span>
           <div className="px-3 py-1 bg-white/10 rounded border border-white/20 font-bold text-[#FAF5EC] tracking-wide text-sm">
             M-PESA

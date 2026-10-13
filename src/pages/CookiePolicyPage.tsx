@@ -83,15 +83,26 @@ export default function CookiePolicyPage() {
               <p className="text-gray-600 leading-relaxed mb-6">
                 You have the right to decide whether to accept or reject cookies. You can exercise your cookie rights by setting your preferences in the Cookie Consent Manager. The Cookie Consent Manager allows you to select which categories of cookies you accept or reject. Essential cookies cannot be rejected as they are strictly necessary to provide you with services.
               </p>
-              <Button 
-                onClick={() => {
-                  localStorage.removeItem('oda_cookie_consent');
-                  window.location.reload();
-                }}
-                className="bg-[#3A2418] hover:bg-[#2A1810] text-white"
-              >
-                Reset Cookie Preferences
-              </Button>
+              <div className="flex flex-wrap gap-3">
+                <Button 
+                  onClick={() => {
+                    window.dispatchEvent(new CustomEvent('oda_open_cookie_preferences'));
+                  }}
+                  className="bg-[#C65A28] hover:bg-[#A84A1E] text-white"
+                >
+                  Manage Cookie & Language Preferences
+                </Button>
+                <Button 
+                  onClick={() => {
+                    localStorage.removeItem('oda_cookie_consent');
+                    window.location.reload();
+                  }}
+                  variant="outline"
+                  className="border-gray-300 text-gray-700 hover:bg-gray-50"
+                >
+                  Reset Cookie Preferences
+                </Button>
+              </div>
             </section>
 
             <section className="border-t border-gray-200 pt-8 mt-8">

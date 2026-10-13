@@ -28,6 +28,13 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
     return 'en';
   });
 
+  // Sync HTML document lang attribute
+  useEffect(() => {
+    if (typeof document !== 'undefined') {
+      document.documentElement.lang = language;
+    }
+  }, [language]);
+
   // When user logs in or profile loads, honor preferred language from database or metadata
   useEffect(() => {
     if (!user) return;

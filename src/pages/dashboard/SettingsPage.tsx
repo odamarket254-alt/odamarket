@@ -12,6 +12,14 @@ import {
 import { supabase } from '../../lib/supabase';
 import { toast } from 'sonner';
 import { useTranslation } from '../../context/LanguageContext';
+import {
+  getPushNotificationStatus,
+  subscribeToPushNotifications,
+  unsubscribeFromPushNotifications,
+  sendTestPushNotification,
+  updatePushPreferences,
+  PushNotificationStatus
+} from '../../services/fcmClientService';
 
 // Kenyan Counties List
 const KENYA_COUNTIES = [
@@ -978,6 +986,79 @@ export default function SettingsPage({ defaultTab }: SettingsPageProps = {}) {
   // ==========================================
   const [notifications, setNotifications] = useState<NotificationPreferences>(DEFAULT_NOTIFICATIONS);
   const [isSavingNotifications, setIsSavingNotifications] = useState(false);
+  const [pushStatus, setPushStatus] = useState<PushNotificationStatus | null>(null);
+  const [isTogglingPush, setIsTogglingPush] = useState(false);
+  const [isTestingPush, setIsTestingPush] = useState(false);
+
+  const refreshPushStatus = useCallback(async () => {
+    try {
+      const status = await getPushNotificationStatus();
+      setPushStatus(status);
+    } catch (e) {
+      console.warn('Could not check push status:', e);
+    }
+  }, []);
+
+  useEffect(() => {
+    refreshPushStatus();
+  }, [refreshPushStatus, activeTab]);
+
+  const handleEnablePush = async () => {
+    setIsTogglingPush(true);
+    try {
+      const res = await subscribeToPushNotifications({
+        orders: notifications.order_status_updates,
+        promotions: notifications.promotions_and_deals,
+        price_drops: notifications.price_drop_alerts,
+        security: notifications.security_alerts
+      });
+      if (res.success) {
+        toast.success('Web push notifications enabled successfully on this device! 🔔');
+        await refreshPushStatus();
+      } else if (res.requiresPWA) {
+        toast.error(res.error, { duration: 8000 });
+      } else {
+        toast.error(res.error || 'Failed to enable push notifications.');
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to enable notifications.');
+    } finally {
+      setIsTogglingPush(false);
+    }
+  };
+
+  const handleDisablePush = async () => {
+    setIsTogglingPush(true);
+    try {
+      const res = await unsubscribeFromPushNotifications();
+      if (res.success) {
+        toast.info('Push notifications disabled for this device.');
+        await refreshPushStatus();
+      } else {
+        toast.error(res.error || 'Failed to disable push notifications.');
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to disable push notifications.');
+    } finally {
+      setIsTogglingPush(false);
+    }
+  };
+
+  const handleSendTestPush = async () => {
+    setIsTestingPush(true);
+    try {
+      const res = await sendTestPushNotification();
+      if (res.success) {
+        toast.success(res.message);
+      } else {
+        toast.error(res.message);
+      }
+    } catch (err: any) {
+      toast.error(err?.message || 'Test push failed.');
+    } finally {
+      setIsTestingPush(false);
+    }
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -1034,6 +1115,14 @@ export default function SettingsPage({ defaultTab }: SettingsPageProps = {}) {
     setNotifications(updated);
     setIsSavingNotifications(true);
 
+    // Synchronize to FCM push token preferences
+    updatePushPreferences({
+      orders: key === 'order_status_updates' ? updated.order_status_updates : notifications.order_status_updates,
+      promotions: key === 'promotions_and_deals' ? updated.promotions_and_deals : notifications.promotions_and_deals,
+      price_drops: key === 'price_drop_alerts' ? updated.price_drop_alerts : notifications.price_drop_alerts,
+      security: key === 'security_alerts' ? updated.security_alerts : notifications.security_alerts,
+    }).catch(() => {});
+
     try {
       // 1. Try DB upsert
       try {
@@ -1080,7 +1169,7 @@ export default function SettingsPage({ defaultTab }: SettingsPageProps = {}) {
           .maybeSingle();
 
         if (!error && data) {
-          const prefLang = (data.language === 'sw' || data.language === 'en') ? data.language : 'en';
+          const prefLang = (data.language === 'sw' || data.language === 'en') ? data.language : (language || 'en');
           setPreferences({
             currency: data.currency || 'KES',
             language: prefLang,
@@ -1090,8 +1179,8 @@ export default function SettingsPage({ defaultTab }: SettingsPageProps = {}) {
             substitution_rule: data.substitution_rule || 'call_first',
             save_cart: data.save_cart ?? true,
           });
-          if (prefLang !== language) {
-            setLanguage(prefLang as any);
+          if (data.language && (data.language === 'sw' || data.language === 'en') && data.language !== language) {
+            setLanguage(data.language as any);
           }
           return;
         }
@@ -1121,8 +1210,6 @@ export default function SettingsPage({ defaultTab }: SettingsPageProps = {}) {
   }, [user]);
 
   const handleUpdatePreference = async <K extends keyof BuyerPreferences>(key: K, value: BuyerPreferences[K]) => {
-    if (!user) return;
-
     if (key === 'language' && (value === 'en' || value === 'sw')) {
       await setLanguage(value as any);
     }
@@ -1133,6 +1220,14 @@ export default function SettingsPage({ defaultTab }: SettingsPageProps = {}) {
     };
 
     setPreferences(updated);
+
+    if (!user) {
+      if (key === 'language') {
+        toast.success(value === 'sw' ? 'Lugha imebadilishwa kuwa Kiswahili' : 'Language updated to English');
+      }
+      return;
+    }
+
     setIsSavingPreferences(true);
 
     try {
@@ -1154,7 +1249,11 @@ export default function SettingsPage({ defaultTab }: SettingsPageProps = {}) {
         data: { buyer_preferences: updated }
       });
 
-      toast.success(t('settings.saved_success', 'Shopping preferences updated.'));
+      if (key === 'language') {
+        toast.success(value === 'sw' ? 'Lugha imebadilishwa kuwa Kiswahili' : 'Language updated to English');
+      } else {
+        toast.success(t('settings.saved_success', 'Shopping preferences updated.'));
+      }
     } catch (err) {
       console.error('Error saving preference:', err);
       toast.error(t('settings.save_error', 'Failed to save preference.'));
@@ -1268,25 +1367,68 @@ export default function SettingsPage({ defaultTab }: SettingsPageProps = {}) {
 
   // Nav tabs list
   const tabs = [
-    { id: 'personal' as const, label: 'Personal Info', icon: User },
-    { id: 'addresses' as const, label: 'Delivery Addresses', icon: MapPin },
-    { id: 'payments' as const, label: 'Payment Methods', icon: CreditCard },
-    { id: 'notifications' as const, label: 'Notifications', icon: Bell },
-    { id: 'preferences' as const, label: 'Preferences', icon: Globe },
-    { id: 'security' as const, label: 'Security', icon: Shield },
+    { id: 'personal' as const, label: t('settings.personal_tab', 'Personal Info'), icon: User },
+    { id: 'addresses' as const, label: t('settings.addresses_tab', 'Delivery Addresses'), icon: MapPin },
+    { id: 'payments' as const, label: t('settings.payments_tab', 'Payment Methods'), icon: CreditCard },
+    { id: 'notifications' as const, label: t('settings.notifications_tab', 'Notifications'), icon: Bell },
+    { id: 'preferences' as const, label: t('settings.preferences_tab', 'Shopping Preferences'), icon: Globe },
+    { id: 'security' as const, label: t('settings.security_tab', 'Security'), icon: Shield },
   ];
 
   return (
     <div className="space-y-6 max-w-6xl mx-auto pb-12">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-foreground">
-          {location.pathname.includes('/payments') ? 'Payment Methods' : 'Account Settings'}
+          {location.pathname.includes('/payments') ? t('settings.payments_tab', 'Payment Methods') : t('settings.title', 'Account Settings')}
         </h1>
         <p className="text-sm text-muted-foreground mt-1">
           {location.pathname.includes('/payments')
-            ? 'Manage your saved Safaricom M-Pesa mobile money numbers and credit/debit cards.'
-            : 'Manage your personal details, delivery destinations, payment options, and security preferences.'}
+            ? t('settings.payments_desc', 'Manage your saved Safaricom M-Pesa mobile money numbers and credit/debit cards.')
+            : t('settings.account_desc', 'Manage your personal details, delivery destinations, payment options, and security preferences.')}
         </p>
+      </div>
+
+      {/* Language Switcher in Account Settings */}
+      <div className="bg-[#FAF5EC] dark:bg-card border border-[#D9A62E]/30 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-xl bg-[#C65A28]/10 text-[#C65A28] flex items-center justify-center shrink-0 border border-[#C65A28]/20">
+            <Globe className="w-5 h-5" />
+          </div>
+          <div>
+            <h2 className="text-sm font-bold text-foreground">
+              {t('settings.preferred_language', 'Preferred Language')} / Lugha
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              {t('settings.language_desc', 'Choose the language for browsing, notifications, and shopping.')}
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center bg-white dark:bg-muted rounded-xl p-1 border border-border shrink-0 gap-1.5 w-full sm:w-auto shadow-xs">
+          <button
+            type="button"
+            onClick={() => handleUpdatePreference('language', 'en')}
+            className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              language === 'en'
+                ? 'bg-[#3A2418] text-white shadow-xs'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+            }`}
+          >
+            <span>English (EN)</span>
+            {language === 'en' && <Check className="w-3.5 h-3.5" />}
+          </button>
+          <button
+            type="button"
+            onClick={() => handleUpdatePreference('language', 'sw')}
+            className={`flex-1 sm:flex-initial px-4 py-2 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+              language === 'sw'
+                ? 'bg-[#3A2418] text-white shadow-xs'
+                : 'text-muted-foreground hover:text-foreground hover:bg-muted/50'
+            }`}
+          >
+            <span>Kiswahili (SW)</span>
+            {language === 'sw' && <Check className="w-3.5 h-3.5" />}
+          </button>
+        </div>
       </div>
       
       <div className="flex flex-col md:flex-row gap-6 items-start">
@@ -1782,6 +1924,146 @@ export default function SettingsPage({ defaultTab }: SettingsPageProps = {}) {
                 </p>
               </div>
 
+              {/* Web Push Notifications (FCM) Device Status & Control Card */}
+              <div className="bg-[#FAF5EC] dark:bg-card border border-[#D9A62E]/30 rounded-xl p-4 sm:p-5 shadow-xs">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div className="flex items-start gap-3.5">
+                    <div className="w-10 h-10 rounded-xl bg-[#C65A28]/10 text-[#C65A28] flex items-center justify-center shrink-0 border border-[#C65A28]/20 mt-0.5">
+                      <Bell className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <h3 className="text-sm sm:text-base font-bold text-foreground">
+                          Browser &amp; Lock-Screen Push Notifications
+                        </h3>
+                        {pushStatus?.isEnabled ? (
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300">
+                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                            Active on this device
+                          </span>
+                        ) : pushStatus?.permission === 'denied' ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300">
+                            <AlertTriangle className="w-3 h-3" />
+                            Blocked in browser
+                          </span>
+                        ) : pushStatus?.requiresPWAInstall ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+                            <Smartphone className="w-3 h-3" />
+                            iOS PWA required
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-stone-100 text-stone-700 dark:bg-stone-800 dark:text-stone-300">
+                            Not enabled
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground mt-1 max-w-xl">
+                        Powered by Firebase Cloud Messaging (FCM). Receive instant notifications on your desktop or mobile lock screen for order status updates, dispatch tracking, and deals.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 w-full sm:w-auto shrink-0 flex-wrap sm:flex-nowrap">
+                    {pushStatus?.isEnabled ? (
+                      <>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleSendTestPush}
+                          disabled={isTestingPush}
+                          className="flex-1 sm:flex-initial text-xs h-9 border-[#D9A62E]/40 hover:bg-[#FAF5EC] dark:hover:bg-muted"
+                        >
+                          {isTestingPush ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin mr-1.5" />
+                              Testing...
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="w-3.5 h-3.5 text-[#C65A28] mr-1.5" />
+                              Send Test Push
+                            </>
+                          )}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={handleDisablePush}
+                          disabled={isTogglingPush}
+                          className="flex-1 sm:flex-initial text-xs h-9 text-rose-600 hover:text-rose-700 hover:bg-rose-50 dark:hover:bg-rose-950/30"
+                        >
+                          {isTogglingPush ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Disable'}
+                        </Button>
+                      </>
+                    ) : pushStatus?.permission === 'denied' ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          toast.info("To unblock notifications: Click the site settings/lock icon in your browser address bar, set Notifications to 'Allow', and refresh this page.", { duration: 9000 });
+                        }}
+                        className="w-full sm:w-auto text-xs h-9 border-rose-300 text-rose-700"
+                      >
+                        How to Unblock
+                      </Button>
+                    ) : pushStatus?.requiresPWAInstall ? (
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          toast.info("On iPhone/iPad: Tap the Share button at the bottom of Safari, choose 'Add to Home Screen', and launch ODA Market from your home screen.", { duration: 9000 });
+                        }}
+                        className="w-full sm:w-auto text-xs h-9 border-amber-300 text-amber-800"
+                      >
+                        iOS Instructions
+                      </Button>
+                    ) : (
+                      <Button
+                        type="button"
+                        size="sm"
+                        onClick={handleEnablePush}
+                        disabled={isTogglingPush}
+                        className="w-full sm:w-auto bg-[#3A2418] hover:bg-[#2A1810] text-white text-xs h-9 font-medium shadow-xs flex items-center gap-1.5"
+                      >
+                        {isTogglingPush ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin mr-1" />
+                            Enabling...
+                          </>
+                        ) : (
+                          <>
+                            <Bell className="w-3.5 h-3.5" />
+                            Enable Push Notifications
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+
+                {pushStatus?.permission === 'denied' && (
+                  <div className="mt-3 text-xs bg-rose-50 dark:bg-rose-950/40 border border-rose-200 dark:border-rose-900 rounded-lg p-2.5 text-rose-800 dark:text-rose-300 flex items-start gap-2">
+                    <Info className="w-4 h-4 shrink-0 mt-0.5 text-rose-600" />
+                    <span>
+                      Push notifications are currently blocked in your browser settings. To receive order updates, click the tune/lock icon in your browser address bar, change Notifications to <strong>Allow</strong>, and refresh the page.
+                    </span>
+                  </div>
+                )}
+
+                {pushStatus?.requiresPWAInstall && (
+                  <div className="mt-3 text-xs bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 rounded-lg p-2.5 text-amber-800 dark:text-amber-300 flex items-start gap-2">
+                    <Smartphone className="w-4 h-4 shrink-0 mt-0.5 text-amber-600" />
+                    <span>
+                      iOS Safari requires adding ODA Market to your Home Screen before web push notifications can be delivered. Tap <strong>Share</strong> in Safari &rarr; <strong>Add to Home Screen</strong>.
+                    </span>
+                  </div>
+                )}
+              </div>
+
               <div className="divide-y divide-border/60">
                 {/* 1. Order Confirmation */}
                 <div className="py-4 flex items-center justify-between gap-4">
@@ -1966,9 +2248,36 @@ export default function SettingsPage({ defaultTab }: SettingsPageProps = {}) {
 
                 {/* Language */}
                 <div>
-                  <label className="block text-sm font-medium text-foreground mb-1.5">
-                    {t('settings.preferred_language', 'Preferred Language')}
+                  <label className="block text-sm font-medium text-foreground mb-1.5 flex items-center justify-between">
+                    <span>{t('settings.preferred_language', 'Preferred Language')}</span>
+                    <span className="text-xs text-muted-foreground font-normal">{language === 'sw' ? 'Kiswahili kimechaguliwa' : 'English selected'}</span>
                   </label>
+                  <div className="flex items-center gap-2 mb-2">
+                    <button
+                      type="button"
+                      onClick={() => handleUpdatePreference('language', 'en')}
+                      className={`flex-1 py-2 px-3 rounded-lg border text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                        language === 'en'
+                          ? 'bg-[#3A2418] text-white border-[#3A2418] shadow-xs'
+                          : 'bg-background text-muted-foreground border-border hover:text-foreground'
+                      }`}
+                    >
+                      <span>English</span>
+                      {language === 'en' && <Check className="w-3.5 h-3.5" />}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleUpdatePreference('language', 'sw')}
+                      className={`flex-1 py-2 px-3 rounded-lg border text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                        language === 'sw'
+                          ? 'bg-[#3A2418] text-white border-[#3A2418] shadow-xs'
+                          : 'bg-background text-muted-foreground border-border hover:text-foreground'
+                      }`}
+                    >
+                      <span>Kiswahili</span>
+                      {language === 'sw' && <Check className="w-3.5 h-3.5" />}
+                    </button>
+                  </div>
                   <select
                     value={language}
                     onChange={(e) => handleUpdatePreference('language', e.target.value)}

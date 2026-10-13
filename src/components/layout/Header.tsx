@@ -21,7 +21,6 @@ import {
   ChevronDown, ChevronRight,
   Package,
   Bell,
-  Globe,
   DollarSign,
   MessageCircle,
   Truck
@@ -29,9 +28,7 @@ import {
 
 export function Header() {
   const { user, profile } = useAuthStore();
-  const { language, setLanguage, t } = useTranslation();
-  const [showLangMenu, setShowLangMenu] = useState(false);
-  const langDropdownRef = useRef<HTMLDivElement>(null);
+  const { t, language } = useTranslation();
   const cartCount = useCartStore((state) => state.getCartCount());
   const cartTotal = useCartStore((state) => state.getCartTotal());
   const { items: wishlistItems } = useWishlistStore();
@@ -52,9 +49,6 @@ export function Header() {
         mobileSearchContainerRef.current && !mobileSearchContainerRef.current.contains(event.target as Node)
       ) {
         setShowDropdown(false);
-      }
-      if (langDropdownRef.current && !langDropdownRef.current.contains(event.target as Node)) {
-        setShowLangMenu(false);
       }
     };
     document.addEventListener("mousedown", handleClickOutside);
@@ -238,16 +232,6 @@ export function Header() {
           </Link>
           
           <div className="flex items-center gap-1 sm:gap-2">
-            <button
-              type="button"
-              onClick={() => setLanguage(language === 'en' ? 'sw' : 'en')}
-              className="px-2 py-1 bg-[#FAF5EC] hover:bg-[#E8DCC9] border border-[#D9A62E]/30 rounded-lg text-xs font-bold text-[#3A2418] flex items-center gap-1 transition-colors shrink-0"
-              title={language === 'en' ? "Badilisha kwa Kiswahili" : "Switch to English"}
-              aria-label="Language switcher"
-            >
-              <Globe className="w-3.5 h-3.5 text-[#C65A28]" />
-              <span>{language === 'en' ? 'SW' : 'EN'}</span>
-            </button>
             <NotificationBell isMobile triggerClassName="w-11 h-11" />
             <Link to={user ? (profile?.role === 'admin' ? '/admin/dashboard' : `/${profile?.role === 'customer' ? 'buyer' : profile?.role || 'buyer'}/dashboard`) : '/login'} className="w-11 h-11 flex items-center justify-center text-[#5F5A54] hover:bg-gray-100 rounded-full transition-colors shrink-0">
               <User className="w-[22px] h-[22px]" />
@@ -274,7 +258,7 @@ export function Header() {
           <div ref={mobileSearchContainerRef} className="relative w-full">
             <form onSubmit={handleSearch} className="w-full flex items-center h-[50px] rounded-full border-2 border-[#C65A28] bg-white overflow-hidden focus-within:ring-2 focus-within:ring-[#C65A28]/20 transition-all">
               <div className="hidden min-[380px]:flex items-center h-full px-3 border-r border-[#EAEAEA] bg-[#FAF5EC] cursor-pointer hover:bg-[#E8DCC9] shrink-0">
-                <span className="text-[13px] font-medium text-[#5F5A54] truncate max-w-[80px]">Categories</span>
+                <span className="text-[13px] font-medium text-[#5F5A54] truncate max-w-[80px]">{t('nav.categories', 'Categories')}</span>
                 <ChevronDown className="w-3.5 h-3.5 ml-1 text-[#5F5A54]" />
               </div>
               <input 
@@ -282,7 +266,7 @@ export function Header() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={() => { if (searchQuery.trim()) setShowDropdown(true); }}
-                placeholder="Search products..." 
+                placeholder={t('nav.search_placeholder', "Search products...")} 
                 className="flex-1 h-full px-3 sm:px-4 bg-transparent outline-none text-[#3A2418] placeholder-[#8B857D] text-[14px] sm:text-[15px] w-full min-w-0"
               />
               <button type="submit" className="h-full px-4 bg-[#C65A28] text-white flex items-center justify-center shrink-0 hover:bg-[#A84A1E] transition-colors">
@@ -337,53 +321,6 @@ export function Header() {
               <Link to="/help-center" className="flex items-center gap-1.5 hover:text-[#D9A62E] transition-colors">
                 <HelpCircle className="w-4 h-4" /> {t('nav.help_center', 'Help Center')}
               </Link>
-              <span className="w-px h-4 bg-white/20"></span>
-
-              {/* Language Switcher Dropdown */}
-              <div className="relative" ref={langDropdownRef}>
-                <button
-                  type="button"
-                  onClick={() => setShowLangMenu(!showLangMenu)}
-                  className="flex items-center gap-1.5 hover:text-[#D9A62E] transition-colors font-medium text-xs uppercase"
-                  title="Switch Language / Badilisha Lugha"
-                  aria-expanded={showLangMenu}
-                >
-                  <Globe className="w-4 h-4 text-[#D9A62E]" />
-                  <span>{language.toUpperCase()}</span>
-                  <ChevronDown className="w-3 h-3" />
-                </button>
-                {showLangMenu && (
-                  <div className="absolute right-0 top-full mt-2 w-36 bg-white text-[#3A2418] rounded-xl shadow-xl border border-[#D9A62E]/20 py-1.5 z-[70]">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLanguage('en');
-                        setShowLangMenu(false);
-                      }}
-                      className={`w-full text-left px-3.5 py-2 text-xs font-medium flex items-center justify-between hover:bg-[#FAF5EC] transition-colors ${
-                        language === 'en' ? 'text-[#C65A28] font-bold bg-[#FAF5EC]/60' : 'text-gray-700'
-                      }`}
-                    >
-                      <span>English</span>
-                      {language === 'en' && <span className="text-[#C65A28] font-bold">✓</span>}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setLanguage('sw');
-                        setShowLangMenu(false);
-                      }}
-                      className={`w-full text-left px-3.5 py-2 text-xs font-medium flex items-center justify-between hover:bg-[#FAF5EC] transition-colors ${
-                        language === 'sw' ? 'text-[#C65A28] font-bold bg-[#FAF5EC]/60' : 'text-gray-700'
-                      }`}
-                    >
-                      <span>Kiswahili</span>
-                      {language === 'sw' && <span className="text-[#C65A28] font-bold">✓</span>}
-                    </button>
-                  </div>
-                )}
-              </div>
-
               <span className="w-px h-4 bg-white/20"></span>
               <button className="flex items-center gap-1.5 hover:text-[#D9A62E] transition-colors">
                 <DollarSign className="w-4 h-4" /> KSh <ChevronDown className="w-3 h-3" />

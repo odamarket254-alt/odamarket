@@ -5,7 +5,6 @@ import {
   sendOrderConfirmationEmailForOrder,
   sendPaymentFailedEmailForOrder
 } from '../emailService.js';
-import { sendPushToUser, sendPushToAdmins } from './fcmServerService.js';
 
 // Structured logging helper that sanitizes sensitive data (excluding secrets and card/token details)
 export function logPaymentEvent(level: 'info' | 'warn' | 'error', event: string, details: Record<string, any>) {
@@ -468,40 +467,6 @@ export async function processAuthoritativePaymentVerification({
       });
     } catch (emailErr: any) {
       logPaymentEvent('warn', 'CONFIRMATION_EMAIL_ERROR', { orderId: cleanOrderId, error: emailErr.message });
-    }
-
-    // 14. Trigger FCM Push Notification to Buyer for Authoritative Order Confirmation
-    try {
-      const displayOrder = updatedOrder.order_number || `#ODA-${cleanOrderId.slice(0, 8).toUpperCase()}`;
-      await sendPushToUser(supabase, order.user_id, {
-        title: 'Order Confirmed! 🛒',
-        body: `Payment verified. Your order ${displayOrder} is confirmed and is being prepared.`,
-        orderId: cleanOrderId,
-        url: `/track-order?orderId=${encodeURIComponent(cleanOrderId)}`,
-        type: `order_status:confirmed:${cleanOrderId}`,
-        tag: `order-${cleanOrderId}`,
-        category: 'orders'
-      });
-      logPaymentEvent('info', 'FCM_ORDER_CONFIRMED_PUSH_DISPATCHED', { orderId: cleanOrderId, userId: order.user_id });
-    } catch (pushErr: any) {
-      logPaymentEvent('warn', 'FCM_PUSH_DISPATCH_WARNING', { orderId: cleanOrderId, error: pushErr.message });
-    }
-
-    // 15. Trigger Seller & Admin New-Order Push Alerts
-    try {
-      const displayOrder = updatedOrder.order_number || `#ODA-${cleanOrderId.slice(0, 8).toUpperCase()}`;
-      const totalKsh = Math.round(Number(updatedOrder.total || 0)).toLocaleString();
-      await sendPushToAdmins(supabase, {
-        title: 'New Order Received! 📦',
-        body: `New paid order ${displayOrder} (KSh ${totalKsh}) received. Ready for fulfillment.`,
-        orderId: cleanOrderId,
-        url: `/admin/dashboard/orders`,
-        type: `admin_new_order:${cleanOrderId}`,
-        tag: `admin-order-${cleanOrderId}`,
-        category: 'orders'
-      });
-    } catch (adminPushErr: any) {
-      logPaymentEvent('warn', 'ADMIN_FCM_PUSH_WARNING', { orderId: cleanOrderId, error: adminPushErr.message });
     }
 
     return {

@@ -13,7 +13,6 @@ import checkoutRoutes from "./routes/checkoutRoutes.js";
 import imageRoutes from "./routes/imageRoutes.js";
 import webhookRoutes from "./routes/webhookRoutes.js";
 import debugRoutes from "./api/debugRoutes.js";
-import notificationRoutes from "./routes/notificationRoutes.js";
 import rateLimit from "express-rate-limit";
 
 const allowedMimeTypes = ["image/jpeg", "image/png", "image/webp", "image/avif", "application/pdf", "image/svg+xml"];
@@ -102,9 +101,6 @@ async function startServer() {
 
   // Checkout Route
   app.use("/api/checkout", checkoutRoutes);
-
-  // Notification & FCM Routes
-  app.use("/api/notifications", notificationRoutes);
 
   // AI Routes
   app.use("/api/ai", aiRoutes);

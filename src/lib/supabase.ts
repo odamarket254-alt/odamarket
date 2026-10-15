@@ -3,16 +3,12 @@ import { createClient } from "@supabase/supabase-js";
 // These should be set in .env or .env.local
 // Because this is a preview environment, we fallback to dummy values if not provided,
 // but acknowledge that the app won't fully function without REAL keys.
-const env = (typeof import.meta !== 'undefined' && (import.meta as any)?.env)
-  ? (import.meta as any).env
-  : (typeof process !== 'undefined' && process.env ? process.env : {}) as any;
-
 const supabaseUrl =
-  (env.VITE_SUPABASE_URL || env.SUPABASE_URL || "https://placeholder-project.supabase.co").trim().replace(/^["']|["']$/g, '');
+  (import.meta.env.VITE_SUPABASE_URL || "https://placeholder-project.supabase.co").trim().replace(/^["']|["']$/g, '');
 const supabaseAnonKey =
-  (env.VITE_SUPABASE_ANON_KEY || env.SUPABASE_ANON_KEY || "placeholder-anon-key").trim().replace(/^["']|["']$/g, '');
+  (import.meta.env.VITE_SUPABASE_ANON_KEY || "placeholder-anon-key").trim().replace(/^["']|["']$/g, '');
 
-if (!env.VITE_SUPABASE_URL && !env.SUPABASE_URL) {
+if (!import.meta.env.VITE_SUPABASE_URL) {
   console.warn(
     "VITE_SUPABASE_URL is missing. Please add it to your environment variables for real database access.",
   );

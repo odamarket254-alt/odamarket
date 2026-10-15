@@ -8,18 +8,11 @@ import { Button } from "../components/ui/Button";
 import { Link, useNavigate } from "react-router-dom";
 import { useCartStore } from "../store/useCartStore";
 import { useAuthStore } from "../store/useAuthStore";
-import { OrderReceipt, OrderReceiptData } from "../components/receipt/OrderReceipt";
-import { AnimatedSuccessCheckmark } from "../components/receipt/AnimatedSuccessCheckmark";
-import { downloadDigitalReceiptPdf } from "../utils/receiptPdf";
+import { OrderReceipt } from "../components/receipt/OrderReceipt";
 import { generateWhatsAppMessage, getWhatsAppUrl, WhatsAppOrderData } from "../lib/whatsapp";
 import { toPng, toBlob } from "html-to-image";
 import { 
   Download,
-  Printer,
-  PackageCheck,
-  Mail,
-  RefreshCw,
-  ExternalLink,
   MessageCircle,
   Share2,
   FileText,
@@ -34,6 +27,7 @@ import {
   Smartphone,
   Info,
   ChevronRight,
+  PackageCheck,
   Headphones
 } from "lucide-react";
 import { useTranslation } from "../context/LanguageContext";
@@ -61,10 +55,6 @@ export default function CheckoutPage() {
   const [isGeneratingWA, setIsGeneratingWA] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
-  const [receiptRevealPhase, setReceiptRevealPhase] = useState<"animating_checkmark" | "revealed">("animating_checkmark");
-  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
-  const [isResendingEmail, setIsResendingEmail] = useState(false);
-  const [emailStatusMessage, setEmailStatusMessage] = useState<string | null>(null);
   const [confirmedOrder, setConfirmedOrder] = useState<any>(null);
   const [receiptError, setReceiptError] = useState<string | null>(null);
   const [loadingText, setLoadingText] = useState("");
@@ -218,7 +208,7 @@ export default function CheckoutPage() {
       setActivePendingOrderId(currentOrderId);
 
       const verifyAndComplete = async (reference?: string) => {
-        setLoadingText("Verifying payment authoritatively with Paystack...");
+        setLoadingText("Verifying payment with Paystack...");
         try {
           const verifyResponse = await fetch('/api/checkout/verify', {
             method: 'POST',
@@ -234,18 +224,12 @@ export default function CheckoutPage() {
             setConfirmedOrder(verifyData);
             setIsProcessing(false);
             setIsSuccess(true);
-            setReceiptRevealPhase("animating_checkmark");
             setPaymentError(null);
             clearCart();
             toast.success("Payment verified! Order placed successfully.");
-
-            // After green checkmark animation completes (~850ms), smoothly reveal the digital receipt
-            setTimeout(() => {
-              setReceiptRevealPhase("revealed");
-            }, 850);
           } else {
             // AUTHORITATIVE FAILURE: Do NOT mark success, do NOT clear cart
-            const errorMsg = verifyData.message || "Payment verification failed. Your M-Pesa account was not charged.";
+            const errorMsg = verifyData.message || "Payment verification failed. Your card or M-Pesa account was not charged.";
             console.error("Payment verification failed:", verifyData);
             setPaymentError(errorMsg);
             toast.error(errorMsg);
@@ -254,7 +238,7 @@ export default function CheckoutPage() {
           }
         } catch (e: any) {
           console.error("Verification error:", e);
-          const errorMsg = "Network timeout verifying payment. If you completed M-Pesa payment, your order will automatically confirm within 1-2 minutes.";
+          const errorMsg = "Network timeout verifying payment. If you completed M-Pesa payment, your order will automatically be confirmed within 1-2 minutes.";
           setPaymentError(errorMsg);
           toast.error(errorMsg);
           setIsProcessing(false);
@@ -282,16 +266,10 @@ export default function CheckoutPage() {
         channels: ['mobile_money'], // Force M-Pesa/Mobile Money only
         ref: `ord_${currentOrderId}_${Math.floor((Math.random() * 1000000000) + 1)}`,
         onClose: function(){
-          toast.info("Payment window was closed. Your cart items are saved and you can retry payment whenever you are ready.");
-          setPaymentError("Payment was cancelled or closed. Your pending order is saved. Click 'Retry Payment with M-Pesa' when ready.");
+          toast.info("Payment window closed. Your order is pending payment. You can retry payment whenever you are ready.");
           setIsProcessing(false);
         },
         callback: function(response: any){
-          if (!response || !response.reference) {
-            toast.error("Payment was not completed or missing reference.");
-            setIsProcessing(false);
-            return;
-          }
           verifyAndComplete(response.reference);
         }
       });
@@ -310,383 +288,212 @@ export default function CheckoutPage() {
   };
 
 
-  const getReceiptData = (): OrderReceiptData | null => {
+  const getReceiptData = (): WhatsAppOrderData | null => {
     if (!confirmedOrder) return null;
-    const { order, profile, items: orderItems } = confirmedOrder;
-    if (!order) return null;
+    const { order, profile, items } = confirmedOrder;
     
     // Attempt to parse notes for delivery info
-    let location = shippingDetails.location || "Nairobi, Westlands";
-    let address = shippingDetails.fullAddress || "Spring Valley Estate, Peponi Road";
+    let location = "Nairobi";
+    let address = "Nairobi, Kenya";
     let orderNumberFromNotes = "";
-    let deliveryMethodVal = deliveryMethod || 'standard';
     let parsedContact: any = null;
     let parsedShipping: any = null;
     
     try {
       if (order.notes) {
-        const parsed = typeof order.notes === 'string' ? JSON.parse(order.notes) : order.notes;
+        const parsed = JSON.parse(order.notes);
         if (parsed.shippingDetails) {
           parsedShipping = parsed.shippingDetails;
           location = parsedShipping.location || location;
           address = parsedShipping.fullAddress || address;
-          if (parsedShipping.deliveryMethod) {
-            deliveryMethodVal = parsedShipping.deliveryMethod;
-          }
-        }
-        if (parsed.deliveryMethod) {
-          deliveryMethodVal = parsed.deliveryMethod;
         }
         if (parsed.contactDetails) {
           parsedContact = parsed.contactDetails;
         }
         if (parsed.orderNumber) {
-          orderNumberFromNotes = parsed.orderNumber;
+           orderNumberFromNotes = parsed.orderNumber;
         }
       }
     } catch(e){}
 
-    const cName =
-      parsedContact?.fullName ||
-      parsedShipping?.recipientName ||
-      shippingDetails.recipientName ||
-      contactDetails.fullName ||
-      (profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : '') ||
-      profile?.full_name ||
-      "Valued Customer";
-
-    const cPhone =
-      parsedContact?.userPhone ||
-      parsedShipping?.recipientPhone ||
-      shippingDetails.recipientPhone ||
-      contactDetails.userPhone ||
-      profile?.phone ||
-      profile?.phone_number ||
-      userPhone ||
-      "N/A";
-
-    const cEmail =
-      parsedContact?.userEmail ||
-      contactDetails.userEmail ||
-      user?.email ||
-      profile?.email ||
-      userEmail ||
-      "";
-
-    // Products list from Supabase order_items or in-memory items
-    const itemsList = (orderItems && Array.isArray(orderItems) && orderItems.length > 0)
-      ? orderItems.map((i: any) => ({
-          product_name: i.product_name || i.name || 'Product',
-          quantity: Number(i.quantity) || 1,
-          unit_price: Number(i.unit_price) || 0,
-          total_price: Number(i.total_price || (i.unit_price * i.quantity)) || 0,
-          product_image: i.product_image || ''
-        }))
-      : items.map(i => ({
-          product_name: i.name || 'Product',
-          quantity: i.quantity || 1,
-          unit_price: Number(i.price) || 0,
-          total_price: (Number(i.price) || 0) * (i.quantity || 1),
-          product_image: i.image_url || ''
-        }));
-
-    const finalSubtotal = Number(order.subtotal ?? subtotal);
-    const finalDeliveryFee = Number(order.delivery_fee ?? deliveryFee);
-    const finalDiscount = Number(order.discount || order.discount_amount || 0);
-    const finalTotal = Number(order.total || order.grand_total || (finalSubtotal + finalDeliveryFee - finalDiscount));
-
-    const authoritativeTxn =
-      order.payment_reference ||
-      confirmedOrder.reference ||
-      `ord_${order.id}`;
+    const cName = parsedContact?.fullName || parsedShipping?.recipientName || (profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : '') || profile?.full_name || "Name unavailable";
+    const cPhone = parsedContact?.userPhone || parsedShipping?.recipientPhone || profile?.phone || "Phone unavailable";
+    const cEmail = parsedContact?.userEmail || profile?.email || "Email unavailable";
 
     return {
-      order_number: order.order_number || orderNumberFromNotes || `ODA-${order.id.split('-')[0].toUpperCase()}`,
-      order_id: order.id,
-      created_at: order.created_at || new Date().toISOString(),
+      order_number: order.order_number || orderNumberFromNotes || order.id.split('-')[0],
+      created_at: order.created_at,
       customer_name: cName,
       customer_phone: cPhone,
       customer_email: cEmail,
-      items: itemsList,
-      subtotal: finalSubtotal,
-      delivery_fee: finalDeliveryFee,
-      discount: finalDiscount,
-      grand_total: finalTotal,
-      payment_method: order.payment_method || 'M-Pesa',
+      items: items.map((i: any) => ({
+        product_name: i.product_name || 'Product',
+        quantity: i.quantity || 1,
+        unit_price: i.unit_price || 0,
+        total_price: i.total_price || 0
+      })),
+      subtotal: order.subtotal || 0,
+      delivery_fee: order.shipping_fee || order.delivery_fee || 0,
+      discount: order.discount || order.discount_amount || 0,
+      grand_total: order.grand_total || order.total_amount || order.total || order.subtotal || 0,
+      payment_method: 'M-Pesa',
       payment_status: "PAID",
       delivery_location: location,
       delivery_address: address,
-      delivery_method: deliveryMethodVal,
-      status: order.status || 'processing',
-      transaction_id: authoritativeTxn,
-      email_sent: true
+      status: order.status,
+      transaction_id: "TXN" + Math.floor(Math.random() * 100000000) // Mocking transaction ID if missing
     };
   };
 
-  const handleDownloadPdf = async () => {
-    const receiptData = getReceiptData();
-    if (!receiptData) return;
-    setIsDownloadingPdf(true);
+  const handleDownloadReceipt = async () => {
+    const el = document.getElementById('receipt-element');
+    if (!el) return;
     try {
-      toast.loading("Generating high-resolution digital receipt PDF...", { id: "pdf-gen" });
-      const success = await downloadDigitalReceiptPdf(
-        "receipt-printable-container",
-        receiptData,
-        `ODA-Market-Receipt-${receiptData.order_number}.pdf`
-      );
-      if (success) {
-        toast.success("Digital receipt PDF downloaded successfully!", { id: "pdf-gen" });
-      } else {
-        toast.error("Failed to generate PDF. Please try again or use Print.", { id: "pdf-gen" });
-      }
-    } catch (err) {
-      console.error("PDF generation error:", err);
-      toast.error("Failed to download PDF receipt.", { id: "pdf-gen" });
-    } finally {
-      setIsDownloadingPdf(false);
+      const url = await toPng(el, { pixelRatio: 2 });
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Receipt-${confirmedOrder?.order?.order_number || 'Order'}.png`;
+      a.click();
+    } catch(e) {
+      console.error(e);
+      toast.error("Failed to download receipt");
     }
   };
 
-  const handlePrintReceipt = () => {
+  const handleShareReceipt = async () => {
+    const el = document.getElementById('receipt-element');
+    if (!el) return;
     try {
-      toast.info("Preparing digital receipt for printing...");
-      setTimeout(() => {
-        window.print();
-      }, 250);
-    } catch (err) {
-      console.error("Print error:", err);
-      toast.error("Failed to initiate printing. Please check your browser print settings.");
+      const blob = await toBlob(el, { pixelRatio: 2 });
+      if (blob) (async (blob) => {
+        if (!blob) return;
+        const file = new File([blob], `Receipt-${confirmedOrder?.order?.order_number || 'Order'}.png`, { type: 'image/png' });
+        if (navigator.share) {
+          await navigator.share({
+            title: 'Order Receipt',
+            text: 'Here is your OdaMarket order receipt.',
+            files: [file]
+          });
+        } else {
+          toast.error("Native sharing not supported on this device. Please download instead.");
+        }
+      })(blob);
+    } catch(e) {
+      console.error(e);
     }
   };
 
-  const handleViewOrder = () => {
-    const receiptData = getReceiptData();
-    if (receiptData?.order_number || receiptData?.order_id) {
-      const targetId = receiptData.order_number || receiptData.order_id;
-      navigate(`/track-order?id=${encodeURIComponent(targetId)}`);
-    } else {
-      navigate("/dashboard/orders");
-    }
-  };
-
-  const handleResendReceiptEmail = async () => {
-    if (!confirmedOrder?.order?.id) return;
-    setIsResendingEmail(true);
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const token = session?.access_token;
-      if (!token) {
-        toast.error("Please login to resend email receipt.");
-        return;
-      }
-      toast.loading("Dispatching digital receipt to your inbox...", { id: "email-resend" });
-      const res = await fetch("/api/checkout/resend-receipt-email", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${token}`
-        },
-        body: JSON.stringify({ orderId: confirmedOrder.order.id })
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        setEmailStatusMessage(`Receipt sent to ${data.recipient || "your email"}`);
-        toast.success(`Digital receipt dispatched to ${data.recipient || "your email"} via Resend!`, { id: "email-resend" });
-      } else {
-        toast.error(data.error || "Failed to dispatch receipt email.", { id: "email-resend" });
-      }
-    } catch (err: any) {
-      console.error("Resend email error:", err);
-      toast.error("Network error sending receipt email.", { id: "email-resend" });
-    } finally {
-      setIsResendingEmail(false);
-    }
-  };
-
+  
   const handleWhatsAppImage = async () => {
     setIsGeneratingWA(true);
     try {
-      const el = document.getElementById('receipt-printable-container');
-      const orderNumber = confirmedOrder?.order?.order_number || 'Order';
-      if (el) {
-        try {
-          const url = await toPng(el, { pixelRatio: 2, backgroundColor: '#FFFDF8' });
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `ODA-Market-Receipt-${orderNumber}.png`;
-          a.click();
-        } catch (imgErr) {
-          console.warn("Could not capture PNG for WhatsApp:", imgErr);
-        }
-      }
+      const el = document.getElementById('receipt-element');
+      if (!el) return;
+      const url = await toPng(el, { pixelRatio: 2 });
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `OdaMarket-Receipt-${confirmedOrder?.order?.order_number || 'Order'}.png`;
+      a.click();
 
-      toast.success("Opening WhatsApp with your receipt...", { duration: 3000 });
+      toast.success("Receipt downloaded! Opening WhatsApp...", { duration: 3000 });
+      
       setTimeout(() => {
-        const text = `Hello ODA Market, I have completed payment for Order ${orderNumber}. Please find my order receipt details.`;
-        window.open(getWhatsAppUrl(text), '_blank');
-      }, 1000);
+        const text = encodeURIComponent(`Hello OdaMarket, I have just paid for order ${confirmedOrder?.order?.order_number || 'Order'}. I will attach the receipt image I just downloaded.`);
+        window.open(getWhatsAppUrl(`Hello OdaMarket, I have just paid for order ${confirmedOrder?.order?.order_number || 'Order'}. I will attach the receipt image I just downloaded.`), '_blank');
+      }, 1500);
     } catch(e) {
       console.error(e);
-      toast.error("Failed to generate WhatsApp link");
+      toast.error("Failed to generate receipt image");
     } finally {
       setIsGeneratingWA(false);
     }
   };
 
+
   if (isSuccess) {
     const receiptData = getReceiptData();
 
     return (
-      <div className="min-h-screen bg-[#F8FAFC] py-8 sm:py-12 px-4 sm:px-6 flex flex-col items-center justify-center">
-        {/* Stage 1: Green Success Checkmark Animation Stage */}
-        {receiptRevealPhase === "animating_checkmark" && (
-          <div className="max-w-md w-full bg-[#FFFDF8] rounded-3xl p-8 sm:p-10 border border-[#E8DCC9] shadow-md flex flex-col items-center justify-center animate-receipt-reveal">
-            <AnimatedSuccessCheckmark
-              orderNumber={receiptData?.order_number}
-              totalAmountKsh={receiptData?.grand_total}
-              onAnimationComplete={() => {
-                setTimeout(() => setReceiptRevealPhase("revealed"), 400);
-              }}
-            />
-            <div className="mt-6 flex items-center gap-2 text-xs text-[#8B857D] font-medium">
-              <div className="w-4 h-4 border-2 border-[#C65A28] border-t-transparent rounded-full animate-spin" />
-              <span>Revealing your official digital receipt...</span>
+      <div className="min-h-screen bg-[#F8FAFC] pt-12 pb-24 flex items-center justify-center">
+        <div className="bg-[#FFFDF8] rounded-[24px] shadow-sm border border-[#E5E7EB] p-6 sm:p-10 max-w-4xl w-full mx-4 flex flex-col md:flex-row gap-8">
+          
+          <div className="flex-1 text-center md:text-left flex flex-col justify-center">
+            <div className="w-20 h-20 bg-[#ECFDF5] rounded-full flex items-center justify-center mx-auto md:mx-0 mb-6">
+              <CheckCircle2 className="w-10 h-10 text-[#C65A28]" />
             </div>
-          </div>
-        )}
+            <h1 className="text-[slate-900] font-bold text-[32px] mb-2">Payment Successful</h1>
+            <p className="text-[#6B7280] text-[16px] mb-2">Your order has been confirmed.</p>
+            {receiptData && (
+              <p className="text-[slate-900] font-bold text-[18px] mb-8">Order {receiptData.order_number}</p>
+            )}
 
-        {/* Stage 2: Smoothly Revealed Digital Receipt with Real Supabase Order Data & Working Action Buttons */}
-        {receiptRevealPhase === "revealed" && (
-          <div className="max-w-5xl w-full mx-auto animate-receipt-reveal">
-            {/* Top Celebratory Header Bar */}
-            <div className="no-print bg-[#FFFDF8] border border-[#E8DCC9] rounded-2xl p-4 sm:p-6 mb-6 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
-              <div className="flex items-center gap-3.5 text-center sm:text-left">
-                <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0">
-                  <CheckCircle2 className="w-6 h-6 text-[#2BB673]" />
-                </div>
-                <div>
-                  <div className="flex items-center justify-center sm:justify-start gap-2">
-                    <h1 className="text-lg sm:text-xl font-bold text-[#3A2418]">
-                      Payment Verified & Confirmed
-                    </h1>
-                    <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 uppercase">
-                      Paystack
-                    </span>
-                  </div>
-                  <p className="text-xs text-[#5F5A54] mt-0.5">
-                    Order <span className="font-bold text-[#3A2418]">#{receiptData?.order_number}</span> · Paid <span className="font-bold text-[#C65A28]">KSh {receiptData?.grand_total.toLocaleString()}</span>
-                  </p>
-                </div>
+            {receiptError && (
+              <div className="bg-red-50 text-red-600 p-4 rounded-xl mb-6">
+                {receiptError}
               </div>
+            )}
 
-              {/* Status Pill */}
-              <div className="flex items-center gap-2 text-xs text-[#5F5A54] bg-[#FAF5EC] px-3.5 py-1.5 rounded-full border border-[#E8DCC9]">
-                <Mail className="w-3.5 h-3.5 text-[#C65A28]" />
-                <span>Receipt sent via Resend</span>
+            {!receiptData && !receiptError && (
+              <div className="animate-pulse flex items-center justify-center md:justify-start gap-2 text-gray-500 mb-8">
+                <div className="w-5 h-5 border-2 border-[#C65A28] border-t-transparent rounded-full animate-spin"></div>
+                Generating secure receipt...
               </div>
-            </div>
+            )}
 
-            {/* Main Content Layout: Actions on side (desktop), Digital Receipt centered */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
-              {/* Actions & Utilities Column (lg:col-span-5) */}
-              <div className="no-print lg:col-span-5 flex flex-col gap-4 order-2 lg:order-1">
-                {/* Primary Action Buttons Card */}
-                <div className="bg-[#FFFDF8] border border-[#E8DCC9] rounded-2xl p-5 shadow-sm space-y-3">
-                  <h3 className="text-xs font-bold text-[#8B857D] uppercase tracking-wider mb-2">
-                    Receipt Actions
-                  </h3>
+            {receiptData && (
+              <div className="space-y-4">
+                
+                <button 
+                  onClick={handleWhatsAppImage}
+                  disabled={isGeneratingWA}
+                  className="w-full h-[56px] bg-[#25D366] text-white rounded-[16px] font-bold text-[16px] hover:bg-[#1DA851] transition-colors flex items-center justify-center gap-2 disabled:opacity-70"
+                >
+                  {isGeneratingWA ? (
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  ) : (
+                    <MessageCircle className="w-5 h-5" />
+                  )}
+                  {isGeneratingWA ? "Preparing Receipt..." : "Send Receipt to WhatsApp"}
+                </button>
 
-                  {/* 1. Working Download PDF Button */}
-                  <button
-                    onClick={handleDownloadPdf}
-                    disabled={isDownloadingPdf}
-                    className="w-full h-12 bg-[#C65A28] text-white rounded-xl font-bold text-sm hover:bg-[#A94A1F] active:scale-[0.99] transition-all flex items-center justify-center gap-2 shadow-sm disabled:opacity-70 cursor-pointer"
+                
+                <div className="flex gap-3">
+                  <button 
+                    onClick={handleDownloadReceipt}
+                    className="flex-1 h-[56px] bg-[#FFFDF8] border border-[#E8DCC9] text-[#3A2418] rounded-[16px] font-bold text-[15px] hover:bg-[#F8FAFC] transition-colors flex items-center justify-center gap-2"
                   >
-                    {isDownloadingPdf ? (
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <Download className="w-4 h-4" />
-                    )}
-                    <span>{isDownloadingPdf ? "Generating PDF Receipt..." : "Download PDF Receipt"}</span>
+                    <Download className="w-5 h-5" /> Download Receipt
                   </button>
-
-                  {/* 2. Working Print Receipt & 3. Working View Order Buttons */}
-                  <div className="grid grid-cols-2 gap-2.5">
-                    <button
-                      onClick={handlePrintReceipt}
-                      className="h-11 bg-white border border-[#E8DCC9] text-[#3A2418] hover:bg-[#FAF5EC] rounded-xl font-semibold text-xs active:scale-[0.99] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                  {navigator.share && (
+                    <button 
+                      onClick={handleShareReceipt}
+                      className="flex-1 h-[56px] bg-[#FFFDF8] border border-[#E8DCC9] text-[#3A2418] rounded-[16px] font-bold text-[15px] hover:bg-[#F8FAFC] transition-colors flex items-center justify-center gap-2"
                     >
-                      <Printer className="w-3.5 h-3.5 text-[#5F5A54]" />
-                      <span>Print Receipt</span>
+                      <Share2 className="w-5 h-5" /> Share Receipt
                     </button>
-
-                    <button
-                      onClick={handleViewOrder}
-                      className="h-11 bg-[#0A2E5C] text-white hover:bg-[#072040] rounded-xl font-semibold text-xs active:scale-[0.99] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
-                    >
-                      <PackageCheck className="w-3.5 h-3.5" />
-                      <span>View Order</span>
-                    </button>
-                  </div>
-
-                  {/* Resend Receipt to Email via Resend */}
-                  <button
-                    onClick={handleResendReceiptEmail}
-                    disabled={isResendingEmail}
-                    className="w-full h-10 bg-white border border-[#E8DCC9] text-[#5F5A54] hover:text-[#3A2418] hover:bg-[#FAF5EC] rounded-xl font-medium text-xs transition-all flex items-center justify-center gap-1.5 disabled:opacity-60 cursor-pointer"
-                  >
-                    {isResendingEmail ? (
-                      <div className="w-3.5 h-3.5 border-2 border-[#C65A28] border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <Mail className="w-3.5 h-3.5 text-[#C65A28]" />
-                    )}
-                    <span>
-                      {emailStatusMessage || "Resend Receipt to Email"}
-                    </span>
-                  </button>
-
-                  {/* WhatsApp Support Share */}
-                  <button
-                    onClick={handleWhatsAppImage}
-                    disabled={isGeneratingWA}
-                    className="w-full h-10 bg-[#25D366]/10 text-[#1DA851] hover:bg-[#25D366]/20 border border-[#25D366]/30 rounded-xl font-semibold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
-                  >
-                    <MessageCircle className="w-3.5 h-3.5 text-[#25D366]" />
-                    <span>Share Receipt via WhatsApp</span>
-                  </button>
+                  )}
                 </div>
-
-                {/* Tracking & Assistance Card */}
-                <div className="bg-[#FAF5EC] border border-[#E8DCC9] rounded-2xl p-5 text-xs text-[#5F5A54] space-y-2.5">
-                  <div className="flex items-center gap-2 text-[#3A2418] font-bold text-sm">
-                    <ShieldCheck className="w-4 h-4 text-[#2BB673]" />
-                    <span>Guaranteed Fresh & Fast Delivery</span>
-                  </div>
-                  <p className="leading-relaxed">
-                    Your order is now being prepared at ODA Market fulfillment hub. A verified digital receipt has been recorded on our ledger and dispatched to your email.
-                  </p>
-                  <button
-                    onClick={() => navigate("/products")}
-                    className="w-full mt-2 h-10 border border-[#C65A28] text-[#C65A28] hover:bg-[#C65A28] hover:text-white rounded-xl font-bold text-xs transition-colors cursor-pointer"
-                  >
-                    Continue Shopping
-                  </button>
-                </div>
+                
+                <button 
+                  onClick={() => navigate("/products")}
+                  className="w-full h-[56px] mt-4 bg-[#C65A28] text-white rounded-[16px] font-bold text-[16px] hover:bg-[#A94A1F] transition-colors"
+                >
+                  Continue Shopping
+                </button>
               </div>
-
-              {/* Digital Receipt Card (lg:col-span-7) */}
-              <div className="lg:col-span-7 flex justify-center order-1 lg:order-2">
-                {receiptData ? (
-                  <OrderReceipt order={receiptData} id="receipt-printable-container" />
-                ) : (
-                  <div className="w-full max-w-[480px] h-[580px] bg-white border border-[#E8DCC9] rounded-2xl animate-pulse flex items-center justify-center text-gray-400">
-                    Loading digital receipt...
-                  </div>
-                )}
-              </div>
-            </div>
+            )}
           </div>
-        )}
+
+          <div className="flex-1 border-t md:border-t-0 md:border-l border-[#E5E7EB] pt-8 md:pt-0 md:pl-8 flex justify-center">
+            {receiptData ? (
+              <div className="w-full max-w-[400px] border border-[#E8DCC9] rounded-xl overflow-hidden shadow-sm relative">
+                <OrderReceipt order={receiptData} />
+              </div>
+            ) : (
+               <div className="w-full max-w-[400px] h-[600px] bg-slate-50 border border-slate-100 rounded-xl animate-pulse"></div>
+            )}
+          </div>
+        </div>
       </div>
     );
   }

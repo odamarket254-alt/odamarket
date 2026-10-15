@@ -11,6 +11,7 @@ import { useAuthStore, loadStoredPendingOtpChallenge } from "./store/useAuthStor
 import { Loader2 } from "lucide-react";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { CookieConsent } from "./components/ui/CookieConsent";
+import OneSignal from 'react-onesignal';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LanguageProvider } from './context/LanguageContext';
 
@@ -97,11 +98,13 @@ export default function App() {
   const { setUser, setProfile, setLoading, setPendingOtpChallenge } = useAuthStore();
 
   useEffect(() => {
-    // Initialize Firebase Cloud Messaging foreground push listener
-    const unsubscribe = setupForegroundMessageListener();
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
+    try {
+      setTimeout(() => {
+        // OneSignal.init({ appId: "39cacdbe-4c1c-40fe-b763-4462f792edae" }).catch(e => console.warn("OneSignal failed to initialize", e));
+      }, 2000);
+    } catch (error) {
+      console.warn("// OneSignal.initialization error:", error);
+    }
   }, []);
 
   useEffect(() => {

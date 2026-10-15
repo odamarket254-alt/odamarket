@@ -6,7 +6,6 @@ import checkoutRoutes from "../routes/checkoutRoutes.js";
 import imageRoutes from "../routes/imageRoutes.js";
 import webhookRoutes from "../routes/webhookRoutes.js";
 import debugRoutes from "./debugRoutes.js";
-import notificationRoutes from "../routes/notificationRoutes.js";
 import { handlePaystackWebhook } from "../routes/paystackWebhook.js";
 import rateLimit from "express-rate-limit";
 
@@ -30,7 +29,6 @@ app.use("/api/webhooks", webhookRoutes);
 app.use("/api/", apiLimiter);
 app.use("/api/auth", authRoutes);
 app.use("/api/checkout", checkoutRoutes);
-app.use("/api/notifications", notificationRoutes);
 app.use("/api/image", imageRoutes);
 app.use("/api/ai", aiRoutes);
 app.use("/api/debug", debugRoutes);

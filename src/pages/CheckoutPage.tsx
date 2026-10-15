@@ -406,7 +406,7 @@ export default function CheckoutPage() {
       discount: finalDiscount,
       grand_total: finalTotal,
       payment_method: order.payment_method || 'M-Pesa',
-      payment_status: (confirmedOrder?.success || order.payment_status === 'paid' || order.payment_status === 'PAID') ? "PAID" : (order.payment_status || "PENDING"),
+      payment_status: "PAID",
       delivery_location: location,
       delivery_address: address,
       delivery_method: deliveryMethodVal,

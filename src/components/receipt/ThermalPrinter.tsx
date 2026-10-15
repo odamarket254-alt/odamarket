@@ -31,222 +31,110 @@ export const ThermalPrinter: React.FC<ThermalPrinterProps> = ({
   const prefersReducedMotion = typeof window !== 'undefined' &&
     window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  const orderId = receiptData.order_number || receiptData.order_id || 'default_order';
-  const storageKey = `oda_thermal_printed_${orderId}`;
-
-  const isAlreadyCompleted = typeof window !== 'undefined' && (
+  const storageKey = `oda_receipt_animated_${receiptData.order_number}`;
+  const alreadyAnimatedInSession = typeof window !== 'undefined' && (
     prefersReducedMotion || sessionStorage.getItem(storageKey) === 'true'
   );
 
-  // Phases:
-  // 'start': Printer activates (Phase 1, ~1000ms)
-  // 'printing': Paper feeds downward continuously (Phase 2 & 3, adjusted 6-9.5s)
-  // 'completed': Final resting state with cutter finish, PAID stamp, and secondary buttons
-  const [phase, setPhase] = useState<'start' | 'printing' | 'completed'>(
-    isAlreadyCompleted ? 'completed' : 'start'
+  const [phase, setPhase] = useState<'preparing' | 'printing' | 'completed'>(
+    alreadyAnimatedInSession ? 'completed' : 'preparing'
   );
 
-  // Compute realistic print duration based on item count: 6–10s target
-  const itemsCount = receiptData.items?.length || 1;
-  const printDurationMs = Math.round(
-    Math.min(9500, Math.max(6000, 5400 + itemsCount * 600))
-  );
-
-  const receiptRef = useRef<HTMLDivElement>(null);
-  const [measuredHeight, setMeasuredHeight] = useState<number>(750);
-  const [paperHeight, setPaperHeight] = useState<number | string>(
-    isAlreadyCompleted ? 'auto' : 0
-  );
-
-  // Guard against replaying the printing animation on React re-renders or realtime updates
-  const hasAnimatedRef = useRef<boolean>(isAlreadyCompleted);
-
-  // Verify payment status authoritatively
-  const isPaymentVerified = (receiptData.payment_status || '').toUpperCase() === 'PAID';
-
-  // Measure initial receipt height
-  useEffect(() => {
-    if (receiptRef.current) {
-      const height = receiptRef.current.scrollHeight;
-      if (height > 100) {
-        setMeasuredHeight(height);
-      }
-    }
-  }, [receiptData]);
+  // Guard against replaying the printing animation on React re-renders
+  const hasAnimatedRef = useRef<boolean>(alreadyAnimatedInSession);
 
   useEffect(() => {
     if (hasAnimatedRef.current) {
       setPhase('completed');
-      setPaperHeight('auto');
       return;
     }
 
-    // Phase 1: Printer warmup / activation (1000ms)
-    // Shows "Generating your receipt...", printer hum activates, amber indicator pulses
-    const warmupTimer = setTimeout(() => {
+    // Step 1: Brief "Preparing your receipt..." (400ms)
+    const prepTimer = setTimeout(() => {
       setPhase('printing');
-      // Trigger paper height expansion downward from slot
-      const targetH = receiptRef.current?.scrollHeight || measuredHeight || 750;
-      setPaperHeight(targetH);
-    }, 1000);
+    }, 400);
 
-    // Phase 4: Final printing details after the complete paper has emerged
-    const completeTimer = setTimeout(() => {
+    // Step 2: Realistic printing paper feed completes at 2.4s total (2000ms feed)
+    const feedTimer = setTimeout(() => {
       setPhase('completed');
-      setPaperHeight('auto');
       hasAnimatedRef.current = true;
       try {
         sessionStorage.setItem(storageKey, 'true');
       } catch (e) {
         // Ignore session storage errors
       }
-    }, 1000 + printDurationMs);
+    }, 2400);
 
     return () => {
-      clearTimeout(warmupTimer);
-      clearTimeout(completeTimer);
+      clearTimeout(prepTimer);
+      clearTimeout(feedTimer);
     };
-  }, [printDurationMs, storageKey, measuredHeight]);
+  }, [storageKey]);
 
   return (
     <div className="w-full max-w-[400px] mx-auto flex flex-col items-center">
-      {/* 
-        ========================================================================
-        PHASE 1: REALISTIC ODA MARKET SUPERMARKET RECEIPT PRINTER (STATIONARY TOP)
-        Colors match OdaMarket's dark brown (#1E1916), cream (#F6EFE8),
-        white, and brand orange (#C65A28)
-        ========================================================================
-      */}
-      <div
-        className={`no-print w-full max-w-[380px] bg-[#1E1916] border border-[#382F2A] rounded-t-2xl shadow-xl relative z-20 overflow-hidden transition-all duration-300 ${
-          phase === 'printing' ? 'animate-printer-hum' : ''
-        }`}
-      >
-        {/* Top Metallic / Ventilation Trim Bar */}
-        <div className="h-1.5 w-full bg-gradient-to-r from-[#2A231E] via-[#4A3D34] to-[#2A231E] border-b border-[#382F2A]" />
+      {/* Implied Printer Slot Housing (Till Machine Ejection Slot) */}
+      <div className="no-print w-full max-w-[380px] bg-neutral-900 border border-neutral-700/80 rounded-t-xl px-4 py-2.5 shadow-md relative z-20">
+        <div className="flex items-center justify-between text-[11px] font-mono text-neutral-400 mb-1.5">
+          <span className="flex items-center gap-1.5 font-bold tracking-wider text-neutral-300">
+            <span
+              className={`w-2 h-2 rounded-full transition-colors ${
+                phase === 'completed'
+                  ? 'bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.8)]'
+                  : phase === 'printing'
+                  ? 'bg-emerald-400 animate-pulse'
+                  : 'bg-amber-400 animate-pulse'
+              }`}
+            />
+            ODA-POS TILL #01
+          </span>
+          <span className="text-[10px] tracking-wide text-neutral-400 uppercase">
+            {phase === 'preparing' && 'PREPARING...'}
+            {phase === 'printing' && 'PRINTING...'}
+            {phase === 'completed' && 'READY'}
+          </span>
+        </div>
 
-        <div className="px-4 py-2.5">
-          {/* Printer Header: Model Badge, Status Text & Indicator LED */}
-          <div className="flex items-center justify-between text-[11px] font-mono mb-2">
-            {/* Left: OdaMarket Brand & Model Badge */}
-            <div className="flex items-center gap-1.5">
-              <span className="w-2.5 h-2.5 rounded-sm bg-[#C65A28] flex items-center justify-center text-[7px] font-black text-white">
-                O
-              </span>
-              <span className="font-bold tracking-wider text-[#F6EFE8] text-[10.5px]">
-                ODAMARKET TILL POS-01
-              </span>
-            </div>
-
-            {/* Right: Status Indicator Light & Dynamic Label */}
-            <div className="flex items-center gap-1.5 text-[10px] tracking-wide font-medium">
-              <span
-                className={`w-2 h-2 rounded-full transition-all duration-300 ${
-                  phase === 'completed'
-                    ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.9)]'
-                    : phase === 'printing'
-                    ? 'bg-[#C65A28] animate-pulse shadow-[0_0_8px_rgba(198,90,40,0.8)]'
-                    : 'bg-amber-400 animate-pulse shadow-[0_0_6px_rgba(251,191,36,0.8)]'
-                }`}
-              />
-              <span className="text-[#F6EFE8]/90 font-mono uppercase">
-                {phase === 'start' && 'Generating your receipt...'}
-                {phase === 'printing' && 'Printing receipt...'}
-                {phase === 'completed' && 'Receipt ready'}
-              </span>
-            </div>
-          </div>
-
-          {/* Tactile Control Elements: Side Ribs, Status & Buttons */}
-          <div className="flex items-center justify-between pb-1 text-[9px] font-mono text-neutral-400">
-            {/* Ventilation Grooves */}
-            <div className="flex gap-1" aria-hidden="true">
-              <div className="w-4 h-1 bg-[#2C241E] rounded-full" />
-              <div className="w-4 h-1 bg-[#2C241E] rounded-full" />
-              <div className="w-4 h-1 bg-[#2C241E] rounded-full" />
-            </div>
-
-            {/* Power & Feed Buttons */}
-            <div className="flex items-center gap-2">
-              <span className="flex items-center gap-1 text-[#F6EFE8]/70">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500/80 inline-block" />
-                POWER
-              </span>
-              <span className="px-1.5 py-0.5 bg-[#2B231D] border border-[#3E3229] rounded text-[8px] text-[#F6EFE8]/80 font-bold uppercase tracking-tight">
-                FEED
-              </span>
-            </div>
-          </div>
-
-          {/* Recessed Printer Slot Mouth where paper physically emerges */}
-          <div className="relative mt-1">
-            <div className="h-2.5 bg-black rounded-sm border border-[#3D332A] shadow-inner w-full relative overflow-hidden flex items-center justify-center">
-              {/* Metallic Roller Glint during active paper feed */}
-              {phase === 'printing' && (
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-[#C65A28]/40 to-transparent animate-roller-spin w-full h-full" />
-              )}
-              {/* Cutter slice flash at completion */}
-              {phase === 'completed' && (
-                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/80 to-transparent animate-cutter-slice w-full h-full" />
-              )}
-              {/* Internal roller line */}
-              <div className="w-full h-0.5 bg-neutral-800/80 mx-2 rounded-full" />
-            </div>
-
-            {/* Cutter Blade Metallic Edge Guide */}
-            <div className="h-0.5 w-full bg-gradient-to-r from-[#3D332A] via-[#635447] to-[#3D332A]" />
-          </div>
+        {/* Recessed Printer Slot Mouth where paper emerges */}
+        <div className="h-1.5 bg-black rounded-full border border-neutral-800 shadow-inner w-full relative overflow-hidden">
+          {phase === 'printing' && (
+            <div className="absolute inset-y-0 left-0 w-full bg-gradient-to-r from-transparent via-emerald-500/30 to-transparent animate-pulse" />
+          )}
         </div>
       </div>
 
-      {/* 
-        ========================================================================
-        PHASE 2 & 3: CONTINUOUS REALISTIC PAPER FEED CONTAINER
-        Paper begins inside printer slot (0px height) and expands downward
-        visibly from the opening over the calculated duration (6–10 seconds),
-        revealing all 9 sections in exact order!
-        ========================================================================
-      */}
-      <div
-        className="paper-viewport w-full relative z-10 -mt-0.5"
-        style={{
-          height: paperHeight,
-          overflow: phase === 'completed' ? 'visible' : 'hidden',
-          transition:
-            phase === 'printing'
-              ? `height ${printDurationMs}ms cubic-bezier(0.25, 0.1, 0.25, 1)`
-              : phase === 'completed'
-              ? 'none'
-              : 'height 0.2s ease-out'
-        }}
-      >
-        <div ref={receiptRef} className="w-full">
-          <OrderReceipt
-            order={receiptData}
-            id="receipt-printable-container"
-            showPaidStamp={phase === 'completed'}
-            isPaymentVerified={isPaymentVerified}
-          />
-        </div>
+      {/* Printer Paper Container */}
+      <div className="w-full relative z-10 -mt-0.5">
+        {phase === 'preparing' && (
+          <div className="bg-white/95 border border-neutral-300 max-w-[380px] mx-auto py-7 px-4 rounded-b-lg text-center font-mono text-xs text-neutral-600 shadow-sm animate-pulse">
+            <div className="w-4 h-4 border-2 border-neutral-700 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+            <p className="font-semibold text-neutral-800">Preparing your receipt...</p>
+            <p className="text-[10px] text-neutral-500 mt-0.5">Payment verified • Connecting to till</p>
+          </div>
+        )}
+
+        {(phase === 'printing' || phase === 'completed') && (
+          <div
+            className={`w-full ${
+              phase === 'printing' ? 'animate-thermal-feed' : ''
+            }`}
+          >
+            <OrderReceipt order={receiptData} id="receipt-printable-container" />
+          </div>
+        )}
       </div>
 
-      {/* 
-        ========================================================================
-        PHASE 4: FINAL PRINTING DETAILS & RESTING STATE
-        Small green confirmation indicator: "Receipt generated successfully."
-        Followed by compact secondary actions underneath.
-        ========================================================================
-      */}
+      {/* Subtle Success Message (Visible once printing is completed) */}
       {phase === 'completed' && (
-        <div className="no-print mt-3 mb-2 flex items-center justify-center gap-1.5 text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-300/80 px-3.5 py-1 rounded-full shadow-xs transition-opacity duration-500 animate-fade-in">
+        <div className="no-print mt-3 mb-2 flex items-center justify-center gap-1.5 text-xs font-semibold text-emerald-800 bg-emerald-50 border border-emerald-300/80 px-3.5 py-1 rounded-full shadow-xs">
           <Check className="w-3.5 h-3.5 text-emerald-600 stroke-[3]" />
-          <span>Receipt generated successfully.</span>
+          <span>Receipt Printed • Order #{receiptData.order_number} Paid &amp; Verified</span>
         </div>
       )}
 
       {/* Compact Secondary Action Controls Directly Underneath Paper */}
       {phase === 'completed' && (
-        <div className="no-print w-full max-w-[380px] mt-1 space-y-2 transition-all duration-500 animate-fade-in">
+        <div className="no-print w-full max-w-[380px] mt-1 space-y-2">
           {/* 4 Compact Actions Grid */}
           <div className="grid grid-cols-2 gap-2">
             {/* Download PDF Receipt */}
@@ -291,11 +179,11 @@ export const ThermalPrinter: React.FC<ThermalPrinterProps> = ({
               title="Share receipt or chat on WhatsApp"
             >
               <MessageCircle className="w-3.5 h-3.5 text-[#25D366]" />
-              <span>Share Receipt via WhatsApp</span>
+              <span>Share via WhatsApp</span>
             </button>
           </div>
 
-          {/* Email Resend & Info Line */}
+          {/* Email Resend & Info Pill */}
           <div className="flex items-center justify-between px-3 py-1.5 bg-neutral-100/90 rounded-lg border border-neutral-200/80 text-[11px] text-neutral-600">
             <span className="truncate max-w-[220px]">
               {emailStatusMessage || `Dispatched to ${receiptData.customer_email || 'your email'}`}

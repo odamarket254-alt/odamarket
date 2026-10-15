@@ -228,93 +228,51 @@ html, body {
   animation: checkmark-ripple-pulse 1.8s infinite ease-out;
 }
 
-/* Full Realistic Supermarket Thermal Printer Animations */
-@keyframes printer-micro-hum {
-  0%, 100% {
-    transform: translate3d(0, 0, 0);
-  }
-  25% {
-    transform: translate3d(0.4px, -0.2px, 0);
-  }
-  50% {
-    transform: translate3d(-0.3px, 0.3px, 0);
-  }
-  75% {
-    transform: translate3d(0.2px, 0.2px, 0);
-  }
-}
-
-.animate-printer-hum {
-  animation: printer-micro-hum 0.12s infinite linear;
-}
-
-@keyframes roller-slot-glow {
+/* Thermal Printer Feed Animation (Emerging smoothly downward from POS Slot) */
+@keyframes thermal-paper-feed {
   0% {
-    opacity: 0.3;
-    background-position: 0 0;
-  }
-  50% {
-    opacity: 0.85;
-    background-position: 100% 0;
-  }
-  100% {
-    opacity: 0.3;
-    background-position: 0 0;
-  }
-}
-
-.animate-roller-spin {
-  animation: roller-slot-glow 0.8s infinite ease-in-out;
-}
-
-@keyframes cutter-slice-flash {
-  0% {
-    transform: translateX(-100%);
-    opacity: 0;
-  }
-  40% {
-    opacity: 1;
-  }
-  100% {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-}
-
-.animate-cutter-slice {
-  animation: cutter-slice-flash 0.35s ease-out forwards;
-}
-
-@keyframes rubber-stamp-hit {
-  0% {
-    opacity: 0;
-    transform: scale(2.2) rotate(-14deg);
-  }
-  50% {
+    transform: translateY(-24px);
     opacity: 0.95;
-    transform: scale(0.96) rotate(-8deg);
+    clip-path: inset(0 0 98% 0);
+  }
+  20% {
+    transform: translateY(-16px);
+    opacity: 1;
+    clip-path: inset(0 0 76% 0);
+  }
+  45% {
+    transform: translateY(-8px);
+    opacity: 1;
+    clip-path: inset(0 0 48% 0);
   }
   75% {
-    transform: scale(1.04) rotate(-9deg);
+    transform: translateY(-2px);
+    opacity: 1;
+    clip-path: inset(0 0 18% 0);
+  }
+  95% {
+    transform: translateY(0);
+    opacity: 1;
+    clip-path: inset(0 0 2% 0);
   }
   100% {
+    transform: translateY(0);
     opacity: 1;
-    transform: scale(1) rotate(-8deg);
+    clip-path: inset(0 0 0% 0);
   }
 }
 
-.animate-paid-stamp {
-  animation: rubber-stamp-hit 0.42s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards;
-  transform-origin: center center;
+.animate-thermal-feed {
+  animation: thermal-paper-feed 2.0s cubic-bezier(0.2, 0.75, 0.35, 1) forwards;
+  transform-origin: top center;
+  will-change: clip-path, transform;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-printer-hum,
-  .animate-roller-spin,
-  .animate-cutter-slice,
-  .animate-paid-stamp {
+  .animate-thermal-feed {
     animation: none !important;
     transform: none !important;
+    clip-path: none !important;
     opacity: 1 !important;
   }
 }

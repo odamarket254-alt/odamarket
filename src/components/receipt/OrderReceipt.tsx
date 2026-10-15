@@ -36,16 +36,12 @@ export interface OrderReceiptProps {
   order: OrderReceiptData;
   id?: string;
   className?: string;
-  showPaidStamp?: boolean;
-  isPaymentVerified?: boolean;
 }
 
 export const OrderReceipt: React.FC<OrderReceiptProps> = ({
   order,
   id = 'receipt-printable-container',
-  className = '',
-  showPaidStamp = true,
-  isPaymentVerified = true
+  className = ''
 }) => {
   const formattedDate = React.useMemo(() => {
     if (!order.created_at) return format(new Date(), 'dd/MM/yyyy HH:mm');
@@ -76,9 +72,9 @@ export const OrderReceipt: React.FC<OrderReceiptProps> = ({
       </div>
 
       <div className="p-4 sm:p-5 space-y-3">
-        {/* SECTION 1: OdaMarket Logo and Store Heading */}
-        <div className="receipt-section-1 text-center space-y-0.5">
-          {/* Official OdaMarket Logo (Asset: public/oda-logo.png.jpeg) */}
+        {/* Store Header & Brand Lockup */}
+        <div className="text-center space-y-0.5">
+          {/* Official OdaMarket Logo */}
           <div className="flex justify-center items-center py-1">
             <img
               src="/oda-logo.png.jpeg"
@@ -104,91 +100,79 @@ export const OrderReceipt: React.FC<OrderReceiptProps> = ({
           <p className="text-[10px] text-neutral-600">
             Quality • Value • Convenience
           </p>
-        </div>
-
-        {/* SECTION 2: Store Contact Details */}
-        <div className="receipt-section-2 text-center space-y-0.5 pt-0.5 border-t border-dotted border-neutral-300">
-          <p className="text-[9.5px] text-neutral-600">
+          <p className="text-[9.5px] text-neutral-500">
             Nairobi, Kenya • Tel: +254 700 000 000
           </p>
-          <p className="text-[9px] text-neutral-500">
-            Help: support@odamarket.com • Web: odamarket.com
-          </p>
-        </div>
-
-        {/* SECTION 3: Receipt Title and Unique Order Number */}
-        <div className="receipt-section-3">
-          <div className="border-b border-dashed border-neutral-400 my-1.5" />
-          <div className="text-[10.5px] font-bold text-[#C65A28] uppercase tracking-wider text-center pb-1">
+          <div className="text-[10.5px] font-bold text-[#C65A28] uppercase tracking-wider pt-0.5">
             TAX INVOICE / CASH SALE
           </div>
-          <div className="flex justify-between items-baseline text-[10.5px] text-neutral-800">
+        </div>
+
+        {/* Dashed Separator */}
+        <div className="border-b border-dashed border-neutral-400 my-1.5" />
+
+        {/* Receipt Meta & Till Details */}
+        <div className="space-y-0.5 text-[10.5px] text-neutral-800">
+          <div className="flex justify-between items-baseline">
             <span className="text-neutral-500 uppercase">RECEIPT NO:</span>
             <span className="font-bold text-neutral-950 tracking-tight">#{order.order_number}</span>
           </div>
-          <div className="flex justify-between items-baseline text-[10.5px] text-neutral-800">
+          <div className="flex justify-between items-baseline">
+            <span className="text-neutral-500 uppercase">DATE / TIME:</span>
+            <span className="font-medium text-neutral-900">{formattedDate}</span>
+          </div>
+          <div className="flex justify-between items-baseline">
             <span className="text-neutral-500 uppercase">TERMINAL:</span>
             <span className="font-medium text-neutral-700">POS-01 (ONLINE CHECKOUT)</span>
           </div>
         </div>
 
-        {/* SECTION 4: Purchase Date and Time */}
-        <div className="receipt-section-4">
-          <div className="border-b border-dashed border-neutral-400 my-1.5" />
-          <div className="flex justify-between items-baseline text-[10.5px] text-neutral-800">
-            <span className="text-neutral-500 uppercase">DATE / TIME:</span>
-            <span className="font-medium text-neutral-900">{formattedDate}</span>
-          </div>
-          <div className="flex justify-between items-baseline text-[10.5px] text-neutral-800">
-            <span className="text-neutral-500 uppercase">CASHIER:</span>
-            <span className="font-medium text-neutral-700">SYSTEM / M-PESA GATEWAY</span>
-          </div>
-        </div>
+        {/* Dashed Separator */}
+        <div className="border-b border-dashed border-neutral-400 my-1.5" />
 
-        {/* SECTION 5: Customer Details and Delivery Information */}
-        <div className="receipt-section-5">
-          <div className="border-b border-dashed border-neutral-400 my-1.5" />
-          <div className="space-y-0.5 text-[10.5px] text-neutral-800">
+        {/* Customer & Delivery Block */}
+        <div className="space-y-0.5 text-[10.5px] text-neutral-800">
+          <div className="flex justify-between items-start gap-2">
+            <span className="text-neutral-500 uppercase shrink-0">CUSTOMER:</span>
+            <span className="font-bold text-neutral-950 text-right">{order.customer_name}</span>
+          </div>
+          <div className="flex justify-between items-start gap-2">
+            <span className="text-neutral-500 uppercase shrink-0">PHONE:</span>
+            <span className="font-medium text-neutral-900 text-right">{order.customer_phone}</span>
+          </div>
+          {order.customer_email && (
             <div className="flex justify-between items-start gap-2">
-              <span className="text-neutral-500 uppercase shrink-0">CUSTOMER:</span>
-              <span className="font-bold text-neutral-950 text-right">{order.customer_name}</span>
-            </div>
-            <div className="flex justify-between items-start gap-2">
-              <span className="text-neutral-500 uppercase shrink-0">PHONE:</span>
-              <span className="font-medium text-neutral-900 text-right">{order.customer_phone}</span>
-            </div>
-            {order.customer_email && (
-              <div className="flex justify-between items-start gap-2">
-                <span className="text-neutral-500 uppercase shrink-0">EMAIL:</span>
-                <span className="font-medium text-neutral-800 text-right truncate max-w-[200px]">
-                  {order.customer_email}
-                </span>
-              </div>
-            )}
-            <div className="flex justify-between items-start gap-2">
-              <span className="text-neutral-500 uppercase shrink-0">LOCATION:</span>
-              <span className="font-medium text-neutral-800 text-right">{order.delivery_location}</span>
-            </div>
-            <div className="flex justify-between items-start gap-2">
-              <span className="text-neutral-500 uppercase shrink-0">ADDRESS:</span>
-              <span className="font-medium text-neutral-800 text-right max-w-[200px] break-words">
-                {order.delivery_address}
+              <span className="text-neutral-500 uppercase shrink-0">EMAIL:</span>
+              <span className="font-medium text-neutral-800 text-right truncate max-w-[200px]">
+                {order.customer_email}
               </span>
             </div>
-            {order.delivery_method && (
-              <div className="flex justify-between items-start gap-2">
-                <span className="text-neutral-500 uppercase shrink-0">METHOD:</span>
-                <span className="font-semibold text-[#C65A28] text-right uppercase">
-                  {order.delivery_method === 'express' ? 'Express Boda (30-60 min)' : 'Standard Delivery'}
-                </span>
-              </div>
-            )}
+          )}
+          <div className="flex justify-between items-start gap-2">
+            <span className="text-neutral-500 uppercase shrink-0">LOCATION:</span>
+            <span className="font-medium text-neutral-800 text-right">{order.delivery_location}</span>
           </div>
+          <div className="flex justify-between items-start gap-2">
+            <span className="text-neutral-500 uppercase shrink-0">ADDRESS:</span>
+            <span className="font-medium text-neutral-800 text-right max-w-[200px] break-words">
+              {order.delivery_address}
+            </span>
+          </div>
+          {order.delivery_method && (
+            <div className="flex justify-between items-start gap-2">
+              <span className="text-neutral-500 uppercase shrink-0">METHOD:</span>
+              <span className="font-semibold text-[#C65A28] text-right uppercase">
+                {order.delivery_method === 'express' ? 'Express Boda (30-60 min)' : 'Standard Delivery'}
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* SECTION 6: Itemized Products, Quantities, Unit Prices, Line Totals */}
-        <div className="receipt-section-6">
-          <div className="border-b border-dashed border-neutral-400 my-1.5" />
+        {/* Dashed Separator */}
+        <div className="border-b border-dashed border-neutral-400 my-1.5" />
+
+        {/* Itemized Purchased Products */}
+        <div>
           <div className="grid grid-cols-[32px_1fr_95px] gap-1 text-[9.5px] font-bold uppercase text-neutral-500 pb-1 border-b border-neutral-300">
             <span>QTY</span>
             <span>DESCRIPTION</span>
@@ -226,160 +210,139 @@ export const OrderReceipt: React.FC<OrderReceiptProps> = ({
           </div>
         </div>
 
-        {/* SECTION 7: Subtotal, Delivery Fee, Discounts, and Final Total */}
-        <div className="receipt-section-7">
-          <div className="border-b border-dashed border-neutral-400 my-1.5" />
-          <div className="space-y-1 text-[11px] text-neutral-800">
-            <div className="flex justify-between items-baseline">
-              <span className="text-neutral-600 uppercase">SUBTOTAL:</span>
-              <span className="font-medium tabular-nums text-neutral-900">
-                KSh {Number(order.subtotal).toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-            </div>
+        {/* Dashed Separator */}
+        <div className="border-b border-dashed border-neutral-400 my-1.5" />
 
-            <div className="flex justify-between items-baseline">
-              <span className="text-neutral-600 uppercase">DELIVERY FEE:</span>
-              <span className="font-medium tabular-nums text-neutral-900">
-                {deliveryFee > 0
-                  ? `KSh ${deliveryFee.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                  : 'FREE'}
-              </span>
-            </div>
-
-            {discount > 0 && (
-              <div className="flex justify-between items-baseline text-emerald-700">
-                <span className="uppercase">DISCOUNT:</span>
-                <span className="font-medium tabular-nums">
-                  -KSh {discount.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                </span>
-              </div>
-            )}
-
-            {/* Supermarket Double Horizontal Rule for Final Total */}
-            <div className="border-t-2 border-b-2 border-neutral-950 py-1.5 my-1.5 flex justify-between items-baseline">
-              <span className="text-[13px] font-black tracking-wide uppercase text-neutral-950">
-                TOTAL PAID:
-              </span>
-              <span className="text-[14px] font-black tabular-nums text-[#C65A28]">
-                KSh {Number(order.grand_total).toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {/* SECTION 8: M-Pesa Payment Method and Verified Payment Status */}
-        <div className="receipt-section-8 space-y-1">
-          <div className="space-y-0.5 text-[10px] text-neutral-800 bg-neutral-50 p-2 rounded border border-neutral-200">
-            <div className="flex justify-between items-baseline">
-              <span className="text-neutral-500 uppercase">PAYMENT METHOD:</span>
-              <span className="font-bold text-neutral-900 uppercase">
-                {order.payment_method || 'M-Pesa'} (Paystack)
-              </span>
-            </div>
-
-            {order.transaction_id && (
-              <div className="flex justify-between items-baseline gap-2">
-                <span className="text-neutral-500 uppercase shrink-0">PAYSTACK REF:</span>
-                <span className="font-mono text-[9.5px] font-bold text-neutral-900 break-all select-all text-right">
-                  {order.transaction_id}
-                </span>
-              </div>
-            )}
-
-            <div className="flex justify-between items-baseline">
-              <span className="text-neutral-500 uppercase">PAYMENT STATUS:</span>
-              <span className={`font-bold uppercase ${isPaymentVerified ? 'text-emerald-700' : 'text-amber-700'}`}>
-                {isPaymentVerified ? 'CONFIRMED / PAID ✓' : 'PENDING VERIFICATION'}
-              </span>
-            </div>
+        {/* Financial Summary & Total */}
+        <div className="space-y-1 text-[11px] text-neutral-800">
+          <div className="flex justify-between items-baseline">
+            <span className="text-neutral-600 uppercase">SUBTOTAL:</span>
+            <span className="font-medium tabular-nums text-neutral-900">
+              KSh {Number(order.subtotal).toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
           </div>
 
-          {/* Tasteful PAID Rubber Stamp (Appears only on verified payments in Phase 4) */}
-          {showPaidStamp && (
-            <div className="py-1">
-              {isPaymentVerified ? (
-                <div className="animate-paid-stamp border-2 border-emerald-600 bg-emerald-50/90 rounded px-3 py-1.5 text-center text-emerald-800 shadow-xs">
-                  <div className="flex items-center justify-center gap-1.5 text-[11px] font-black uppercase tracking-wider">
-                    <Check className="w-3.5 h-3.5 stroke-[3] text-emerald-700" />
-                    <span>★ OFFICIAL RECEIPT • PAID IN FULL ★</span>
-                  </div>
-                  <div className="text-[9px] font-mono text-emerald-700 tracking-tight mt-0.5">
-                    ODAMARKET LEDGER • M-PESA SETTLED &amp; VERIFIED
-                  </div>
-                </div>
-              ) : (
-                <div className="border border-amber-500/80 bg-amber-50 rounded px-3 py-1 text-center text-amber-800">
-                  <div className="text-[10px] font-bold uppercase tracking-wider">
-                    PAYMENT PENDING CONFIRMATION
-                  </div>
-                  <div className="text-[8.5px] font-mono text-amber-700 mt-0.5">
-                    ORDER RECORDED • AWAITING MPESA CLEARANCE
-                  </div>
-                </div>
-              )}
+          <div className="flex justify-between items-baseline">
+            <span className="text-neutral-600 uppercase">DELIVERY FEE:</span>
+            <span className="font-medium tabular-nums text-neutral-900">
+              {deliveryFee > 0
+                ? `KSh ${deliveryFee.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+                : 'FREE'}
+            </span>
+          </div>
+
+          {discount > 0 && (
+            <div className="flex justify-between items-baseline text-emerald-700">
+              <span className="uppercase">DISCOUNT:</span>
+              <span className="font-medium tabular-nums">
+                -KSh {discount.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
             </div>
           )}
+
+          {/* Supermarket Double Horizontal Rule for Total Paid */}
+          <div className="border-t-2 border-b-2 border-neutral-950 py-1.5 my-1.5 flex justify-between items-baseline">
+            <span className="text-[13px] font-black tracking-wide uppercase text-neutral-950">
+              TOTAL PAID:
+            </span>
+            <span className="text-[14px] font-black tabular-nums text-[#C65A28]">
+              KSh {Number(order.grand_total).toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+          </div>
         </div>
 
-        {/* SECTION 9: Thank-You Message and Receipt Footer */}
-        <div className="receipt-section-9 space-y-1 pt-1">
-          {/* Thermal Barcode */}
-          <div className="text-center pt-1 space-y-0.5">
-            <svg className="h-6 w-44 mx-auto" viewBox="0 0 200 24" preserveAspectRatio="none">
-              <rect x="0" y="0" width="3" height="24" fill="#111827" />
-              <rect x="5" y="0" width="1" height="24" fill="#111827" />
-              <rect x="8" y="0" width="4" height="24" fill="#111827" />
-              <rect x="15" y="0" width="2" height="24" fill="#111827" />
-              <rect x="20" y="0" width="5" height="24" fill="#111827" />
-              <rect x="28" y="0" width="2" height="24" fill="#111827" />
-              <rect x="33" y="0" width="1" height="24" fill="#111827" />
-              <rect x="36" y="0" width="4" height="24" fill="#111827" />
-              <rect x="43" y="0" width="2" height="24" fill="#111827" />
-              <rect x="48" y="0" width="6" height="24" fill="#111827" />
-              <rect x="57" y="0" width="1" height="24" fill="#111827" />
-              <rect x="61" y="0" width="3" height="24" fill="#111827" />
-              <rect x="67" y="0" width="2" height="24" fill="#111827" />
-              <rect x="72" y="0" width="5" height="24" fill="#111827" />
-              <rect x="80" y="0" width="1" height="24" fill="#111827" />
-              <rect x="84" y="0" width="4" height="24" fill="#111827" />
-              <rect x="91" y="0" width="2" height="24" fill="#111827" />
-              <rect x="96" y="0" width="4" height="24" fill="#111827" />
-              <rect x="103" y="0" width="1" height="24" fill="#111827" />
-              <rect x="107" y="0" width="3" height="24" fill="#111827" />
-              <rect x="113" y="0" width="5" height="24" fill="#111827" />
-              <rect x="121" y="0" width="2" height="24" fill="#111827" />
-              <rect x="126" y="0" width="3" height="24" fill="#111827" />
-              <rect x="132" y="0" width="1" height="24" fill="#111827" />
-              <rect x="136" y="0" width="4" height="24" fill="#111827" />
-              <rect x="143" y="0" width="2" height="24" fill="#111827" />
-              <rect x="148" y="0" width="5" height="24" fill="#111827" />
-              <rect x="156" y="0" width="1" height="24" fill="#111827" />
-              <rect x="160" y="0" width="3" height="24" fill="#111827" />
-              <rect x="166" y="0" width="2" height="24" fill="#111827" />
-              <rect x="171" y="0" width="4" height="24" fill="#111827" />
-              <rect x="178" y="0" width="2" height="24" fill="#111827" />
-              <rect x="183" y="0" width="4" height="24" fill="#111827" />
-              <rect x="190" y="0" width="2" height="24" fill="#111827" />
-              <rect x="195" y="0" width="3" height="24" fill="#111827" />
-            </svg>
-            <div className="text-[9.5px] text-neutral-500 tracking-widest uppercase">
-              * ODA-{order.order_number} *
-            </div>
+        {/* Payment Verification Block */}
+        <div className="space-y-0.5 text-[10px] text-neutral-800 bg-neutral-50 p-2 rounded border border-neutral-200">
+          <div className="flex justify-between items-baseline">
+            <span className="text-neutral-500 uppercase">PAYMENT METHOD:</span>
+            <span className="font-bold text-neutral-900 uppercase">
+              {order.payment_method || 'M-Pesa'} (Paystack)
+            </span>
           </div>
 
-          {/* Supermarket Greeting & ETR record */}
-          <div className="text-center pt-1 pb-0.5 space-y-0.5 text-[9.5px] text-neutral-600">
-            <p className="font-bold text-neutral-900">
-              THANK YOU FOR SHOPPING AT ODAMARKET!
-            </p>
-            <p>KARIBU TENA • PLEASE VISIT US AGAIN</p>
-            <p className="text-[8.5px] text-neutral-400">
-              PIN: P051234567Z • ETR FISCAL RECORD
-            </p>
-            <p className="text-[8.5px] text-neutral-400">
-              A confirmation email was dispatched via Resend
-            </p>
+          {order.transaction_id && (
+            <div className="flex justify-between items-baseline gap-2">
+              <span className="text-neutral-500 uppercase shrink-0">PAYSTACK REF:</span>
+              <span className="font-mono text-[9.5px] font-bold text-neutral-900 break-all select-all text-right">
+                {order.transaction_id}
+              </span>
+            </div>
+          )}
+
+          <div className="flex justify-between items-baseline">
+            <span className="text-neutral-500 uppercase">PAYMENT STATUS:</span>
+            <span className="font-bold text-emerald-700 uppercase">
+              CONFIRMED / PAID ✓
+            </span>
           </div>
+        </div>
+
+        {/* Subtle PAID Confirmation Stamp */}
+        <div className="py-0.5">
+          <div className="border border-emerald-600/90 bg-emerald-50/50 rounded px-2.5 py-1 text-center text-emerald-800">
+            <div className="flex items-center justify-center gap-1.5 text-[10.5px] font-black uppercase tracking-wider">
+              <Check className="w-3 h-3 stroke-[3]" />
+              OFFICIALLY PAID &amp; VERIFIED
+            </div>
+            <div className="text-[8.5px] font-medium text-emerald-700 tracking-tight mt-0.5">
+              AUTHORITATIVELY RECORDED ON ODAMARKET LEDGER
+            </div>
+          </div>
+        </div>
+
+        {/* Thermal Barcode Stamp */}
+        <div className="text-center pt-1.5 space-y-0.5">
+          <svg className="h-6 w-44 mx-auto" viewBox="0 0 200 24" preserveAspectRatio="none">
+            <rect x="0" y="0" width="3" height="24" fill="#111827" />
+            <rect x="5" y="0" width="1" height="24" fill="#111827" />
+            <rect x="8" y="0" width="4" height="24" fill="#111827" />
+            <rect x="15" y="0" width="2" height="24" fill="#111827" />
+            <rect x="20" y="0" width="5" height="24" fill="#111827" />
+            <rect x="28" y="0" width="2" height="24" fill="#111827" />
+            <rect x="33" y="0" width="1" height="24" fill="#111827" />
+            <rect x="36" y="0" width="4" height="24" fill="#111827" />
+            <rect x="43" y="0" width="2" height="24" fill="#111827" />
+            <rect x="48" y="0" width="6" height="24" fill="#111827" />
+            <rect x="57" y="0" width="1" height="24" fill="#111827" />
+            <rect x="61" y="0" width="3" height="24" fill="#111827" />
+            <rect x="67" y="0" width="2" height="24" fill="#111827" />
+            <rect x="72" y="0" width="5" height="24" fill="#111827" />
+            <rect x="80" y="0" width="1" height="24" fill="#111827" />
+            <rect x="84" y="0" width="4" height="24" fill="#111827" />
+            <rect x="91" y="0" width="2" height="24" fill="#111827" />
+            <rect x="96" y="0" width="4" height="24" fill="#111827" />
+            <rect x="103" y="0" width="1" height="24" fill="#111827" />
+            <rect x="107" y="0" width="3" height="24" fill="#111827" />
+            <rect x="113" y="0" width="5" height="24" fill="#111827" />
+            <rect x="121" y="0" width="2" height="24" fill="#111827" />
+            <rect x="126" y="0" width="3" height="24" fill="#111827" />
+            <rect x="132" y="0" width="1" height="24" fill="#111827" />
+            <rect x="136" y="0" width="4" height="24" fill="#111827" />
+            <rect x="143" y="0" width="2" height="24" fill="#111827" />
+            <rect x="148" y="0" width="5" height="24" fill="#111827" />
+            <rect x="156" y="0" width="1" height="24" fill="#111827" />
+            <rect x="160" y="0" width="3" height="24" fill="#111827" />
+            <rect x="166" y="0" width="2" height="24" fill="#111827" />
+            <rect x="171" y="0" width="4" height="24" fill="#111827" />
+            <rect x="178" y="0" width="2" height="24" fill="#111827" />
+            <rect x="183" y="0" width="4" height="24" fill="#111827" />
+            <rect x="190" y="0" width="2" height="24" fill="#111827" />
+            <rect x="195" y="0" width="3" height="24" fill="#111827" />
+          </svg>
+          <div className="text-[9.5px] text-neutral-500 tracking-widest uppercase">
+            * ODA-{order.order_number} *
+          </div>
+        </div>
+
+        {/* Footer Supermarket Greeting */}
+        <div className="text-center pt-0.5 pb-0.5 space-y-0.5 text-[9.5px] text-neutral-600">
+          <p className="font-bold text-neutral-800">
+            THANK YOU FOR SHOPPING AT ODAMARKET!
+          </p>
+          <p>KARIBU TENA • PLEASE VISIT US AGAIN</p>
+          <p className="text-[8.5px] text-neutral-400">
+            A confirmation email was dispatched via Resend
+          </p>
         </div>
       </div>
 

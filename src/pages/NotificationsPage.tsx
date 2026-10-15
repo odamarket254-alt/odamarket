@@ -22,11 +22,20 @@ import { useNotificationStore, AppNotification } from '../store/useNotificationS
 import { Button } from '../components/ui/Button';
 import { Card } from '../components/ui/Card';
 import { cn } from '../lib/utils';
+import { toast } from 'sonner';
+import { 
+  getPushNotificationStatus, 
+  subscribeToPushNotifications, 
+  PushNotificationStatus 
+} from '../services/fcmClientService';
 
 export default function NotificationsPage() {
   const { user } = useAuthStore();
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<'all' | 'unread'>('all');
+  const [pushStatus, setPushStatus] = useState<PushNotificationStatus | null>(null);
+  const [isEnablingPush, setIsEnablingPush] = useState(false);
+  const [hideBanner, setHideBanner] = useState(false);
 
   const {
     notifications,
@@ -39,6 +48,10 @@ export default function NotificationsPage() {
     deleteNotification,
     setupRealtimeSubscription
   } = useNotificationStore();
+
+  useEffect(() => {
+    getPushNotificationStatus().then(setPushStatus).catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -58,6 +71,51 @@ export default function NotificationsPage() {
 
     if (notif.order_id) {
       navigate(`/track-order?orderId=${encodeURIComponent(notif.order_id)}`);
+      return;
+    }
+
+    const typeLower = (notif.type || '').toLowerCase();
+    const titleLower = (notif.title || '').toLowerCase();
+    const msgLower = (notif.message || '').toLowerCase();
+
+    // Check if order number is in text (e.g. #ODA-12345)
+    const match = `${titleLower} ${msgLower}`.match(/#([a-z0-9-]+)/i);
+    if (match && match[1]) {
+      navigate(`/track-order?orderId=${encodeURIComponent(match[1])}`);
+      return;
+    }
+
+    if (typeLower.includes('promo') || typeLower.includes('deal') || msgLower.includes('flash') || msgLower.includes('discount')) {
+      navigate('/products?deal=flash');
+      return;
+    }
+
+    if (typeLower.includes('security') || typeLower.includes('password') || typeLower.includes('account')) {
+      navigate('/buyer/settings');
+      return;
+    }
+
+    // Default to track order or orders page
+    navigate('/buyer/orders');
+  };
+
+  const handleEnablePush = async () => {
+    setIsEnablingPush(true);
+    try {
+      const res = await subscribeToPushNotifications();
+      if (res.success) {
+        toast.success("Web push notifications enabled! You'll receive real-time delivery alerts.");
+        const updated = await getPushNotificationStatus();
+        setPushStatus(updated);
+      } else if (res.requiresPWA) {
+        toast.info(res.error, { duration: 8000 });
+      } else {
+        toast.error(res.error || "Could not enable push notifications.");
+      }
+    } catch (err: any) {
+      toast.error(err?.message || "Failed to enable notifications.");
+    } finally {
+      setIsEnablingPush(false);
     }
   };
 
@@ -195,6 +253,40 @@ export default function NotificationsPage() {
       {/* Logged In Content */}
       {user && (
         <div className="space-y-6">
+          {/* Push Notifications Opt-In Banner */}
+          {!hideBanner && pushStatus && !pushStatus.isEnabled && pushStatus.permission !== 'denied' && (
+            <div className="bg-[#FAF5EC] dark:bg-card border border-[#D9A62E]/30 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-start gap-3">
+                <div className="w-9 h-9 rounded-lg bg-[#C65A28]/10 text-[#C65A28] flex items-center justify-center shrink-0 mt-0.5 border border-[#C65A28]/20">
+                  <Bell className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-foreground">Enable Lock-Screen Delivery Alerts</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Get instant push notifications when your grocery basket is confirmed, dispatched, or ready for pickup.
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                <Button
+                  size="sm"
+                  onClick={handleEnablePush}
+                  disabled={isEnablingPush}
+                  className="bg-[#3A2418] hover:bg-[#2A1810] text-white text-xs h-8 px-3 font-medium"
+                >
+                  {isEnablingPush ? 'Enabling...' : 'Enable Alerts'}
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => setHideBanner(true)}
+                  className="text-xs text-muted-foreground hover:text-foreground px-2 py-1"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Tabs */}
           {notifications.length > 0 && (
             <div className="flex items-center gap-2">

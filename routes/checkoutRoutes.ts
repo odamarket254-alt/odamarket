@@ -312,6 +312,68 @@ router.post("/order-status-email", async (req, res) => {
 });
 
 /**
+ * Customer endpoint to safely request their digital receipt email via Resend
+ */
+router.post("/resend-receipt-email", async (req, res) => {
+  try {
+    const { orderId } = req.body;
+    if (!orderId) {
+      return res.status(400).json({ error: "Missing orderId" });
+    }
+
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const token = authHeader.replace("Bearer ", "").trim();
+    const supabaseUrl = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "").trim().replace(/^["']|["']$/g, "");
+    const supabaseServiceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim().replace(/^["']|["']$/g, "");
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      return res.status(500).json({ error: "Database configuration missing" });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+    if (userError || !user) {
+      return res.status(401).json({ error: "Invalid user session" });
+    }
+
+    const { data: order } = await supabase
+      .from('orders')
+      .select('id, user_id, payment_status, total, order_number')
+      .eq('id', orderId)
+      .maybeSingle();
+
+    if (!order) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    if (order.user_id !== user.id) {
+      return res.status(403).json({ error: "Unauthorized to access this order" });
+    }
+
+    if (order.payment_status !== 'success') {
+      return res.status(400).json({ error: "Cannot send receipt for unpaid order" });
+    }
+
+    const result = await sendOrderConfirmationEmailForOrder(orderId, { forceResend: true });
+
+    return res.status(200).json({
+      success: result.success,
+      recipient: result.recipient,
+      message: result.success ? `Digital receipt sent to ${result.recipient}` : (result.error || "Failed to dispatch email"),
+      details: result
+    });
+  } catch (err: any) {
+    console.error("Resend receipt email error:", err);
+    return res.status(500).json({ error: err.message || "Failed to dispatch receipt email" });
+  }
+});
+
+/**
  * Admin endpoint to safely resend or retry an order confirmation email
  */
 router.post("/admin/resend-confirmation-email", async (req, res) => {

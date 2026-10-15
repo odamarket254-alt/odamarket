@@ -8,11 +8,18 @@ import { Button } from "../components/ui/Button";
 import { Link, useNavigate } from "react-router-dom";
 import { useCartStore } from "../store/useCartStore";
 import { useAuthStore } from "../store/useAuthStore";
-import { OrderReceipt } from "../components/receipt/OrderReceipt";
+import { ThermalPrinter } from "../components/receipt/ThermalPrinter";
+import { OrderReceiptData } from "../components/receipt/OrderReceipt";
+import { downloadDigitalReceiptPdf } from "../utils/receiptPdf";
 import { generateWhatsAppMessage, getWhatsAppUrl, WhatsAppOrderData } from "../lib/whatsapp";
 import { toPng, toBlob } from "html-to-image";
 import { 
   Download,
+  Printer,
+  PackageCheck,
+  Mail,
+  RefreshCw,
+  ExternalLink,
   MessageCircle,
   Share2,
   FileText,
@@ -27,7 +34,6 @@ import {
   Smartphone,
   Info,
   ChevronRight,
-  PackageCheck,
   Headphones
 } from "lucide-react";
 import { useTranslation } from "../context/LanguageContext";
@@ -55,6 +61,9 @@ export default function CheckoutPage() {
   const [isGeneratingWA, setIsGeneratingWA] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [isResendingEmail, setIsResendingEmail] = useState(false);
+  const [emailStatusMessage, setEmailStatusMessage] = useState<string | null>(null);
   const [confirmedOrder, setConfirmedOrder] = useState<any>(null);
   const [receiptError, setReceiptError] = useState<string | null>(null);
   const [loadingText, setLoadingText] = useState("");
@@ -208,7 +217,7 @@ export default function CheckoutPage() {
       setActivePendingOrderId(currentOrderId);
 
       const verifyAndComplete = async (reference?: string) => {
-        setLoadingText("Verifying payment with Paystack...");
+        setLoadingText("Verifying payment authoritatively with Paystack...");
         try {
           const verifyResponse = await fetch('/api/checkout/verify', {
             method: 'POST',
@@ -229,7 +238,7 @@ export default function CheckoutPage() {
             toast.success("Payment verified! Order placed successfully.");
           } else {
             // AUTHORITATIVE FAILURE: Do NOT mark success, do NOT clear cart
-            const errorMsg = verifyData.message || "Payment verification failed. Your card or M-Pesa account was not charged.";
+            const errorMsg = verifyData.message || "Payment verification failed. Your M-Pesa account was not charged.";
             console.error("Payment verification failed:", verifyData);
             setPaymentError(errorMsg);
             toast.error(errorMsg);
@@ -238,7 +247,7 @@ export default function CheckoutPage() {
           }
         } catch (e: any) {
           console.error("Verification error:", e);
-          const errorMsg = "Network timeout verifying payment. If you completed M-Pesa payment, your order will automatically be confirmed within 1-2 minutes.";
+          const errorMsg = "Network timeout verifying payment. If you completed M-Pesa payment, your order will automatically confirm within 1-2 minutes.";
           setPaymentError(errorMsg);
           toast.error(errorMsg);
           setIsProcessing(false);
@@ -266,10 +275,16 @@ export default function CheckoutPage() {
         channels: ['mobile_money'], // Force M-Pesa/Mobile Money only
         ref: `ord_${currentOrderId}_${Math.floor((Math.random() * 1000000000) + 1)}`,
         onClose: function(){
-          toast.info("Payment window closed. Your order is pending payment. You can retry payment whenever you are ready.");
+          toast.info("Payment window was closed. Your cart items are saved and you can retry payment whenever you are ready.");
+          setPaymentError("Payment was cancelled or closed. Your pending order is saved. Click 'Retry Payment with M-Pesa' when ready.");
           setIsProcessing(false);
         },
         callback: function(response: any){
+          if (!response || !response.reference) {
+            toast.error("Payment was not completed or missing reference.");
+            setIsProcessing(false);
+            return;
+          }
           verifyAndComplete(response.reference);
         }
       });
@@ -288,212 +303,253 @@ export default function CheckoutPage() {
   };
 
 
-  const getReceiptData = (): WhatsAppOrderData | null => {
+  const getReceiptData = (): OrderReceiptData | null => {
     if (!confirmedOrder) return null;
-    const { order, profile, items } = confirmedOrder;
+    const { order, profile, items: orderItems } = confirmedOrder;
+    if (!order) return null;
     
     // Attempt to parse notes for delivery info
-    let location = "Nairobi";
-    let address = "Nairobi, Kenya";
+    let location = shippingDetails.location || "Nairobi, Westlands";
+    let address = shippingDetails.fullAddress || "Spring Valley Estate, Peponi Road";
     let orderNumberFromNotes = "";
+    let deliveryMethodVal = deliveryMethod || 'standard';
     let parsedContact: any = null;
     let parsedShipping: any = null;
     
     try {
       if (order.notes) {
-        const parsed = JSON.parse(order.notes);
+        const parsed = typeof order.notes === 'string' ? JSON.parse(order.notes) : order.notes;
         if (parsed.shippingDetails) {
           parsedShipping = parsed.shippingDetails;
           location = parsedShipping.location || location;
           address = parsedShipping.fullAddress || address;
+          if (parsedShipping.deliveryMethod) {
+            deliveryMethodVal = parsedShipping.deliveryMethod;
+          }
+        }
+        if (parsed.deliveryMethod) {
+          deliveryMethodVal = parsed.deliveryMethod;
         }
         if (parsed.contactDetails) {
           parsedContact = parsed.contactDetails;
         }
         if (parsed.orderNumber) {
-           orderNumberFromNotes = parsed.orderNumber;
+          orderNumberFromNotes = parsed.orderNumber;
         }
       }
     } catch(e){}
 
-    const cName = parsedContact?.fullName || parsedShipping?.recipientName || (profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : '') || profile?.full_name || "Name unavailable";
-    const cPhone = parsedContact?.userPhone || parsedShipping?.recipientPhone || profile?.phone || "Phone unavailable";
-    const cEmail = parsedContact?.userEmail || profile?.email || "Email unavailable";
+    const cName =
+      parsedContact?.fullName ||
+      parsedShipping?.recipientName ||
+      shippingDetails.recipientName ||
+      contactDetails.fullName ||
+      (profile ? `${profile.first_name || ''} ${profile.last_name || ''}`.trim() : '') ||
+      profile?.full_name ||
+      "Valued Customer";
+
+    const cPhone =
+      parsedContact?.userPhone ||
+      parsedShipping?.recipientPhone ||
+      shippingDetails.recipientPhone ||
+      contactDetails.userPhone ||
+      profile?.phone ||
+      profile?.phone_number ||
+      userPhone ||
+      "N/A";
+
+    const cEmail =
+      parsedContact?.userEmail ||
+      contactDetails.userEmail ||
+      user?.email ||
+      profile?.email ||
+      userEmail ||
+      "";
+
+    // Products list from Supabase order_items or in-memory items
+    const itemsList = (orderItems && Array.isArray(orderItems) && orderItems.length > 0)
+      ? orderItems.map((i: any) => ({
+          product_name: i.product_name || i.name || 'Product',
+          quantity: Number(i.quantity) || 1,
+          unit_price: Number(i.unit_price) || 0,
+          total_price: Number(i.total_price || (i.unit_price * i.quantity)) || 0,
+          product_image: i.product_image || ''
+        }))
+      : items.map(i => ({
+          product_name: i.name || 'Product',
+          quantity: i.quantity || 1,
+          unit_price: Number(i.price) || 0,
+          total_price: (Number(i.price) || 0) * (i.quantity || 1),
+          product_image: i.image_url || ''
+        }));
+
+    const finalSubtotal = Number(order.subtotal ?? subtotal);
+    const finalDeliveryFee = Number(order.delivery_fee ?? deliveryFee);
+    const finalDiscount = Number(order.discount || order.discount_amount || 0);
+    const finalTotal = Number(order.total || order.grand_total || (finalSubtotal + finalDeliveryFee - finalDiscount));
+
+    const authoritativeTxn =
+      order.payment_reference ||
+      confirmedOrder.reference ||
+      `ord_${order.id}`;
 
     return {
-      order_number: order.order_number || orderNumberFromNotes || order.id.split('-')[0],
-      created_at: order.created_at,
+      order_number: order.order_number || orderNumberFromNotes || `ODA-${order.id.split('-')[0].toUpperCase()}`,
+      order_id: order.id,
+      created_at: order.created_at || new Date().toISOString(),
       customer_name: cName,
       customer_phone: cPhone,
       customer_email: cEmail,
-      items: items.map((i: any) => ({
-        product_name: i.product_name || 'Product',
-        quantity: i.quantity || 1,
-        unit_price: i.unit_price || 0,
-        total_price: i.total_price || 0
-      })),
-      subtotal: order.subtotal || 0,
-      delivery_fee: order.shipping_fee || order.delivery_fee || 0,
-      discount: order.discount || order.discount_amount || 0,
-      grand_total: order.grand_total || order.total_amount || order.total || order.subtotal || 0,
-      payment_method: 'M-Pesa',
-      payment_status: "PAID",
+      items: itemsList,
+      subtotal: finalSubtotal,
+      delivery_fee: finalDeliveryFee,
+      discount: finalDiscount,
+      grand_total: finalTotal,
+      payment_method: order.payment_method || 'M-Pesa',
+      payment_status: (confirmedOrder?.success || order.payment_status === 'paid' || order.payment_status === 'PAID') ? "PAID" : (order.payment_status || "PENDING"),
       delivery_location: location,
       delivery_address: address,
-      status: order.status,
-      transaction_id: "TXN" + Math.floor(Math.random() * 100000000) // Mocking transaction ID if missing
+      delivery_method: deliveryMethodVal,
+      status: order.status || 'processing',
+      transaction_id: authoritativeTxn,
+      email_sent: true
     };
   };
 
-  const handleDownloadReceipt = async () => {
-    const el = document.getElementById('receipt-element');
-    if (!el) return;
+  const handleDownloadPdf = async () => {
+    const receiptData = getReceiptData();
+    if (!receiptData) return;
+    setIsDownloadingPdf(true);
     try {
-      const url = await toPng(el, { pixelRatio: 2 });
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `Receipt-${confirmedOrder?.order?.order_number || 'Order'}.png`;
-      a.click();
-    } catch(e) {
-      console.error(e);
-      toast.error("Failed to download receipt");
+      toast.loading("Generating high-resolution digital receipt PDF...", { id: "pdf-gen" });
+      const success = await downloadDigitalReceiptPdf(
+        "receipt-printable-container",
+        receiptData,
+        `ODA-Market-Receipt-${receiptData.order_number}.pdf`
+      );
+      if (success) {
+        toast.success("Digital receipt PDF downloaded successfully!", { id: "pdf-gen" });
+      } else {
+        toast.error("Failed to generate PDF. Please try again or use Print.", { id: "pdf-gen" });
+      }
+    } catch (err) {
+      console.error("PDF generation error:", err);
+      toast.error("Failed to download PDF receipt.", { id: "pdf-gen" });
+    } finally {
+      setIsDownloadingPdf(false);
     }
   };
 
-  const handleShareReceipt = async () => {
-    const el = document.getElementById('receipt-element');
-    if (!el) return;
+  const handlePrintReceipt = () => {
     try {
-      const blob = await toBlob(el, { pixelRatio: 2 });
-      if (blob) (async (blob) => {
-        if (!blob) return;
-        const file = new File([blob], `Receipt-${confirmedOrder?.order?.order_number || 'Order'}.png`, { type: 'image/png' });
-        if (navigator.share) {
-          await navigator.share({
-            title: 'Order Receipt',
-            text: 'Here is your OdaMarket order receipt.',
-            files: [file]
-          });
-        } else {
-          toast.error("Native sharing not supported on this device. Please download instead.");
-        }
-      })(blob);
-    } catch(e) {
-      console.error(e);
+      toast.info("Preparing digital receipt for printing...");
+      setTimeout(() => {
+        window.print();
+      }, 250);
+    } catch (err) {
+      console.error("Print error:", err);
+      toast.error("Failed to initiate printing. Please check your browser print settings.");
     }
   };
 
-  
+  const handleViewOrder = () => {
+    const receiptData = getReceiptData();
+    if (receiptData?.order_number || receiptData?.order_id) {
+      const targetId = receiptData.order_number || receiptData.order_id;
+      navigate(`/track-order?id=${encodeURIComponent(targetId)}`);
+    } else {
+      navigate("/dashboard/orders");
+    }
+  };
+
+  const handleResendReceiptEmail = async () => {
+    if (!confirmedOrder?.order?.id) return;
+    setIsResendingEmail(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+      if (!token) {
+        toast.error("Please login to resend email receipt.");
+        return;
+      }
+      toast.loading("Dispatching digital receipt to your inbox...", { id: "email-resend" });
+      const res = await fetch("/api/checkout/resend-receipt-email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ orderId: confirmedOrder.order.id })
+      });
+      const data = await res.json();
+      if (res.ok && data.success) {
+        setEmailStatusMessage(`Receipt sent to ${data.recipient || "your email"}`);
+        toast.success(`Digital receipt dispatched to ${data.recipient || "your email"} via Resend!`, { id: "email-resend" });
+      } else {
+        toast.error(data.error || "Failed to dispatch receipt email.", { id: "email-resend" });
+      }
+    } catch (err: any) {
+      console.error("Resend email error:", err);
+      toast.error("Network error sending receipt email.", { id: "email-resend" });
+    } finally {
+      setIsResendingEmail(false);
+    }
+  };
+
   const handleWhatsAppImage = async () => {
     setIsGeneratingWA(true);
     try {
-      const el = document.getElementById('receipt-element');
-      if (!el) return;
-      const url = await toPng(el, { pixelRatio: 2 });
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `OdaMarket-Receipt-${confirmedOrder?.order?.order_number || 'Order'}.png`;
-      a.click();
+      const el = document.getElementById('receipt-printable-container');
+      const orderNumber = confirmedOrder?.order?.order_number || 'Order';
+      if (el) {
+        try {
+          const url = await toPng(el, { pixelRatio: 2, backgroundColor: '#FFFDF8' });
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `ODA-Market-Receipt-${orderNumber}.png`;
+          a.click();
+        } catch (imgErr) {
+          console.warn("Could not capture PNG for WhatsApp:", imgErr);
+        }
+      }
 
-      toast.success("Receipt downloaded! Opening WhatsApp...", { duration: 3000 });
-      
+      toast.success("Opening WhatsApp with your receipt...", { duration: 3000 });
       setTimeout(() => {
-        const text = encodeURIComponent(`Hello OdaMarket, I have just paid for order ${confirmedOrder?.order?.order_number || 'Order'}. I will attach the receipt image I just downloaded.`);
-        window.open(getWhatsAppUrl(`Hello OdaMarket, I have just paid for order ${confirmedOrder?.order?.order_number || 'Order'}. I will attach the receipt image I just downloaded.`), '_blank');
-      }, 1500);
+        const text = `Hello ODA Market, I have completed payment for Order ${orderNumber}. Please find my order receipt details.`;
+        window.open(getWhatsAppUrl(text), '_blank');
+      }, 1000);
     } catch(e) {
       console.error(e);
-      toast.error("Failed to generate receipt image");
+      toast.error("Failed to generate WhatsApp link");
     } finally {
       setIsGeneratingWA(false);
     }
   };
 
-
   if (isSuccess) {
     const receiptData = getReceiptData();
 
     return (
-      <div className="min-h-screen bg-[#F8FAFC] pt-12 pb-24 flex items-center justify-center">
-        <div className="bg-[#FFFDF8] rounded-[24px] shadow-sm border border-[#E5E7EB] p-6 sm:p-10 max-w-4xl w-full mx-4 flex flex-col md:flex-row gap-8">
-          
-          <div className="flex-1 text-center md:text-left flex flex-col justify-center">
-            <div className="w-20 h-20 bg-[#ECFDF5] rounded-full flex items-center justify-center mx-auto md:mx-0 mb-6">
-              <CheckCircle2 className="w-10 h-10 text-[#C65A28]" />
-            </div>
-            <h1 className="text-[slate-900] font-bold text-[32px] mb-2">Payment Successful</h1>
-            <p className="text-[#6B7280] text-[16px] mb-2">Your order has been confirmed.</p>
-            {receiptData && (
-              <p className="text-[slate-900] font-bold text-[18px] mb-8">Order {receiptData.order_number}</p>
-            )}
-
-            {receiptError && (
-              <div className="bg-red-50 text-red-600 p-4 rounded-xl mb-6">
-                {receiptError}
-              </div>
-            )}
-
-            {!receiptData && !receiptError && (
-              <div className="animate-pulse flex items-center justify-center md:justify-start gap-2 text-gray-500 mb-8">
-                <div className="w-5 h-5 border-2 border-[#C65A28] border-t-transparent rounded-full animate-spin"></div>
-                Generating secure receipt...
-              </div>
-            )}
-
-            {receiptData && (
-              <div className="space-y-4">
-                
-                <button 
-                  onClick={handleWhatsAppImage}
-                  disabled={isGeneratingWA}
-                  className="w-full h-[56px] bg-[#25D366] text-white rounded-[16px] font-bold text-[16px] hover:bg-[#1DA851] transition-colors flex items-center justify-center gap-2 disabled:opacity-70"
-                >
-                  {isGeneratingWA ? (
-                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                  ) : (
-                    <MessageCircle className="w-5 h-5" />
-                  )}
-                  {isGeneratingWA ? "Preparing Receipt..." : "Send Receipt to WhatsApp"}
-                </button>
-
-                
-                <div className="flex gap-3">
-                  <button 
-                    onClick={handleDownloadReceipt}
-                    className="flex-1 h-[56px] bg-[#FFFDF8] border border-[#E8DCC9] text-[#3A2418] rounded-[16px] font-bold text-[15px] hover:bg-[#F8FAFC] transition-colors flex items-center justify-center gap-2"
-                  >
-                    <Download className="w-5 h-5" /> Download Receipt
-                  </button>
-                  {navigator.share && (
-                    <button 
-                      onClick={handleShareReceipt}
-                      className="flex-1 h-[56px] bg-[#FFFDF8] border border-[#E8DCC9] text-[#3A2418] rounded-[16px] font-bold text-[15px] hover:bg-[#F8FAFC] transition-colors flex items-center justify-center gap-2"
-                    >
-                      <Share2 className="w-5 h-5" /> Share Receipt
-                    </button>
-                  )}
-                </div>
-                
-                <button 
-                  onClick={() => navigate("/products")}
-                  className="w-full h-[56px] mt-4 bg-[#C65A28] text-white rounded-[16px] font-bold text-[16px] hover:bg-[#A94A1F] transition-colors"
-                >
-                  Continue Shopping
-                </button>
-              </div>
-            )}
+      <div className="min-h-screen bg-[#ECEEF2] py-8 sm:py-12 px-3 sm:px-4 flex flex-col items-center justify-start">
+        {receiptData ? (
+          <ThermalPrinter
+            receiptData={receiptData}
+            onDownloadPdf={handleDownloadPdf}
+            onPrintReceipt={handlePrintReceipt}
+            onViewOrder={handleViewOrder}
+            onResendEmail={handleResendReceiptEmail}
+            onWhatsAppShare={handleWhatsAppImage}
+            onContinueShopping={() => navigate("/products")}
+            isDownloadingPdf={isDownloadingPdf}
+            isResendingEmail={isResendingEmail}
+            emailStatusMessage={emailStatusMessage}
+          />
+        ) : (
+          <div className="w-full max-w-[390px] mx-auto p-8 bg-white border border-neutral-300 rounded shadow-sm text-center font-mono text-xs text-neutral-500">
+            <div className="w-5 h-5 border-2 border-neutral-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+            Loading receipt data...
           </div>
-
-          <div className="flex-1 border-t md:border-t-0 md:border-l border-[#E5E7EB] pt-8 md:pt-0 md:pl-8 flex justify-center">
-            {receiptData ? (
-              <div className="w-full max-w-[400px] border border-[#E8DCC9] rounded-xl overflow-hidden shadow-sm relative">
-                <OrderReceipt order={receiptData} />
-              </div>
-            ) : (
-               <div className="w-full max-w-[400px] h-[600px] bg-slate-50 border border-slate-100 rounded-xl animate-pulse"></div>
-            )}
-          </div>
-        </div>
+        )}
       </div>
     );
   }

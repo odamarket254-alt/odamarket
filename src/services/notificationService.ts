@@ -187,6 +187,20 @@ export async function notifyOrderStatusChange({
       }).catch((err) => {
         console.warn('[NotificationService] Non-fatal notice calling order-status-email:', err);
       });
+
+      // Trigger Web Push Notification via FCM backend
+      fetch('/api/notifications/send-order-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          orderId,
+          newStatus: normNew,
+          userId,
+          orderNumber
+        })
+      }).catch((err) => {
+        console.warn('[NotificationService] Non-fatal notice calling send-order-status push:', err);
+      });
     }
 
     if (!userId) {

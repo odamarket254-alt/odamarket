@@ -8,8 +8,8 @@ import { Button } from "../components/ui/Button";
 import { Link, useNavigate } from "react-router-dom";
 import { useCartStore } from "../store/useCartStore";
 import { useAuthStore } from "../store/useAuthStore";
-import { ThermalPrinter } from "../components/receipt/ThermalPrinter";
-import { OrderReceiptData } from "../components/receipt/OrderReceipt";
+import { OrderReceipt, OrderReceiptData } from "../components/receipt/OrderReceipt";
+import { AnimatedSuccessCheckmark } from "../components/receipt/AnimatedSuccessCheckmark";
 import { downloadDigitalReceiptPdf } from "../utils/receiptPdf";
 import { generateWhatsAppMessage, getWhatsAppUrl, WhatsAppOrderData } from "../lib/whatsapp";
 import { toPng, toBlob } from "html-to-image";
@@ -61,6 +61,7 @@ export default function CheckoutPage() {
   const [isGeneratingWA, setIsGeneratingWA] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [receiptRevealPhase, setReceiptRevealPhase] = useState<"animating_checkmark" | "revealed">("animating_checkmark");
   const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
   const [isResendingEmail, setIsResendingEmail] = useState(false);
   const [emailStatusMessage, setEmailStatusMessage] = useState<string | null>(null);
@@ -233,9 +234,15 @@ export default function CheckoutPage() {
             setConfirmedOrder(verifyData);
             setIsProcessing(false);
             setIsSuccess(true);
+            setReceiptRevealPhase("animating_checkmark");
             setPaymentError(null);
             clearCart();
             toast.success("Payment verified! Order placed successfully.");
+
+            // After green checkmark animation completes (~850ms), smoothly reveal the digital receipt
+            setTimeout(() => {
+              setReceiptRevealPhase("revealed");
+            }, 850);
           } else {
             // AUTHORITATIVE FAILURE: Do NOT mark success, do NOT clear cart
             const errorMsg = verifyData.message || "Payment verification failed. Your M-Pesa account was not charged.";
@@ -530,24 +537,154 @@ export default function CheckoutPage() {
     const receiptData = getReceiptData();
 
     return (
-      <div className="min-h-screen bg-[#ECEEF2] py-8 sm:py-12 px-3 sm:px-4 flex flex-col items-center justify-start">
-        {receiptData ? (
-          <ThermalPrinter
-            receiptData={receiptData}
-            onDownloadPdf={handleDownloadPdf}
-            onPrintReceipt={handlePrintReceipt}
-            onViewOrder={handleViewOrder}
-            onResendEmail={handleResendReceiptEmail}
-            onWhatsAppShare={handleWhatsAppImage}
-            onContinueShopping={() => navigate("/products")}
-            isDownloadingPdf={isDownloadingPdf}
-            isResendingEmail={isResendingEmail}
-            emailStatusMessage={emailStatusMessage}
-          />
-        ) : (
-          <div className="w-full max-w-[390px] mx-auto p-8 bg-white border border-neutral-300 rounded shadow-sm text-center font-mono text-xs text-neutral-500">
-            <div className="w-5 h-5 border-2 border-neutral-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-            Loading receipt data...
+      <div className="min-h-screen bg-[#F8FAFC] py-8 sm:py-12 px-4 sm:px-6 flex flex-col items-center justify-center">
+        {/* Stage 1: Green Success Checkmark Animation Stage */}
+        {receiptRevealPhase === "animating_checkmark" && (
+          <div className="max-w-md w-full bg-[#FFFDF8] rounded-3xl p-8 sm:p-10 border border-[#E8DCC9] shadow-md flex flex-col items-center justify-center animate-receipt-reveal">
+            <AnimatedSuccessCheckmark
+              orderNumber={receiptData?.order_number}
+              totalAmountKsh={receiptData?.grand_total}
+              onAnimationComplete={() => {
+                setTimeout(() => setReceiptRevealPhase("revealed"), 400);
+              }}
+            />
+            <div className="mt-6 flex items-center gap-2 text-xs text-[#8B857D] font-medium">
+              <div className="w-4 h-4 border-2 border-[#C65A28] border-t-transparent rounded-full animate-spin" />
+              <span>Revealing your official digital receipt...</span>
+            </div>
+          </div>
+        )}
+
+        {/* Stage 2: Smoothly Revealed Digital Receipt with Real Supabase Order Data & Working Action Buttons */}
+        {receiptRevealPhase === "revealed" && (
+          <div className="max-w-5xl w-full mx-auto animate-receipt-reveal">
+            {/* Top Celebratory Header Bar */}
+            <div className="no-print bg-[#FFFDF8] border border-[#E8DCC9] rounded-2xl p-4 sm:p-6 mb-6 shadow-sm flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="flex items-center gap-3.5 text-center sm:text-left">
+                <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center shrink-0">
+                  <CheckCircle2 className="w-6 h-6 text-[#2BB673]" />
+                </div>
+                <div>
+                  <div className="flex items-center justify-center sm:justify-start gap-2">
+                    <h1 className="text-lg sm:text-xl font-bold text-[#3A2418]">
+                      Payment Verified & Confirmed
+                    </h1>
+                    <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 uppercase">
+                      Paystack
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#5F5A54] mt-0.5">
+                    Order <span className="font-bold text-[#3A2418]">#{receiptData?.order_number}</span> · Paid <span className="font-bold text-[#C65A28]">KSh {receiptData?.grand_total.toLocaleString()}</span>
+                  </p>
+                </div>
+              </div>
+
+              {/* Status Pill */}
+              <div className="flex items-center gap-2 text-xs text-[#5F5A54] bg-[#FAF5EC] px-3.5 py-1.5 rounded-full border border-[#E8DCC9]">
+                <Mail className="w-3.5 h-3.5 text-[#C65A28]" />
+                <span>Receipt sent via Resend</span>
+              </div>
+            </div>
+
+            {/* Main Content Layout: Actions on side (desktop), Digital Receipt centered */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-start">
+              {/* Actions & Utilities Column (lg:col-span-5) */}
+              <div className="no-print lg:col-span-5 flex flex-col gap-4 order-2 lg:order-1">
+                {/* Primary Action Buttons Card */}
+                <div className="bg-[#FFFDF8] border border-[#E8DCC9] rounded-2xl p-5 shadow-sm space-y-3">
+                  <h3 className="text-xs font-bold text-[#8B857D] uppercase tracking-wider mb-2">
+                    Receipt Actions
+                  </h3>
+
+                  {/* 1. Working Download PDF Button */}
+                  <button
+                    onClick={handleDownloadPdf}
+                    disabled={isDownloadingPdf}
+                    className="w-full h-12 bg-[#C65A28] text-white rounded-xl font-bold text-sm hover:bg-[#A94A1F] active:scale-[0.99] transition-all flex items-center justify-center gap-2 shadow-sm disabled:opacity-70 cursor-pointer"
+                  >
+                    {isDownloadingPdf ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4" />
+                    )}
+                    <span>{isDownloadingPdf ? "Generating PDF Receipt..." : "Download PDF Receipt"}</span>
+                  </button>
+
+                  {/* 2. Working Print Receipt & 3. Working View Order Buttons */}
+                  <div className="grid grid-cols-2 gap-2.5">
+                    <button
+                      onClick={handlePrintReceipt}
+                      className="h-11 bg-white border border-[#E8DCC9] text-[#3A2418] hover:bg-[#FAF5EC] rounded-xl font-semibold text-xs active:scale-[0.99] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                    >
+                      <Printer className="w-3.5 h-3.5 text-[#5F5A54]" />
+                      <span>Print Receipt</span>
+                    </button>
+
+                    <button
+                      onClick={handleViewOrder}
+                      className="h-11 bg-[#0A2E5C] text-white hover:bg-[#072040] rounded-xl font-semibold text-xs active:scale-[0.99] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
+                    >
+                      <PackageCheck className="w-3.5 h-3.5" />
+                      <span>View Order</span>
+                    </button>
+                  </div>
+
+                  {/* Resend Receipt to Email via Resend */}
+                  <button
+                    onClick={handleResendReceiptEmail}
+                    disabled={isResendingEmail}
+                    className="w-full h-10 bg-white border border-[#E8DCC9] text-[#5F5A54] hover:text-[#3A2418] hover:bg-[#FAF5EC] rounded-xl font-medium text-xs transition-all flex items-center justify-center gap-1.5 disabled:opacity-60 cursor-pointer"
+                  >
+                    {isResendingEmail ? (
+                      <div className="w-3.5 h-3.5 border-2 border-[#C65A28] border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Mail className="w-3.5 h-3.5 text-[#C65A28]" />
+                    )}
+                    <span>
+                      {emailStatusMessage || "Resend Receipt to Email"}
+                    </span>
+                  </button>
+
+                  {/* WhatsApp Support Share */}
+                  <button
+                    onClick={handleWhatsAppImage}
+                    disabled={isGeneratingWA}
+                    className="w-full h-10 bg-[#25D366]/10 text-[#1DA851] hover:bg-[#25D366]/20 border border-[#25D366]/30 rounded-xl font-semibold text-xs transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                  >
+                    <MessageCircle className="w-3.5 h-3.5 text-[#25D366]" />
+                    <span>Share Receipt via WhatsApp</span>
+                  </button>
+                </div>
+
+                {/* Tracking & Assistance Card */}
+                <div className="bg-[#FAF5EC] border border-[#E8DCC9] rounded-2xl p-5 text-xs text-[#5F5A54] space-y-2.5">
+                  <div className="flex items-center gap-2 text-[#3A2418] font-bold text-sm">
+                    <ShieldCheck className="w-4 h-4 text-[#2BB673]" />
+                    <span>Guaranteed Fresh & Fast Delivery</span>
+                  </div>
+                  <p className="leading-relaxed">
+                    Your order is now being prepared at ODA Market fulfillment hub. A verified digital receipt has been recorded on our ledger and dispatched to your email.
+                  </p>
+                  <button
+                    onClick={() => navigate("/products")}
+                    className="w-full mt-2 h-10 border border-[#C65A28] text-[#C65A28] hover:bg-[#C65A28] hover:text-white rounded-xl font-bold text-xs transition-colors cursor-pointer"
+                  >
+                    Continue Shopping
+                  </button>
+                </div>
+              </div>
+
+              {/* Digital Receipt Card (lg:col-span-7) */}
+              <div className="lg:col-span-7 flex justify-center order-1 lg:order-2">
+                {receiptData ? (
+                  <OrderReceipt order={receiptData} id="receipt-printable-container" />
+                ) : (
+                  <div className="w-full max-w-[480px] h-[580px] bg-white border border-[#E8DCC9] rounded-2xl animate-pulse flex items-center justify-center text-gray-400">
+                    Loading digital receipt...
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
       </div>

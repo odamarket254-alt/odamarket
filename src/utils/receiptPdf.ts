@@ -44,7 +44,7 @@ export async function downloadDigitalReceiptPdf(
     if (el) {
       const imgData = await toPng(el, {
         pixelRatio: 2.5,
-        backgroundColor: "#FFFFFF",
+        backgroundColor: "#FFFDF8",
         cacheBust: true,
         filter: (node) => {
           // Exclude buttons or action elements marked with no-print
@@ -62,16 +62,16 @@ export async function downloadDigitalReceiptPdf(
         img.onerror = reject;
       });
 
-      const receiptWidthMm = 80; // 80mm standard supermarket thermal till roll
+      const receiptWidthMm = 105; // 105mm width (pocket thermal / slip format)
       const receiptHeightMm = (img.height * receiptWidthMm) / img.width;
 
       const doc = new jsPDF({
         orientation: "portrait",
         unit: "mm",
-        format: [receiptWidthMm, receiptHeightMm + 6]
+        format: [receiptWidthMm, receiptHeightMm + 8]
       });
 
-      doc.addImage(imgData, "PNG", 0, 3, receiptWidthMm, receiptHeightMm, undefined, "FAST");
+      doc.addImage(imgData, "PNG", 0, 4, receiptWidthMm, receiptHeightMm, undefined, "FAST");
       doc.save(finalFileName);
       return true;
     }

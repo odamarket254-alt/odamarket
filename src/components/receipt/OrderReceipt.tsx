@@ -1,6 +1,6 @@
 import React from 'react';
 import { format } from 'date-fns';
-import { Check } from 'lucide-react';
+import { CheckCircle2, ShieldCheck, Mail, MapPin, Phone, User, Package, Calendar, Hash } from 'lucide-react';
 
 export interface OrderReceiptItem {
   product_name: string;
@@ -44,9 +44,9 @@ export const OrderReceipt: React.FC<OrderReceiptProps> = ({
   className = ''
 }) => {
   const formattedDate = React.useMemo(() => {
-    if (!order.created_at) return format(new Date(), 'dd/MM/yyyy HH:mm');
+    if (!order.created_at) return 'N/A';
     try {
-      return format(new Date(order.created_at), 'dd/MM/yyyy  hh:mm a');
+      return format(new Date(order.created_at), 'dd MMM yyyy • hh:mm a');
     } catch {
       return 'N/A';
     }
@@ -58,299 +58,281 @@ export const OrderReceipt: React.FC<OrderReceiptProps> = ({
   return (
     <div
       id={id}
-      className={`receipt-print-area bg-white text-neutral-900 w-full max-w-[380px] mx-auto border border-neutral-300/80 shadow-[0_8px_30px_rgba(0,0,0,0.07)] font-mono text-[11.5px] sm:text-[12px] leading-tight relative select-text ${className}`}
-      style={{
-        fontFamily: "'SF Mono', Monaco, Menlo, Consolas, 'Liberation Mono', 'Courier New', monospace",
-        letterSpacing: '-0.01em'
-      }}
+      className={`receipt-print-area bg-[#FFFDF8] w-full max-w-[480px] mx-auto overflow-hidden p-6 sm:p-8 rounded-2xl border border-[#E8DCC9] shadow-sm relative font-sans ${className}`}
+      style={{ fontFamily: 'Inter, system-ui, sans-serif' }}
     >
-      {/* Serrated Top Cut Edge (Simulating till cutter blade) */}
-      <div className="w-full h-1.5 overflow-hidden bg-neutral-200/50 flex border-b border-neutral-200" aria-hidden="true">
-        <svg className="w-full h-1.5 text-white block fill-current" viewBox="0 0 100 3" preserveAspectRatio="none">
-          <polygon points="0,3 1.25,0 2.5,3 3.75,0 5,3 6.25,0 7.5,3 8.75,0 10,3 11.25,0 12.5,3 13.75,0 15,3 16.25,0 17.5,3 18.75,0 20,3 21.25,0 22.5,3 23.75,0 25,3 26.25,0 27.5,3 28.75,0 30,3 31.25,0 32.5,3 33.75,0 35,3 36.25,0 37.5,3 38.75,0 40,3 41.25,0 42.5,3 43.75,0 45,3 46.25,0 47.5,3 48.75,0 50,3 51.25,0 52.5,3 53.75,0 55,3 56.25,0 57.5,3 58.75,0 60,3 61.25,0 62.5,3 63.75,0 65,3 66.25,0 67.5,3 68.75,0 70,3 71.25,0 72.5,3 73.75,0 75,3 76.25,0 77.5,3 78.75,0 80,3 81.25,0 82.5,3 83.75,0 85,3 86.25,0 87.5,3 88.75,0 90,3 91.25,0 92.5,3 93.75,0 95,3 96.25,0 97.5,3 98.75,0 100,3" />
-        </svg>
+      {/* Top perforated / sawtooth visual motif */}
+      <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#C65A28] via-[#2BB673] to-[#C65A28] opacity-80" />
+
+      {/* Header with Official ODA Market Branding */}
+      <div className="text-center border-b-2 border-dashed border-[#E8DCC9] pb-6 mb-5">
+        {/* Brand Lockup Inline SVG to prevent cross-origin canvas taint */}
+        <div className="flex items-center justify-center mb-1">
+          <svg
+            className="h-10 w-auto"
+            viewBox="0 0 240 60"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+            aria-label="ODA Market"
+          >
+            <path
+              d="M43.7143 30C43.7143 40.2561 35.4053 48.5714 25.1429 48.5714C14.8804 48.5714 6.57143 40.2561 6.57143 30C6.57143 19.7439 14.8804 11.4286 25.1429 11.4286C35.4053 11.4286 43.7143 19.7439 43.7143 30Z"
+              stroke="#0A2E5C"
+              strokeWidth="7"
+            />
+            <path
+              d="M25.1429 38.5714C29.8767 38.5714 33.7143 34.7339 33.7143 30C33.7143 25.2661 29.8767 21.4286 25.1429 21.4286C20.409 21.4286 16.5714 25.2661 16.5714 30C16.5714 34.7339 20.409 38.5714 25.1429 38.5714Z"
+              fill="#2BB673"
+            />
+            <text
+              x="56"
+              y="41"
+              fontFamily="system-ui, -apple-system, sans-serif"
+              fontWeight="900"
+              fontSize="34"
+              fill="#0A2E5C"
+              letterSpacing="-1.5"
+            >
+              ODA
+            </text>
+            <text
+              x="132"
+              y="41"
+              fontFamily="system-ui, -apple-system, sans-serif"
+              fontWeight="700"
+              fontSize="34"
+              fill="#2BB673"
+              letterSpacing="-1"
+            >
+              Market
+            </text>
+          </svg>
+        </div>
+        <p className="text-xs text-[#5F5A54] italic mb-4">Quality. Value. Convenience.</p>
+
+        {/* Verification Pill */}
+        <div className="inline-flex items-center gap-1.5 bg-[#2BB673]/10 border border-[#2BB673]/30 text-[#1E7E4F] py-1 px-3.5 rounded-full font-bold text-xs uppercase tracking-wider mb-4">
+          <CheckCircle2 className="w-3.5 h-3.5 text-[#2BB673]" />
+          Official Digital Receipt • Paid
+        </div>
+
+        {/* Order Meta Grid */}
+        <div className="grid grid-cols-2 gap-3 text-left pt-2">
+          <div>
+            <p className="text-[11px] text-[#8B857D] uppercase font-bold tracking-wider mb-0.5">Order Number</p>
+            <p className="text-sm font-bold text-[#3A2418] font-mono tracking-tight">{order.order_number}</p>
+          </div>
+          <div className="text-right">
+            <p className="text-[11px] text-[#8B857D] uppercase font-bold tracking-wider mb-0.5">Date & Time</p>
+            <p className="text-xs font-semibold text-[#3A2418]">{formattedDate}</p>
+          </div>
+        </div>
       </div>
 
-      <div className="p-4 sm:p-5 space-y-3">
-        {/* Store Header & Brand Lockup */}
-        <div className="text-center space-y-0.5">
-          {/* Official OdaMarket Logo */}
-          <div className="flex justify-center items-center py-1">
-            <img
-              src="/oda-logo.png.jpeg"
-              alt="OdaMarket"
-              className="h-9 w-auto object-contain max-w-[150px]"
-              onError={(e) => {
-                const target = e.currentTarget;
-                target.style.display = 'none';
-                const sibling = target.nextElementSibling as HTMLElement;
-                if (sibling) sibling.style.display = 'block';
-              }}
-            />
-            {/* Fallback inline branding if image unavailable */}
-            <div className="hidden" aria-label="OdaMarket">
-              <span className="font-extrabold text-lg tracking-tight text-[#0A2E5C]">ODA</span>
-              <span className="font-extrabold text-lg tracking-tight text-[#C65A28]">Market</span>
-            </div>
+      {/* Customer & Delivery Details */}
+      <div className="border-b-2 border-dashed border-[#E8DCC9] pb-5 mb-5 text-sm">
+        <h2 className="text-xs font-bold text-[#C65A28] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+          <User className="w-3.5 h-3.5" />
+          Buyer & Delivery Details
+        </h2>
+        <div className="space-y-2">
+          <div className="flex justify-between items-start gap-3">
+            <span className="text-xs text-[#5F5A54]">Customer:</span>
+            <span className="text-xs font-bold text-[#3A2418] text-right">{order.customer_name}</span>
           </div>
-
-          <h1 className="text-[12.5px] font-black uppercase tracking-wider text-neutral-950">
-            ODAMARKET SUPERMARKET
-          </h1>
-          <p className="text-[10px] text-neutral-600">
-            Quality • Value • Convenience
-          </p>
-          <p className="text-[9.5px] text-neutral-500">
-            Nairobi, Kenya • Tel: +254 700 000 000
-          </p>
-          <div className="text-[10.5px] font-bold text-[#C65A28] uppercase tracking-wider pt-0.5">
-            TAX INVOICE / CASH SALE
-          </div>
-        </div>
-
-        {/* Dashed Separator */}
-        <div className="border-b border-dashed border-neutral-400 my-1.5" />
-
-        {/* Receipt Meta & Till Details */}
-        <div className="space-y-0.5 text-[10.5px] text-neutral-800">
-          <div className="flex justify-between items-baseline">
-            <span className="text-neutral-500 uppercase">RECEIPT NO:</span>
-            <span className="font-bold text-neutral-950 tracking-tight">#{order.order_number}</span>
-          </div>
-          <div className="flex justify-between items-baseline">
-            <span className="text-neutral-500 uppercase">DATE / TIME:</span>
-            <span className="font-medium text-neutral-900">{formattedDate}</span>
-          </div>
-          <div className="flex justify-between items-baseline">
-            <span className="text-neutral-500 uppercase">TERMINAL:</span>
-            <span className="font-medium text-neutral-700">POS-01 (ONLINE CHECKOUT)</span>
-          </div>
-        </div>
-
-        {/* Dashed Separator */}
-        <div className="border-b border-dashed border-neutral-400 my-1.5" />
-
-        {/* Customer & Delivery Block */}
-        <div className="space-y-0.5 text-[10.5px] text-neutral-800">
-          <div className="flex justify-between items-start gap-2">
-            <span className="text-neutral-500 uppercase shrink-0">CUSTOMER:</span>
-            <span className="font-bold text-neutral-950 text-right">{order.customer_name}</span>
-          </div>
-          <div className="flex justify-between items-start gap-2">
-            <span className="text-neutral-500 uppercase shrink-0">PHONE:</span>
-            <span className="font-medium text-neutral-900 text-right">{order.customer_phone}</span>
+          <div className="flex justify-between items-start gap-3">
+            <span className="text-xs text-[#5F5A54]">Phone:</span>
+            <span className="text-xs font-semibold text-[#3A2418] font-mono text-right">{order.customer_phone}</span>
           </div>
           {order.customer_email && (
-            <div className="flex justify-between items-start gap-2">
-              <span className="text-neutral-500 uppercase shrink-0">EMAIL:</span>
-              <span className="font-medium text-neutral-800 text-right truncate max-w-[200px]">
-                {order.customer_email}
-              </span>
+            <div className="flex justify-between items-start gap-3">
+              <span className="text-xs text-[#5F5A54]">Email:</span>
+              <span className="text-xs font-semibold text-[#3A2418] text-right break-all">{order.customer_email}</span>
             </div>
           )}
-          <div className="flex justify-between items-start gap-2">
-            <span className="text-neutral-500 uppercase shrink-0">LOCATION:</span>
-            <span className="font-medium text-neutral-800 text-right">{order.delivery_location}</span>
+          <div className="flex justify-between items-start gap-3 pt-1 border-t border-[#F2ECE1]">
+            <span className="text-xs text-[#5F5A54]">Delivery Location:</span>
+            <span className="text-xs font-bold text-[#3A2418] text-right">{order.delivery_location}</span>
           </div>
-          <div className="flex justify-between items-start gap-2">
-            <span className="text-neutral-500 uppercase shrink-0">ADDRESS:</span>
-            <span className="font-medium text-neutral-800 text-right max-w-[200px] break-words">
-              {order.delivery_address}
-            </span>
+          <div className="flex justify-between items-start gap-3">
+            <span className="text-xs text-[#5F5A54]">Full Address:</span>
+            <span className="text-xs text-[#3A2418] text-right max-w-[240px]">{order.delivery_address}</span>
           </div>
           {order.delivery_method && (
-            <div className="flex justify-between items-start gap-2">
-              <span className="text-neutral-500 uppercase shrink-0">METHOD:</span>
-              <span className="font-semibold text-[#C65A28] text-right uppercase">
-                {order.delivery_method === 'express' ? 'Express Boda (30-60 min)' : 'Standard Delivery'}
+            <div className="flex justify-between items-start gap-3">
+              <span className="text-xs text-[#5F5A54]">Method:</span>
+              <span className="text-xs font-semibold text-[#3A2418] capitalize text-right">
+                {order.delivery_method === 'express' ? 'Express Delivery (Boda)' : 'Standard Delivery'}
               </span>
             </div>
           )}
         </div>
+      </div>
 
-        {/* Dashed Separator */}
-        <div className="border-b border-dashed border-neutral-400 my-1.5" />
+      {/* Purchased Products Itemized Table */}
+      <div className="border-b-2 border-dashed border-[#E8DCC9] pb-5 mb-5">
+        <h2 className="text-xs font-bold text-[#C65A28] uppercase tracking-wider mb-3 flex items-center gap-1.5">
+          <Package className="w-3.5 h-3.5" />
+          Purchased Products
+        </h2>
 
-        {/* Itemized Purchased Products */}
-        <div>
-          <div className="grid grid-cols-[32px_1fr_95px] gap-1 text-[9.5px] font-bold uppercase text-neutral-500 pb-1 border-b border-neutral-300">
-            <span>QTY</span>
-            <span>DESCRIPTION</span>
-            <span className="text-right">AMOUNT (KSH)</span>
-          </div>
+        <div className="grid grid-cols-[1fr_40px_76px] gap-2 mb-2 pb-1.5 border-b border-[#E8DCC9] text-[11px] font-bold text-[#8B857D] uppercase tracking-wider">
+          <span>Item</span>
+          <span className="text-center">Qty</span>
+          <span className="text-right">Total</span>
+        </div>
 
-          <div className="py-1 space-y-1.5">
-            {order.items && order.items.length > 0 ? (
-              order.items.map((it, idx) => {
-                const lineTotal = it.total_price || (it.unit_price * it.quantity);
-                return (
-                  <div key={idx} className="space-y-0.5">
-                    <div className="grid grid-cols-[32px_1fr_95px] gap-1 items-start text-[11px]">
-                      <span className="font-bold text-neutral-950">{it.quantity}x</span>
-                      <span className="font-medium text-neutral-900 leading-snug break-words">
-                        {it.product_name}
-                      </span>
-                      <span className="text-right font-bold tabular-nums text-neutral-950">
-                        {Number(lineTotal).toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </span>
-                    </div>
-                    {it.quantity > 1 && (
-                      <div className="pl-8 text-[9.5px] text-neutral-500 tabular-nums">
-                        @ KSh {Number(it.unit_price).toLocaleString('en-KE', { minimumFractionDigits: 2 })} each
-                      </div>
-                    )}
+        <div className="space-y-3">
+          {order.items && order.items.length > 0 ? (
+            order.items.map((item, idx) => {
+              const lineTotal = item.total_price || (item.unit_price * item.quantity);
+              return (
+                <div key={idx} className="flex flex-col gap-0.5 text-xs">
+                  <div className="font-semibold text-[#3A2418] line-clamp-2">
+                    {item.product_name}
                   </div>
-                );
-              })
-            ) : (
-              <div className="py-2 text-center text-neutral-400 text-xs italic">
-                No items recorded
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Dashed Separator */}
-        <div className="border-b border-dashed border-neutral-400 my-1.5" />
-
-        {/* Financial Summary & Total */}
-        <div className="space-y-1 text-[11px] text-neutral-800">
-          <div className="flex justify-between items-baseline">
-            <span className="text-neutral-600 uppercase">SUBTOTAL:</span>
-            <span className="font-medium tabular-nums text-neutral-900">
-              KSh {Number(order.subtotal).toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </span>
-          </div>
-
-          <div className="flex justify-between items-baseline">
-            <span className="text-neutral-600 uppercase">DELIVERY FEE:</span>
-            <span className="font-medium tabular-nums text-neutral-900">
-              {deliveryFee > 0
-                ? `KSh ${deliveryFee.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                : 'FREE'}
-            </span>
-          </div>
-
-          {discount > 0 && (
-            <div className="flex justify-between items-baseline text-emerald-700">
-              <span className="uppercase">DISCOUNT:</span>
-              <span className="font-medium tabular-nums">
-                -KSh {discount.toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </span>
-            </div>
+                  <div className="grid grid-cols-[1fr_40px_76px] gap-2 items-center text-[#5F5A54]">
+                    <span className="text-[11px] text-[#8B857D]">
+                      {item.quantity} × KSh {Number(item.unit_price).toLocaleString('en-KE')}
+                    </span>
+                    <span className="text-center font-mono tabular-nums font-medium text-[#3A2418]">
+                      {item.quantity}
+                    </span>
+                    <span className="text-right font-mono tabular-nums font-bold text-[#3A2418]">
+                      KSh {Number(lineTotal).toLocaleString('en-KE')}
+                    </span>
+                  </div>
+                </div>
+              );
+            })
+          ) : (
+            <p className="text-xs text-[#8B857D] italic py-2">No product items found.</p>
           )}
+        </div>
+      </div>
 
-          {/* Supermarket Double Horizontal Rule for Total Paid */}
-          <div className="border-t-2 border-b-2 border-neutral-950 py-1.5 my-1.5 flex justify-between items-baseline">
-            <span className="text-[13px] font-black tracking-wide uppercase text-neutral-950">
-              TOTAL PAID:
-            </span>
-            <span className="text-[14px] font-black tabular-nums text-[#C65A28]">
-              KSh {Number(order.grand_total).toLocaleString('en-KE', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+      {/* Financial Breakdown & Grand Total */}
+      <div className="border-b-2 border-dashed border-[#E8DCC9] pb-5 mb-5 space-y-2 text-xs">
+        <div className="flex justify-between items-center text-[#5F5A54]">
+          <span>Subtotal:</span>
+          <span className="font-mono tabular-nums font-medium text-[#3A2418]">
+            KSh {Number(order.subtotal).toLocaleString('en-KE')}
+          </span>
+        </div>
+        <div className="flex justify-between items-center text-[#5F5A54]">
+          <span>Delivery Fee:</span>
+          <span className="font-mono tabular-nums font-medium text-[#3A2418]">
+            {deliveryFee > 0 ? `KSh ${deliveryFee.toLocaleString('en-KE')}` : 'FREE'}
+          </span>
+        </div>
+        {discount > 0 && (
+          <div className="flex justify-between items-center text-[#5F5A54]">
+            <span>Discount:</span>
+            <span className="font-mono tabular-nums font-medium text-emerald-600">
+              -KSh {discount.toLocaleString('en-KE')}
             </span>
           </div>
+        )}
+        <div className="flex justify-between items-center pt-2.5 mt-2 border-t border-[#E8DCC9]">
+          <span className="text-sm font-bold text-[#3A2418] uppercase tracking-wide">TOTAL PAID:</span>
+          <span className="text-lg font-black text-[#C65A28] font-mono tabular-nums">
+            KSh {Number(order.grand_total).toLocaleString('en-KE')}
+          </span>
         </div>
+      </div>
 
-        {/* Payment Verification Block */}
-        <div className="space-y-0.5 text-[10px] text-neutral-800 bg-neutral-50 p-2 rounded border border-neutral-200">
-          <div className="flex justify-between items-baseline">
-            <span className="text-neutral-500 uppercase">PAYMENT METHOD:</span>
-            <span className="font-bold text-neutral-900 uppercase">
+      {/* Payment & Authoritative Verification Details */}
+      <div className="border-b-2 border-dashed border-[#E8DCC9] pb-5 mb-5 text-xs">
+        <div className="grid grid-cols-2 gap-3 mb-2.5">
+          <div>
+            <span className="block text-[11px] text-[#8B857D] uppercase font-bold tracking-wider mb-0.5">
+              Payment Method
+            </span>
+            <span className="font-semibold text-[#3A2418]">
               {order.payment_method || 'M-Pesa'} (Paystack)
             </span>
           </div>
-
-          {order.transaction_id && (
-            <div className="flex justify-between items-baseline gap-2">
-              <span className="text-neutral-500 uppercase shrink-0">PAYSTACK REF:</span>
-              <span className="font-mono text-[9.5px] font-bold text-neutral-900 break-all select-all text-right">
-                {order.transaction_id}
-              </span>
-            </div>
-          )}
-
-          <div className="flex justify-between items-baseline">
-            <span className="text-neutral-500 uppercase">PAYMENT STATUS:</span>
-            <span className="font-bold text-emerald-700 uppercase">
-              CONFIRMED / PAID ✓
+          <div className="text-right">
+            <span className="block text-[11px] text-[#8B857D] uppercase font-bold tracking-wider mb-0.5">
+              Payment Status
+            </span>
+            <span className="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+              PAID ✓
             </span>
           </div>
         </div>
 
-        {/* Subtle PAID Confirmation Stamp */}
-        <div className="py-0.5">
-          <div className="border border-emerald-600/90 bg-emerald-50/50 rounded px-2.5 py-1 text-center text-emerald-800">
-            <div className="flex items-center justify-center gap-1.5 text-[10.5px] font-black uppercase tracking-wider">
-              <Check className="w-3 h-3 stroke-[3]" />
-              OFFICIALLY PAID &amp; VERIFIED
-            </div>
-            <div className="text-[8.5px] font-medium text-emerald-700 tracking-tight mt-0.5">
-              AUTHORITATIVELY RECORDED ON ODAMARKET LEDGER
-            </div>
+        {order.transaction_id && (
+          <div className="mt-2 pt-2 border-t border-[#F2ECE1]">
+            <span className="block text-[11px] text-[#8B857D] uppercase font-bold tracking-wider mb-0.5">
+              Paystack Transaction Ref
+            </span>
+            <span className="font-mono text-[11px] text-[#3A2418] bg-[#F8F9FA] px-2 py-1 rounded border border-[#E5E7EB] block break-all font-semibold select-all">
+              {order.transaction_id}
+            </span>
           </div>
-        </div>
-
-        {/* Thermal Barcode Stamp */}
-        <div className="text-center pt-1.5 space-y-0.5">
-          <svg className="h-6 w-44 mx-auto" viewBox="0 0 200 24" preserveAspectRatio="none">
-            <rect x="0" y="0" width="3" height="24" fill="#111827" />
-            <rect x="5" y="0" width="1" height="24" fill="#111827" />
-            <rect x="8" y="0" width="4" height="24" fill="#111827" />
-            <rect x="15" y="0" width="2" height="24" fill="#111827" />
-            <rect x="20" y="0" width="5" height="24" fill="#111827" />
-            <rect x="28" y="0" width="2" height="24" fill="#111827" />
-            <rect x="33" y="0" width="1" height="24" fill="#111827" />
-            <rect x="36" y="0" width="4" height="24" fill="#111827" />
-            <rect x="43" y="0" width="2" height="24" fill="#111827" />
-            <rect x="48" y="0" width="6" height="24" fill="#111827" />
-            <rect x="57" y="0" width="1" height="24" fill="#111827" />
-            <rect x="61" y="0" width="3" height="24" fill="#111827" />
-            <rect x="67" y="0" width="2" height="24" fill="#111827" />
-            <rect x="72" y="0" width="5" height="24" fill="#111827" />
-            <rect x="80" y="0" width="1" height="24" fill="#111827" />
-            <rect x="84" y="0" width="4" height="24" fill="#111827" />
-            <rect x="91" y="0" width="2" height="24" fill="#111827" />
-            <rect x="96" y="0" width="4" height="24" fill="#111827" />
-            <rect x="103" y="0" width="1" height="24" fill="#111827" />
-            <rect x="107" y="0" width="3" height="24" fill="#111827" />
-            <rect x="113" y="0" width="5" height="24" fill="#111827" />
-            <rect x="121" y="0" width="2" height="24" fill="#111827" />
-            <rect x="126" y="0" width="3" height="24" fill="#111827" />
-            <rect x="132" y="0" width="1" height="24" fill="#111827" />
-            <rect x="136" y="0" width="4" height="24" fill="#111827" />
-            <rect x="143" y="0" width="2" height="24" fill="#111827" />
-            <rect x="148" y="0" width="5" height="24" fill="#111827" />
-            <rect x="156" y="0" width="1" height="24" fill="#111827" />
-            <rect x="160" y="0" width="3" height="24" fill="#111827" />
-            <rect x="166" y="0" width="2" height="24" fill="#111827" />
-            <rect x="171" y="0" width="4" height="24" fill="#111827" />
-            <rect x="178" y="0" width="2" height="24" fill="#111827" />
-            <rect x="183" y="0" width="4" height="24" fill="#111827" />
-            <rect x="190" y="0" width="2" height="24" fill="#111827" />
-            <rect x="195" y="0" width="3" height="24" fill="#111827" />
-          </svg>
-          <div className="text-[9.5px] text-neutral-500 tracking-widest uppercase">
-            * ODA-{order.order_number} *
-          </div>
-        </div>
-
-        {/* Footer Supermarket Greeting */}
-        <div className="text-center pt-0.5 pb-0.5 space-y-0.5 text-[9.5px] text-neutral-600">
-          <p className="font-bold text-neutral-800">
-            THANK YOU FOR SHOPPING AT ODAMARKET!
-          </p>
-          <p>KARIBU TENA • PLEASE VISIT US AGAIN</p>
-          <p className="text-[8.5px] text-neutral-400">
-            A confirmation email was dispatched via Resend
-          </p>
-        </div>
+        )}
       </div>
 
-      {/* Serrated Bottom Cut Edge (Torn till paper teeth extending downward) */}
-      <div className="w-full h-2.5 overflow-hidden flex leading-none -mb-px" aria-hidden="true">
-        <svg className="w-full h-2.5 text-white block fill-current" viewBox="0 0 100 5" preserveAspectRatio="none">
-          <polygon points="0,0 2,5 4,0 6,5 8,0 10,5 12,0 14,5 16,0 18,5 20,0 22,5 24,0 26,5 28,0 30,5 32,0 34,5 36,0 38,5 40,0 42,5 44,0 46,5 48,0 50,5 52,0 54,5 56,0 58,5 60,0 62,5 64,0 66,5 68,0 70,5 72,0 74,5 76,0 78,5 80,0 82,5 84,0 86,5 88,0 90,5 92,0 94,5 96,0 98,5 100,0" />
-        </svg>
+      {/* Resend Email Notification Status */}
+      <div className="bg-[#FAF5EC] rounded-xl p-3 mb-5 border border-[#E8DCC9] flex items-center gap-2.5 text-xs text-[#5F5A54]">
+        <Mail className="w-4 h-4 text-[#C65A28] shrink-0" />
+        <p className="leading-snug">
+          Digital receipt confirmation automatically dispatched via <strong className="text-[#3A2418]">Resend</strong> to{' '}
+          <span className="font-semibold text-[#3A2418]">{order.customer_email || 'your email'}</span>.
+        </p>
+      </div>
+
+      {/* Digital Barcode / Security Stamp Motif */}
+      <div className="text-center pt-1 pb-2">
+        <div className="inline-block py-1 px-3 bg-white border border-[#E8DCC9] rounded mb-2">
+          {/* Stylized Barcode SVG */}
+          <svg className="h-6 w-48 mx-auto" viewBox="0 0 200 24" preserveAspectRatio="none">
+            <rect x="0" y="0" width="3" height="24" fill="#3A2418" />
+            <rect x="6" y="0" width="1" height="24" fill="#3A2418" />
+            <rect x="10" y="0" width="4" height="24" fill="#3A2418" />
+            <rect x="17" y="0" width="2" height="24" fill="#3A2418" />
+            <rect x="22" y="0" width="5" height="24" fill="#3A2418" />
+            <rect x="30" y="0" width="2" height="24" fill="#3A2418" />
+            <rect x="35" y="0" width="1" height="24" fill="#3A2418" />
+            <rect x="38" y="0" width="4" height="24" fill="#3A2418" />
+            <rect x="45" y="0" width="2" height="24" fill="#3A2418" />
+            <rect x="50" y="0" width="6" height="24" fill="#3A2418" />
+            <rect x="59" y="0" width="1" height="24" fill="#3A2418" />
+            <rect x="63" y="0" width="3" height="24" fill="#3A2418" />
+            <rect x="69" y="0" width="2" height="24" fill="#3A2418" />
+            <rect x="74" y="0" width="5" height="24" fill="#3A2418" />
+            <rect x="82" y="0" width="1" height="24" fill="#3A2418" />
+            <rect x="86" y="0" width="4" height="24" fill="#3A2418" />
+            <rect x="93" y="0" width="2" height="24" fill="#3A2418" />
+            <rect x="98" y="0" width="4" height="24" fill="#3A2418" />
+            <rect x="105" y="0" width="1" height="24" fill="#3A2418" />
+            <rect x="109" y="0" width="3" height="24" fill="#3A2418" />
+            <rect x="115" y="0" width="5" height="24" fill="#3A2418" />
+            <rect x="123" y="0" width="2" height="24" fill="#3A2418" />
+            <rect x="128" y="0" width="3" height="24" fill="#3A2418" />
+            <rect x="134" y="0" width="1" height="24" fill="#3A2418" />
+            <rect x="138" y="0" width="4" height="24" fill="#3A2418" />
+            <rect x="145" y="0" width="2" height="24" fill="#3A2418" />
+            <rect x="150" y="0" width="5" height="24" fill="#3A2418" />
+            <rect x="158" y="0" width="1" height="24" fill="#3A2418" />
+            <rect x="162" y="0" width="3" height="24" fill="#3A2418" />
+            <rect x="168" y="0" width="2" height="24" fill="#3A2418" />
+            <rect x="173" y="0" width="4" height="24" fill="#3A2418" />
+            <rect x="180" y="0" width="2" height="24" fill="#3A2418" />
+            <rect x="185" y="0" width="4" height="24" fill="#3A2418" />
+            <rect x="192" y="0" width="2" height="24" fill="#3A2418" />
+            <rect x="197" y="0" width="3" height="24" fill="#3A2418" />
+          </svg>
+          <span className="text-[10px] text-[#8B857D] font-mono tracking-widest uppercase block mt-0.5">
+            AUTH-{order.order_number}
+          </span>
+        </div>
+
+        <p className="text-[13px] font-bold text-[#3A2418] uppercase tracking-wider mb-1">ODA MARKET</p>
+        <p className="text-[11px] text-[#8B857D]">
+          Quality Products • Fast & Reliable Delivery • Better Value Every Day
+        </p>
       </div>
     </div>
   );

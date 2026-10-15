@@ -228,53 +228,8 @@ html, body {
   animation: checkmark-ripple-pulse 1.8s infinite ease-out;
 }
 
-/* Thermal Printer Feed Animation (Emerging smoothly downward from POS Slot) */
-@keyframes thermal-paper-feed {
-  0% {
-    transform: translateY(-24px);
-    opacity: 0.95;
-    clip-path: inset(0 0 98% 0);
-  }
-  20% {
-    transform: translateY(-16px);
-    opacity: 1;
-    clip-path: inset(0 0 76% 0);
-  }
-  45% {
-    transform: translateY(-8px);
-    opacity: 1;
-    clip-path: inset(0 0 48% 0);
-  }
-  75% {
-    transform: translateY(-2px);
-    opacity: 1;
-    clip-path: inset(0 0 18% 0);
-  }
-  95% {
-    transform: translateY(0);
-    opacity: 1;
-    clip-path: inset(0 0 2% 0);
-  }
-  100% {
-    transform: translateY(0);
-    opacity: 1;
-    clip-path: inset(0 0 0% 0);
-  }
-}
-
-.animate-thermal-feed {
-  animation: thermal-paper-feed 2.0s cubic-bezier(0.2, 0.75, 0.35, 1) forwards;
-  transform-origin: top center;
-  will-change: clip-path, transform;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .animate-thermal-feed {
-    animation: none !important;
-    transform: none !important;
-    clip-path: none !important;
-    opacity: 1 !important;
-  }
+.animate-receipt-reveal {
+  animation: receipt-smooth-reveal 0.75s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 /* Digital Receipt Sawtooth Edge Generator */
@@ -284,13 +239,13 @@ html, body {
 .receipt-sawtooth-top::before {
   content: "";
   position: absolute;
-  top: -6px;
+  top: -8px;
   left: 0;
   right: 0;
-  height: 6px;
-  background-image: radial-gradient(circle, transparent 60%, #ffffff 65%);
-  background-size: 12px 12px;
-  background-position: -6px -6px;
+  height: 8px;
+  background-image: radial-gradient(circle, transparent 60%, #FFFDF8 65%);
+  background-size: 16px 16px;
+  background-position: -8px -8px;
 }
 
 /* Print Media Styles: Print only the receipt element cleanly */

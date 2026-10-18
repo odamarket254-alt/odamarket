@@ -71,15 +71,17 @@ export default function CheckoutPage() {
   const [activePendingOrderId, setActivePendingOrderId] = useState<string | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
-  // Load Paystack Script
+  // Load Paystack Script safely
   useEffect(() => {
-    const script = document.createElement("script");
-    script.src = "https://js.paystack.co/v1/inline.js";
-    script.async = true;
-    document.body.appendChild(script);
-    return () => {
-      document.body.removeChild(script);
-    };
+    if (typeof (window as any).PaystackPop === "undefined") {
+      const existing = document.querySelector('script[src="https://js.paystack.co/v1/inline.js"]');
+      if (!existing) {
+        const script = document.createElement("script");
+        script.src = "https://js.paystack.co/v1/inline.js";
+        script.async = true;
+        document.head.appendChild(script);
+      }
+    }
   }, []);
   
   const [shippingDetails, setShippingDetails] = useState({
@@ -185,10 +187,22 @@ export default function CheckoutPage() {
         return;
       }
 
+      if (!items || items.length === 0) {
+        toast.error("Your cart is empty. Please add items before placing an order.");
+        setIsProcessing(false);
+        return;
+      }
+
       setLoadingText("Validating inventory and processing...");
       
+      // Clean and validate existingOrderId as a UUID
+      const cleanExistingOrderId = (activePendingOrderId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(activePendingOrderId.trim()))
+        ? activePendingOrderId.trim()
+        : null;
+
       const response = await fetch('/api/checkout', {
         method: 'POST',
+        credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${session.access_token}`
@@ -203,14 +217,28 @@ export default function CheckoutPage() {
           paymentMethod: 'M-Pesa',
           deliveryMethod: deliveryMethod,
           deliveryFee: deliveryFee,
-          existingOrderId: activePendingOrderId
+          existingOrderId: cleanExistingOrderId
         })
       });
 
-      const data = await response.json();
+      let data: any;
+      const contentType = response.headers.get("content-type") || "";
+      if (contentType.includes("application/json")) {
+        try {
+          data = await response.json();
+        } catch {
+          throw new Error("Unable to parse order creation response from server. Please try again.");
+        }
+      } else {
+        const text = await response.text();
+        console.error("Non-JSON API response from /api/checkout:", response.status, text.slice(0, 300));
+        throw new Error(response.status >= 500
+          ? "Server error processing checkout. Please try again in a few moments."
+          : `Order creation failed (${response.status}). Please check your connection and try again.`);
+      }
 
-      if (!response.ok || !data.orderId) {
-        throw new Error(data.error + (data.details ? " " + JSON.stringify(data.details) : ''));
+      if (!response.ok || !data?.orderId) {
+        throw new Error(data?.error || (data?.details ? JSON.stringify(data.details) : 'Failed to create order'));
       }
 
       const currentOrderId = data.orderId;
@@ -221,13 +249,27 @@ export default function CheckoutPage() {
         try {
           const verifyResponse = await fetch('/api/checkout/verify', {
             method: 'POST',
+            credentials: 'include',
             headers: {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${session.access_token}`
             },
             body: JSON.stringify({ orderId: currentOrderId, reference })
           });
-          const verifyData = await verifyResponse.json();
+
+          let verifyData: any;
+          const verifyContentType = verifyResponse.headers.get("content-type") || "";
+          if (verifyContentType.includes("application/json")) {
+            try {
+              verifyData = await verifyResponse.json();
+            } catch {
+              throw new Error("Unable to parse payment verification response from server.");
+            }
+          } else {
+            const text = await verifyResponse.text();
+            console.error("Non-JSON API response from /api/checkout/verify:", verifyResponse.status, text.slice(0, 300));
+            throw new Error("Payment verification service returned an unexpected response. If M-Pesa deducted funds, your order will confirm automatically.");
+          }
 
           if (verifyResponse.ok && verifyData.success) {
             setConfirmedOrder(verifyData);
@@ -238,7 +280,7 @@ export default function CheckoutPage() {
             toast.success("Payment verified! Order placed successfully.");
           } else {
             // AUTHORITATIVE FAILURE: Do NOT mark success, do NOT clear cart
-            const errorMsg = verifyData.message || "Payment verification failed. Your M-Pesa account was not charged.";
+            const errorMsg = verifyData?.message || "Payment verification failed. Your M-Pesa account was not charged.";
             console.error("Payment verification failed:", verifyData);
             setPaymentError(errorMsg);
             toast.error(errorMsg);
@@ -247,7 +289,9 @@ export default function CheckoutPage() {
           }
         } catch (e: any) {
           console.error("Verification error:", e);
-          const errorMsg = "Network timeout verifying payment. If you completed M-Pesa payment, your order will automatically confirm within 1-2 minutes.";
+          const errorMsg = e.message?.includes("Payment verification service")
+            ? e.message
+            : "Network timeout verifying payment. If you completed M-Pesa payment, your order will automatically confirm within 1-2 minutes.";
           setPaymentError(errorMsg);
           toast.error(errorMsg);
           setIsProcessing(false);
@@ -267,32 +311,55 @@ export default function CheckoutPage() {
           return;
       }
 
-      const handler = (window as any).PaystackPop.setup({
-        key: paystackKey,
-        email: contactDetails.userEmail || "customer@example.com",
-        amount: Math.round(cartTotal * 100), // in cents/kobo
-        currency: 'KES',
-        channels: ['mobile_money'], // Force M-Pesa/Mobile Money only
-        ref: `ord_${currentOrderId}_${Math.floor((Math.random() * 1000000000) + 1)}`,
-        onClose: function(){
-          toast.info("Payment window was closed. Your cart items are saved and you can retry payment whenever you are ready.");
-          setPaymentError("Payment was cancelled or closed. Your pending order is saved. Click 'Retry Payment with M-Pesa' when ready.");
-          setIsProcessing(false);
-        },
-        callback: function(response: any){
-          if (!response || !response.reference) {
-            toast.error("Payment was not completed or missing reference.");
+      // Format customer email safely
+      const rawEmail = (contactDetails.userEmail || user?.email || profile?.email || "").trim();
+      const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail) ? rawEmail : "customer@odamarket.co.ke";
+      const cleanTotal = Math.max(1, Math.round((Number(cartTotal) || 0) * 100));
+      const safeOrderId = String(currentOrderId || '').replace(/[^a-zA-Z0-9-]/g, '');
+      const safeRef = `ord_${safeOrderId.replace(/-/g, '')}_${Date.now()}`;
+
+      try {
+        const handler = (window as any).PaystackPop.setup({
+          key: paystackKey,
+          email: validEmail,
+          amount: cleanTotal, // in cents/kobo
+          currency: 'KES',
+          channels: ['mobile_money', 'card'],
+          ref: safeRef,
+          onClose: function(){
+            toast.info("Payment window was closed. Your cart items are saved and you can retry payment whenever you are ready.");
+            setPaymentError("Payment was cancelled or closed. Your pending order is saved. Click 'Retry Payment with M-Pesa' when ready.");
             setIsProcessing(false);
-            return;
+          },
+          callback: function(response: any){
+            if (!response || !response.reference) {
+              toast.error("Payment was not completed or missing reference.");
+              setIsProcessing(false);
+              return;
+            }
+            verifyAndComplete(response.reference);
           }
-          verifyAndComplete(response.reference);
+        });
+
+        if (handler && typeof handler.openIframe === 'function') {
+          handler.openIframe();
+        } else {
+          toast.error("Could not open payment window. Please check your browser settings or try again.");
+          setIsProcessing(false);
         }
-      });
-      handler.openIframe();
+      } catch (paystackInitErr: any) {
+        console.error("Paystack initialization error:", paystackInitErr);
+        toast.error("Payment gateway could not be launched. Please try again or refresh the page.");
+        setIsProcessing(false);
+      }
       
     } catch (err: any) {
-      console.error(err);
-      toast.error(err.message || "Checkout failed. Please try again.");
+      console.error("Checkout submission error:", err);
+      const rawMsg = String(err?.message || "");
+      const isSyntaxOrPatternErr = rawMsg.includes("did not match the expected pattern") || rawMsg.includes("SyntaxError");
+      toast.error(isSyntaxOrPatternErr
+        ? "Checkout encountered a temporary browser communication issue. Please retry placing your order."
+        : (rawMsg || "Checkout failed. Please try again."));
       setIsProcessing(false);
     }
   };
@@ -481,12 +548,20 @@ export default function CheckoutPage() {
         },
         body: JSON.stringify({ orderId: confirmedOrder.order.id })
       });
-      const data = await res.json();
-      if (res.ok && data.success) {
+      let data: any = null;
+      const contentType = res.headers.get("content-type") || "";
+      if (contentType.includes("application/json")) {
+        try {
+          data = await res.json();
+        } catch {
+          // Fallback handled below
+        }
+      }
+      if (res.ok && data?.success) {
         setEmailStatusMessage(`Receipt sent to ${data.recipient || "your email"}`);
         toast.success(`Digital receipt dispatched to ${data.recipient || "your email"} via Resend!`, { id: "email-resend" });
       } else {
-        toast.error(data.error || "Failed to dispatch receipt email.", { id: "email-resend" });
+        toast.error(data?.error || "Failed to dispatch receipt email.", { id: "email-resend" });
       }
     } catch (err: any) {
       console.error("Resend email error:", err);
@@ -516,7 +591,14 @@ export default function CheckoutPage() {
       toast.success("Opening WhatsApp with your receipt...", { duration: 3000 });
       setTimeout(() => {
         const text = `Hello ODA Market, I have completed payment for Order ${orderNumber}. Please find my order receipt details.`;
-        window.open(getWhatsAppUrl(text), '_blank');
+        const waUrl = getWhatsAppUrl(text);
+        const a = document.createElement('a');
+        a.href = waUrl;
+        a.target = '_blank';
+        a.rel = 'noopener noreferrer';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
       }, 1000);
     } catch(e) {
       console.error(e);

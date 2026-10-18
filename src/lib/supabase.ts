@@ -46,7 +46,9 @@ const safeStorage = {
 
 
 const customFetch = async (url: RequestInfo | URL, init?: RequestInit): Promise<Response> => {
-  const urlStr = url.toString();
+  const urlStr = typeof url === 'string'
+    ? url
+    : (url instanceof URL ? url.href : (typeof Request !== 'undefined' && url instanceof Request ? url.url : String(url)));
   if (urlStr.includes("placeholder-project.supabase.co") || supabaseAnonKey === "placeholder-anon-key") {
     console.warn("Mocking Supabase fetch because VITE_SUPABASE_URL or VITE_SUPABASE_ANON_KEY is missing.");
     if (urlStr.includes('/auth/v1')) {

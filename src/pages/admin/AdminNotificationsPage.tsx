@@ -58,7 +58,7 @@ export default function AdminNotificationsPage() {
         toast.error(data.error || "Failed to broadcast announcement.");
       } else {
         toast.success(data.message || "Announcement broadcast dispatched successfully! 🚀");
-        setLastBroadcastResult(`Dispatched to ${data.totalSent ?? 0} opted-in subscriber devices.`);
+        setLastBroadcastResult(`Dispatched to ${data.totalSent ?? 0} buyer account(s).`);
         setTitle("");
         setBody("");
       }
@@ -74,7 +74,7 @@ export default function AdminNotificationsPage() {
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-foreground">Notification Center</h1>
         <p className="text-muted-foreground text-sm mt-1">
-          Broadcast promotional alerts and system announcements to opted-in buyer devices via Firebase Cloud Messaging.
+          Broadcast promotional alerts and system announcements to buyer accounts via in-app notifications.
         </p>
       </div>
 
@@ -82,7 +82,7 @@ export default function AdminNotificationsPage() {
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Bell className="h-5 w-5 text-[#C65A28]" />
-            New Push Announcement
+            New In-App Announcement
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -110,7 +110,7 @@ export default function AdminNotificationsPage() {
                 onChange={(e) => setUrl(e.target.value)}
               />
               <p className="text-[11px] text-muted-foreground mt-1">
-                Where the buyer is taken when clicking the lock screen notification banner.
+                Where the buyer is taken when opening the notification link.
               </p>
             </div>
 
@@ -132,7 +132,7 @@ export default function AdminNotificationsPage() {
             {(title || body) && (
               <div className="p-3.5 bg-[#FAF5EC] dark:bg-card border border-[#D9A62E]/30 rounded-xl space-y-1">
                 <span className="text-[10px] font-bold text-[#C65A28] uppercase tracking-wider block">
-                  Lock Screen Preview
+                  Notification Preview
                 </span>
                 <div className="flex items-start gap-2.5 pt-1">
                   <div className="w-8 h-8 rounded-lg bg-[#3A2418] text-white flex items-center justify-center shrink-0 text-xs font-bold">
@@ -161,12 +161,12 @@ export default function AdminNotificationsPage() {
               {isSending ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Broadcasting Push...
+                  Broadcasting...
                 </>
               ) : (
                 <>
                   <Send className="h-4 w-4" />
-                  Broadcast to Opted-in Buyers
+                  Broadcast to Buyers
                 </>
               )}
             </Button>

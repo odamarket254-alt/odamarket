@@ -103,7 +103,7 @@ async function startServer() {
   // Checkout Route
   app.use("/api/checkout", checkoutRoutes);
 
-  // Notification & FCM Routes
+  // In-App Notification Routes
   app.use("/api/notifications", notificationRoutes);
 
   // AI Routes

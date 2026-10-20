@@ -23,7 +23,6 @@ import DashboardLayout from "./components/layout/DashboardLayout";
 import AdminDashboardLayout from "./components/layout/admin/AdminDashboardLayout";
 import RoleRedirect from "./components/layout/RoleRedirect";
 import ProtectedRoute from "./components/layout/ProtectedRoute";
-import { setupForegroundMessageListener } from "./services/fcmClientService";
 
 // Lazy Loaded Pages
 const HomePage = lazy(() => import("./pages/HomePage"));
@@ -96,14 +95,6 @@ function LoadingFallback() {
 
 export default function App() {
   const { setUser, setProfile, setLoading, setPendingOtpChallenge } = useAuthStore();
-
-  useEffect(() => {
-    // Initialize Firebase Cloud Messaging foreground push listener
-    const unsubscribe = setupForegroundMessageListener();
-    return () => {
-      if (unsubscribe) unsubscribe();
-    };
-  }, []);
 
   useEffect(() => {
     const handleStorageChange = (e: StorageEvent) => {

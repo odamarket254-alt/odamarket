@@ -3,7 +3,9 @@ import crypto from 'crypto';
 import { createClient } from '@supabase/supabase-js';
 import {
   processAuthoritativePaymentVerification,
-  logPaymentEvent
+  logPaymentEvent,
+  normalizeUuid,
+  normalizeAlphanumeric
 } from './paymentVerificationService.js';
 import { sendPaymentFailedEmailForOrder } from '../emailService.js';
 
@@ -61,24 +63,114 @@ export async function handlePaystackWebhook(req: Request, res: Response) {
       status: event.data?.status
     });
 
-    // Resolve orderId from reference (format: ord_<orderId>_<random>) or metadata
+    const supabaseUrl = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "").trim().replace(/^["']|["']$/g, "");
+    const supabaseServiceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim().replace(/^["']|["']$/g, "");
+    const supabase = (supabaseUrl && supabaseServiceKey) ? createClient(supabaseUrl, supabaseServiceKey) : null;
+
+    // Resolve orderId from database stored reference, metadata, or embedded reference
     let orderId = '';
-    if (reference.startsWith('ord_')) {
-      const parts = reference.split('_');
-      if (parts.length >= 2) {
-        orderId = parts[1];
+
+    // 1. Primary: Direct lookup in orders table by payment_reference
+    if (supabase && reference) {
+      try {
+        const { data: refOrder } = await supabase
+          .from('orders')
+          .select('id')
+          .eq('payment_reference', reference)
+          .maybeSingle();
+        if (refOrder?.id) {
+          orderId = refOrder.id;
+        }
+      } catch (dbErr) {
+        logPaymentEvent('warn', 'WEBHOOK_DB_LOOKUP_WARN', { reference, error: (dbErr as any)?.message });
       }
     }
-    if (!orderId && event.data?.metadata?.orderId) {
-      orderId = String(event.data.metadata.orderId);
+
+    // Safely parse Paystack metadata whether it's an object or a JSON string
+    let meta: any = {};
+    const rawMetadata = event.data?.metadata;
+    if (typeof rawMetadata === 'string' && rawMetadata.trim()) {
+      try {
+        meta = JSON.parse(rawMetadata);
+      } catch {
+        meta = {};
+      }
+    } else if (rawMetadata && typeof rawMetadata === 'object') {
+      meta = rawMetadata;
     }
-    if (!orderId && event.data?.metadata?.order_id) {
-      orderId = String(event.data.metadata.order_id);
+
+    // 2. Secondary: Paystack metadata fields (order_id, orderId)
+    if (!orderId && (meta?.order_id || meta?.orderId || meta?.orderID)) {
+      orderId = String(meta.order_id || meta.orderId || meta.orderID);
+    }
+    if (!orderId && Array.isArray(meta?.custom_fields)) {
+      for (const f of meta.custom_fields) {
+        if ((f.variable_name === 'order_id' || f.display_name === 'Order ID') && f.value) {
+          orderId = String(f.value);
+          break;
+        }
+      }
+    }
+
+    // 3. Tertiary: Paystack order_number metadata
+    if (!orderId && (meta?.order_number || meta?.orderNumber)) {
+      const orderNum = String(meta.order_number || meta.orderNumber);
+      if (supabase) {
+        try {
+          const { data: numOrder } = await supabase
+            .from('orders')
+            .select('id')
+            .eq('order_number', orderNum)
+            .maybeSingle();
+          if (numOrder?.id) {
+            orderId = numOrder.id;
+          }
+        } catch {}
+      }
+    }
+
+    // 4. Quaternary: Parse embedded ID from reference format (e.g. ord_<orderId/orderNumber>_<timestamp>)
+    if (!orderId && reference.startsWith('ord_')) {
+      const parts = reference.split('_');
+      if (parts.length >= 2) {
+        const candidate = parts[1];
+        const normCandidate = normalizeUuid(candidate);
+        if (supabase) {
+          try {
+            // Check direct id match (UUID format) or order_number match
+            const { data: candidateOrder } = await supabase
+              .from('orders')
+              .select('id')
+              .or(`id.eq.${normCandidate},order_number.eq.${candidate}`)
+              .maybeSingle();
+            if (candidateOrder?.id) {
+              orderId = candidateOrder.id;
+            }
+          } catch {}
+        }
+        if (!orderId) {
+          orderId = normCandidate;
+        }
+      }
+    }
+
+    // 5. Quinary: Check order notes containing this reference
+    if (!orderId && supabase && reference) {
+      try {
+        const { data: noteOrder } = await supabase
+          .from('orders')
+          .select('id')
+          .like('notes', `%${reference}%`)
+          .maybeSingle();
+        if (noteOrder?.id) {
+          orderId = noteOrder.id;
+        }
+      } catch {}
     }
 
     if (!orderId) {
       logPaymentEvent('warn', 'WEBHOOK_NO_ORDER_ASSOCIATED', { reference, eventType });
-      // Acknowledge receipt to Paystack even if unrelated event
+      // Acknowledge receipt to Paystack so webhook doesn't continuously fail
       return res.status(200).send("Webhook processed (no order associated)");
     }
 

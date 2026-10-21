@@ -84,7 +84,11 @@ async function startServer() {
   const PORT = 3000;
 
   // Webhook must be parsed as raw buffer for cryptographic signature verification
-  app.post("/api/webhook/paystack", express.raw({ type: '*/*' }), handlePaystackWebhook);
+  const paystackWebhookRawParser = express.raw({ type: '*/*' });
+  app.post("/api/webhook/paystack", paystackWebhookRawParser, handlePaystackWebhook);
+  app.post("/api/webhooks/paystack", paystackWebhookRawParser, handlePaystackWebhook);
+  app.post("/api/checkout/paystack-webhook", paystackWebhookRawParser, handlePaystackWebhook);
+  app.post("/api/paystack/webhook", paystackWebhookRawParser, handlePaystackWebhook);
 
   app.use(express.json({ limit: "50mb" })); // Increase limit for file uploads
 

@@ -69,7 +69,49 @@ export default function CheckoutPage() {
   const [loadingText, setLoadingText] = useState("");
   const [isEditingDeliveryMethod, setIsEditingDeliveryMethod] = useState(false);
   const [activePendingOrderId, setActivePendingOrderId] = useState<string | null>(null);
+  const [activePaymentReference, setActivePaymentReference] = useState<string | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [paymentPendingNotice, setPaymentPendingNotice] = useState<string | null>(null);
+
+  // Real-time listener for authoritative order status transitions (e.g. background Paystack webhooks)
+  useEffect(() => {
+    if (!activePendingOrderId || isSuccess) return;
+
+    const channel = supabase
+      .channel(`checkout-order-${activePendingOrderId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'orders',
+          filter: `id=eq.${activePendingOrderId}`
+        },
+        async (payload: any) => {
+          if (payload.new && payload.new.payment_status === 'success') {
+            const { data: items } = await supabase.from('order_items').select('*').eq('order_id', activePendingOrderId);
+            setConfirmedOrder({
+              success: true,
+              status: 'paid',
+              orderId: activePendingOrderId,
+              order: payload.new,
+              items: items || []
+            });
+            setIsProcessing(false);
+            setIsSuccess(true);
+            setPaymentError(null);
+            setPaymentPendingNotice(null);
+            clearCart();
+            toast.success("Payment verified! Your order has been placed.");
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [activePendingOrderId, isSuccess, clearCart]);
 
   // Load Paystack Script safely
   useEffect(() => {
@@ -241,62 +283,140 @@ export default function CheckoutPage() {
         throw new Error(data?.error || (data?.details ? JSON.stringify(data.details) : 'Failed to create order'));
       }
 
+      if (data?.alreadyPaid) {
+        const { data: dbOrder } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('id', data.orderId)
+          .maybeSingle();
+        const { data: items } = await supabase.from('order_items').select('*').eq('order_id', data.orderId);
+        setConfirmedOrder({
+          success: true,
+          status: 'paid',
+          orderId: data.orderId,
+          order: dbOrder,
+          items: items || []
+        });
+        setIsProcessing(false);
+        setIsSuccess(true);
+        clearCart();
+        toast.success("Order has already been confirmed as paid!");
+        return;
+      }
+
       const currentOrderId = data.orderId;
+      const orderNumber = data.orderNumber || "";
+      const authoritativeRef = data.paymentReference || `ord_${currentOrderId}_${Date.now()}`;
+      
       setActivePendingOrderId(currentOrderId);
+      setActivePaymentReference(authoritativeRef);
 
-      const verifyAndComplete = async (reference?: string) => {
-        setLoadingText("Verifying payment authoritatively with Paystack...");
-        try {
-          const verifyResponse = await fetch('/api/checkout/verify', {
-            method: 'POST',
-            credentials: 'include',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${session.access_token}`
-            },
-            body: JSON.stringify({ orderId: currentOrderId, reference })
-          });
+      const verifyAndComplete = async (referenceToVerify?: string) => {
+        const ref = referenceToVerify || authoritativeRef;
+        setIsProcessing(true);
+        setPaymentError(null);
+        setPaymentPendingNotice(null);
+        setLoadingText("Verifying payment with Safaricom M-Pesa & Paystack...");
 
-          let verifyData: any;
-          const verifyContentType = verifyResponse.headers.get("content-type") || "";
-          if (verifyContentType.includes("application/json")) {
+        const maxAttempts = 10;
+        let attempt = 0;
+
+        const pollVerify = async (): Promise<void> => {
+          attempt++;
+          try {
+            // 1. Direct check in Supabase database in case webhook already confirmed it
+            const { data: dbOrder } = await supabase
+              .from('orders')
+              .select('*')
+              .eq('id', currentOrderId)
+              .maybeSingle();
+
+            if (dbOrder?.payment_status === 'success') {
+              const { data: items } = await supabase.from('order_items').select('*').eq('order_id', currentOrderId);
+              setConfirmedOrder({
+                success: true,
+                status: 'paid',
+                orderId: currentOrderId,
+                order: dbOrder,
+                items: items || []
+              });
+              setIsProcessing(false);
+              setIsSuccess(true);
+              setPaymentError(null);
+              setPaymentPendingNotice(null);
+              clearCart();
+              toast.success("Payment verified! Order placed successfully.");
+              return;
+            }
+
+            // 2. Call server-side authoritative verification API
+            const verifyResponse = await fetch('/api/checkout/verify', {
+              method: 'POST',
+              credentials: 'include',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${session.access_token}`
+              },
+              body: JSON.stringify({ orderId: currentOrderId, reference: ref })
+            });
+
+            let verifyData: any = null;
             try {
               verifyData = await verifyResponse.json();
             } catch {
-              throw new Error("Unable to parse payment verification response from server.");
+              // Ignore non-json and retry
             }
-          } else {
-            const text = await verifyResponse.text();
-            console.error("Non-JSON API response from /api/checkout/verify:", verifyResponse.status, text.slice(0, 300));
-            throw new Error("Payment verification service returned an unexpected response. If M-Pesa deducted funds, your order will confirm automatically.");
-          }
 
-          if (verifyResponse.ok && verifyData.success) {
-            setConfirmedOrder(verifyData);
-            setIsProcessing(false);
-            setIsSuccess(true);
-            setPaymentError(null);
-            clearCart();
-            toast.success("Payment verified! Order placed successfully.");
-          } else {
-            // AUTHORITATIVE FAILURE: Do NOT mark success, do NOT clear cart
-            const errorMsg = verifyData?.message || "Payment verification failed. Your M-Pesa account was not charged.";
-            console.error("Payment verification failed:", verifyData);
+            if (verifyData?.success && verifyData?.status === 'paid') {
+              setConfirmedOrder(verifyData);
+              setIsProcessing(false);
+              setIsSuccess(true);
+              setPaymentError(null);
+              setPaymentPendingNotice(null);
+              clearCart();
+              toast.success("Payment verified! Order placed successfully.");
+              return;
+            }
+
+            // 3. Handle Asynchronous Pending M-Pesa Payments (Prompt sent to user's phone)
+            if (verifyData?.retryable || verifyData?.status === 'pending') {
+              if (attempt < maxAttempts) {
+                setLoadingText(`Waiting for Safaricom M-Pesa confirmation... (${attempt}/${maxAttempts})`);
+                await new Promise((resolve) => setTimeout(resolve, 3000));
+                return pollVerify();
+              } else {
+                // Max attempts reached while still pending: Inform buyer accurately without declaring failure
+                setIsProcessing(false);
+                setIsSuccess(false);
+                setPaymentPendingNotice(
+                  "Your M-Pesa payment is awaiting final network confirmation from Safaricom. If you entered your M-Pesa PIN, your order will automatically be confirmed. You do not need to pay again."
+                );
+                return;
+              }
+            }
+
+            // 4. Definite failure returned by gateway (e.g. wrong PIN, declined, cancelled)
+            const errorMsg = verifyData?.message || "Payment could not be completed. Your M-Pesa account was not charged.";
+            console.error("Payment verification failure response:", verifyData);
             setPaymentError(errorMsg);
-            toast.error(errorMsg);
             setIsProcessing(false);
             setIsSuccess(false);
+            toast.error(errorMsg);
+          } catch (e: any) {
+            console.error("Verification error during attempt " + attempt + ":", e);
+            if (attempt < maxAttempts) {
+              await new Promise((resolve) => setTimeout(resolve, 3000));
+              return pollVerify();
+            }
+            setIsProcessing(false);
+            setIsSuccess(false);
+            setPaymentPendingNotice(
+              "Network verification is taking a moment. If your M-Pesa payment went through, your order will confirm automatically without needing to pay again."
+            );
           }
-        } catch (e: any) {
-          console.error("Verification error:", e);
-          const errorMsg = e.message?.includes("Payment verification service")
-            ? e.message
-            : "Network timeout verifying payment. If you completed M-Pesa payment, your order will automatically confirm within 1-2 minutes.";
-          setPaymentError(errorMsg);
-          toast.error(errorMsg);
-          setIsProcessing(false);
-          setIsSuccess(false);
-        }
+        };
+
+        return pollVerify();
       };
 
       const paystackKey = import.meta.env.VITE_PAYSTACK_PUBLIC_KEY || "pk_live_placeholder";
@@ -315,8 +435,6 @@ export default function CheckoutPage() {
       const rawEmail = (contactDetails.userEmail || user?.email || profile?.email || "").trim();
       const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail) ? rawEmail : "customer@odamarket.co.ke";
       const cleanTotal = Math.max(1, Math.round((Number(cartTotal) || 0) * 100));
-      const safeOrderId = String(currentOrderId || '').replace(/[^a-zA-Z0-9-]/g, '');
-      const safeRef = `ord_${safeOrderId.replace(/-/g, '')}_${Date.now()}`;
 
       try {
         const handler = (window as any).PaystackPop.setup({
@@ -325,19 +443,29 @@ export default function CheckoutPage() {
           amount: cleanTotal, // in cents/kobo
           currency: 'KES',
           channels: ['mobile_money', 'card'],
-          ref: safeRef,
+          ref: authoritativeRef,
+          metadata: {
+            order_id: currentOrderId,
+            orderId: currentOrderId,
+            order_number: orderNumber,
+            custom_fields: [
+              { display_name: "Order ID", variable_name: "order_id", value: currentOrderId },
+              { display_name: "Order Number", variable_name: "order_number", value: orderNumber }
+            ]
+          },
           onClose: function(){
             toast.info("Payment window was closed. Your cart items are saved and you can retry payment whenever you are ready.");
-            setPaymentError("Payment was cancelled or closed. Your pending order is saved. Click 'Retry Payment with M-Pesa' when ready.");
+            setPaymentError("Payment window was closed. Your pending order is saved. Click 'Retry Payment with M-Pesa' when ready.");
             setIsProcessing(false);
           },
           callback: function(response: any){
-            if (!response || !response.reference) {
+            const returnedRef = response?.reference || response?.trxref || authoritativeRef;
+            if (!returnedRef) {
               toast.error("Payment was not completed or missing reference.");
               setIsProcessing(false);
               return;
             }
-            verifyAndComplete(response.reference);
+            verifyAndComplete(returnedRef);
           }
         });
 
@@ -361,6 +489,83 @@ export default function CheckoutPage() {
         ? "Checkout encountered a temporary browser communication issue. Please retry placing your order."
         : (rawMsg || "Checkout failed. Please try again."));
       setIsProcessing(false);
+    }
+  };
+
+  const handleCheckPendingStatus = async () => {
+    if (!activePendingOrderId) return;
+    setIsProcessing(true);
+    setLoadingText("Checking order payment status with Safaricom M-Pesa...");
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      const token = session?.access_token;
+
+      // Check database first
+      const { data: dbOrder } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('id', activePendingOrderId)
+        .maybeSingle();
+
+      if (dbOrder?.payment_status === 'success') {
+        const { data: items } = await supabase.from('order_items').select('*').eq('order_id', activePendingOrderId);
+        setConfirmedOrder({
+          success: true,
+          status: 'paid',
+          orderId: activePendingOrderId,
+          order: dbOrder,
+          items: items || []
+        });
+        setIsProcessing(false);
+        setIsSuccess(true);
+        setPaymentError(null);
+        setPaymentPendingNotice(null);
+        clearCart();
+        toast.success("Payment verified! Your order has been placed.");
+        return;
+      }
+
+      // Query server verification
+      const verifyRes = await fetch('/api/checkout/verify', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({
+          orderId: activePendingOrderId,
+          reference: activePaymentReference || dbOrder?.payment_reference || ''
+        })
+      });
+
+      const verifyData = await verifyRes.json().catch(() => ({}));
+      if (verifyData?.success && verifyData?.status === 'paid') {
+        setConfirmedOrder(verifyData);
+        setIsProcessing(false);
+        setIsSuccess(true);
+        setPaymentError(null);
+        setPaymentPendingNotice(null);
+        clearCart();
+        toast.success("Payment confirmed! Your order is being processed.");
+        return;
+      }
+
+      if (verifyData?.retryable || verifyData?.status === 'pending') {
+        setIsProcessing(false);
+        setPaymentPendingNotice(
+          verifyData?.message || "Payment is still awaiting clearance from Safaricom M-Pesa. Please allow 1-2 minutes."
+        );
+        toast.info("Payment is still processing on Safaricom M-Pesa network.");
+        return;
+      }
+
+      setPaymentError(verifyData?.message || "Payment verification failed. Your M-Pesa account was not charged.");
+      setIsProcessing(false);
+    } catch (e: any) {
+      console.error("Check status error:", e);
+      setIsProcessing(false);
+      toast.error("Could not reach verification server. Please try again in a few moments.");
     }
   };
 
@@ -1026,8 +1231,33 @@ export default function CheckoutPage() {
               />
             </div>
 
-            {/* Payment Error Banner if verification failed */}
-            {paymentError && (
+            {/* Payment Pending Notice Banner for Asynchronous M-Pesa clearance */}
+            {paymentPendingNotice && (
+              <div className="bg-amber-50 border border-amber-200 rounded-[16px] p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-amber-900 shadow-sm">
+                <div className="flex items-start gap-3">
+                  <Clock className="w-5 h-5 text-amber-600 shrink-0 mt-0.5 animate-spin" />
+                  <div className="text-sm">
+                    <p className="font-semibold text-amber-950 mb-1">M-Pesa Authorization Pending</p>
+                    <p className="text-amber-800 leading-relaxed">{paymentPendingNotice}</p>
+                    <p className="text-xs text-amber-700 font-medium mt-1">
+                      ⚠️ Do NOT pay again if your M-Pesa balance was already deducted. Your order will confirm automatically.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleCheckPendingStatus}
+                  disabled={isProcessing}
+                  className="shrink-0 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-semibold text-xs rounded-lg transition-colors flex items-center gap-1.5 shadow-sm"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${isProcessing ? 'animate-spin' : ''}`} />
+                  Check Status
+                </button>
+              </div>
+            )}
+
+            {/* Payment Error Banner if verification definitely failed */}
+            {paymentError && !paymentPendingNotice && (
               <div className="bg-rose-50 border border-rose-200 rounded-[16px] p-4 flex items-start gap-3 text-rose-800">
                 <Info className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
                 <div className="flex-1 text-sm">
@@ -1040,14 +1270,38 @@ export default function CheckoutPage() {
               </div>
             )}
 
-            {/* Place Order Button */}
-            <button 
-              onClick={handlePlaceOrder}
-              disabled={items.length === 0}
-              className="w-full h-[64px] bg-[#C65A28] hover:bg-[#C65A28] text-white rounded-[16px] font-bold text-[20px] flex items-center justify-center gap-3 transition-colors shadow-lg shadow-[#C65A28]/20 hover:scale-[1.01] transform duration-300 disabled:opacity-70 disabled:hover:scale-100"
-            >
-              <Lock className="w-6 h-6" /> {activePendingOrderId ? "Retry Payment with M-Pesa" : "Place Order with M-Pesa"}
-            </button>
+            {/* Place Order or Check Status Button */}
+            {paymentPendingNotice ? (
+              <div className="space-y-3">
+                <button 
+                  onClick={handleCheckPendingStatus}
+                  disabled={isProcessing}
+                  className="w-full h-[64px] bg-amber-600 hover:bg-amber-700 text-white rounded-[16px] font-bold text-[18px] flex items-center justify-center gap-3 transition-colors shadow-lg shadow-amber-600/20 hover:scale-[1.01] transform duration-300 disabled:opacity-70 disabled:hover:scale-100"
+                >
+                  <RefreshCw className={`w-6 h-6 ${isProcessing ? 'animate-spin' : ''}`} /> Check M-Pesa Payment Status
+                </button>
+                <div className="text-center">
+                  <button
+                    onClick={() => {
+                      setPaymentPendingNotice(null);
+                      setPaymentError(null);
+                      handlePlaceOrder();
+                    }}
+                    className="text-xs text-[#6B7280] hover:text-[#C65A28] underline transition-colors"
+                  >
+                    Didn't receive STK prompt? Start a fresh M-Pesa payment
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button 
+                onClick={handlePlaceOrder}
+                disabled={items.length === 0 || isProcessing}
+                className="w-full h-[64px] bg-[#C65A28] hover:bg-[#C65A28] text-white rounded-[16px] font-bold text-[20px] flex items-center justify-center gap-3 transition-colors shadow-lg shadow-[#C65A28]/20 hover:scale-[1.01] transform duration-300 disabled:opacity-70 disabled:hover:scale-100"
+              >
+                <Lock className="w-6 h-6" /> {activePendingOrderId ? "Retry Payment with M-Pesa" : "Place Order with M-Pesa"}
+              </button>
+            )}
 
           </div>
 

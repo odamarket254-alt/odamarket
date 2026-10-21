@@ -100,14 +100,43 @@ router.post("/", async (req, res) => {
         .eq('user_id', user.id)
         .maybeSingle();
 
-      if (existingOrder && existingOrder.payment_status !== 'success' && existingOrder.status === 'pending') {
-        // Reuse existing pending order with refreshed pricing/shipping
+      if (existingOrder && existingOrder.payment_status === 'success') {
+        return res.status(200).json({
+          success: true,
+          alreadyPaid: true,
+          orderId: existingOrder.id,
+          orderNumber: existingOrder.order_number,
+          paymentReference: existingOrder.payment_reference,
+          amount: existingOrder.total,
+          message: "This order has already been confirmed as paid. Your items are being prepared."
+        });
+      }
+
+      if (existingOrder && existingOrder.status === 'pending') {
+        let pastRefs: string[] = [];
+        try {
+          const prevNotes = typeof existingOrder.notes === 'string' ? JSON.parse(existingOrder.notes) : existingOrder.notes;
+          if (Array.isArray(prevNotes?.payment_references)) {
+            pastRefs = prevNotes.payment_references;
+          }
+        } catch {}
+        if (existingOrder.payment_reference && !pastRefs.includes(existingOrder.payment_reference)) {
+          pastRefs.push(existingOrder.payment_reference);
+        }
+        const paymentReference = `ord_${existingOrder.id}_${Date.now()}`;
+        if (!pastRefs.includes(paymentReference)) {
+          pastRefs.push(paymentReference);
+        }
+
+        // Reuse existing pending order with refreshed pricing/shipping and newly stored reference
         await supabase
           .from('orders')
           .update({
             subtotal: totalAmount,
             delivery_fee: deliveryFee,
             total: finalTotal,
+            payment_reference: paymentReference,
+            payment_status: 'pending',
             updated_at: new Date().toISOString(),
             notes: JSON.stringify({
               shippingDetails,
@@ -115,7 +144,9 @@ router.post("/", async (req, res) => {
               paymentMethod: paymentMethod || 'M-Pesa',
               deliveryMethod: validDeliveryMethod,
               deliveryFee,
-              orderNumber: existingOrder.order_number
+              orderNumber: existingOrder.order_number,
+              payment_reference: paymentReference,
+              payment_references: pastRefs
             })
           })
           .eq('id', existingOrder.id);
@@ -127,23 +158,36 @@ router.post("/", async (req, res) => {
         logPaymentEvent('info', 'EXISTING_PENDING_ORDER_REUSED', {
           orderId: existingOrder.id,
           userId: user.id,
-          total: finalTotal
+          total: finalTotal,
+          paymentReference
         });
 
-        return res.status(200).json({ success: true, orderId: existingOrder.id, isRetry: true });
+        return res.status(200).json({
+          success: true,
+          orderId: existingOrder.id,
+          orderNumber: existingOrder.order_number,
+          paymentReference,
+          amount: finalTotal,
+          isRetry: true
+        });
       }
     }
 
-    // 4. Create new pending order
+    // 4. Create new pending order with atomic payment reference assignment
     const odaNumber = 'ODA-' + crypto.randomBytes(4).toString('hex').toUpperCase();
     const orderNumber = odaNumber;
+    const orderId = crypto.randomUUID();
+    const paymentReference = `ord_${orderId}_${Date.now()}`;
+
     const { data: orderData, error: orderError } = await supabase
       .from('orders')
       .insert({
+        id: orderId,
         user_id: user.id,
         order_number: odaNumber,
         status: 'pending',
         payment_status: 'pending',
+        payment_reference: paymentReference,
         subtotal: totalAmount,
         delivery_fee: deliveryFee,
         total: finalTotal,
@@ -153,7 +197,9 @@ router.post("/", async (req, res) => {
           paymentMethod: paymentMethod || 'M-Pesa', 
           deliveryMethod: validDeliveryMethod,
           deliveryFee,
-          orderNumber 
+          orderNumber,
+          payment_reference: paymentReference,
+          payment_references: [paymentReference]
         })
       })
       .select()
@@ -189,13 +235,112 @@ router.post("/", async (req, res) => {
     logPaymentEvent('info', 'PENDING_ORDER_CREATED', {
       orderId: orderData.id,
       userId: user.id,
-      total: finalTotal
+      total: finalTotal,
+      paymentReference
     });
 
-    res.status(200).json({ success: true, orderId: orderData.id });
+    res.status(200).json({
+      success: true,
+      orderId: orderData.id,
+      orderNumber: orderData.order_number,
+      paymentReference,
+      amount: finalTotal
+    });
   } catch (error: any) {
     console.error("Checkout route error:", error);
     res.status(500).json({ error: error.message || "Internal server error" });
+  }
+});
+
+/**
+ * POST /api/checkout/initialize-payment
+ * Generates and stores an authoritative Paystack reference on an existing pending order.
+ */
+router.post("/initialize-payment", async (req, res) => {
+  try {
+    const { orderId } = req.body;
+    if (!orderId) {
+      return res.status(400).json({ error: "Missing orderId" });
+    }
+
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const token = authHeader.replace("Bearer ", "").trim();
+    const supabaseUrl = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "").trim().replace(/^["']|["']$/g, "");
+    const supabaseServiceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim().replace(/^["']|["']$/g, "");
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+      return res.status(500).json({ error: "Database configuration missing" });
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
+    const { data: { user } } = await supabase.auth.getUser(token);
+    if (!user) {
+      return res.status(401).json({ error: "Unauthorized" });
+    }
+
+    const { data: order, error: orderErr } = await supabase
+      .from('orders')
+      .select('*')
+      .eq('id', orderId)
+      .eq('user_id', user.id)
+      .maybeSingle();
+
+    if (orderErr || !order) {
+      return res.status(404).json({ error: "Order not found" });
+    }
+
+    if (order.payment_status === 'success') {
+      return res.status(200).json({
+        success: true,
+        alreadyPaid: true,
+        orderId: order.id,
+        orderNumber: order.order_number,
+        message: "Order has already been confirmed as paid."
+      });
+    }
+
+    let pastRefs: string[] = [];
+    let parsedNotes: any = {};
+    try {
+      parsedNotes = typeof order.notes === 'string' ? JSON.parse(order.notes) : (order.notes || {});
+      if (Array.isArray(parsedNotes?.payment_references)) {
+        pastRefs = parsedNotes.payment_references;
+      }
+    } catch {}
+    if (order.payment_reference && !pastRefs.includes(order.payment_reference)) {
+      pastRefs.push(order.payment_reference);
+    }
+    const paymentReference = `ord_${order.id}_${Date.now()}`;
+    if (!pastRefs.includes(paymentReference)) {
+      pastRefs.push(paymentReference);
+    }
+    parsedNotes.payment_reference = paymentReference;
+    parsedNotes.payment_references = pastRefs;
+
+    await supabase
+      .from('orders')
+      .update({
+        payment_reference: paymentReference,
+        payment_status: 'pending',
+        notes: JSON.stringify(parsedNotes),
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', order.id);
+
+    return res.status(200).json({
+      success: true,
+      orderId: order.id,
+      orderNumber: order.order_number,
+      paymentReference,
+      amount: order.total
+    });
+  } catch (err: any) {
+    console.error("Initialize payment error:", err);
+    res.status(500).json({ error: err.message || "Internal server error" });
   }
 });
 
@@ -244,7 +389,7 @@ router.post("/verify", async (req, res) => {
 
     if (!result.success) {
       if (result.retryable) {
-        return res.status(503).json({
+        return res.status(200).json({
           success: false,
           retryable: true,
           status: result.status,

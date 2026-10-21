@@ -14,7 +14,7 @@ const app = express();
 app.set("trust proxy", 1);
 
 // Mount Paystack webhook with raw parser before general express.json
-app.post("/api/webhook/paystack", express.raw({ type: 'application/json' }), handlePaystackWebhook);
+app.post("/api/webhook/paystack", express.raw({ type: '*/*' }), handlePaystackWebhook);
 
 app.use(express.json({ limit: "50mb" }));
 

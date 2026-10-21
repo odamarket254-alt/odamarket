@@ -51,6 +51,21 @@ function getSupabase(): SupabaseClient | null {
   return createClient(supabaseUrl, supabaseServiceKey);
 }
 
+export function normalizeUuid(id: string | null | undefined): string {
+  const trimmed = String(id || '').trim();
+  if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(trimmed)) {
+    return trimmed.toLowerCase();
+  }
+  if (/^[0-9a-f]{32}$/i.test(trimmed)) {
+    return `${trimmed.slice(0, 8)}-${trimmed.slice(8, 12)}-${trimmed.slice(12, 16)}-${trimmed.slice(16, 20)}-${trimmed.slice(20, 32)}`.toLowerCase();
+  }
+  return trimmed;
+}
+
+export function normalizeAlphanumeric(str: string | null | undefined): string {
+  return String(str || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+}
+
 /**
  * Authoritatively verifies a Paystack transaction and processes order status,
  * stock deduction, and notifications idempotently.
@@ -68,21 +83,12 @@ export async function processAuthoritativePaymentVerification({
   authenticatedUserId?: string;
   isAdmin?: boolean;
 }): Promise<VerificationResult> {
-  const cleanOrderId = (orderId || '').trim();
+  let cleanOrderId = normalizeUuid(orderId || '');
   const cleanRef = (reference || '').trim();
 
-  if (!cleanOrderId) {
-    return {
-      success: false,
-      status: 'failed',
-      orderId: '',
-      message: 'Missing orderId'
-    };
-  }
-
-  // Deduplicate concurrent verification requests for the same orderId
-  const lockKey = cleanOrderId;
-  const existingLock = inFlightVerificationLocks.get(lockKey);
+  // Deduplicate concurrent verification requests for the same orderId or reference
+  const lockKey = cleanOrderId || cleanRef;
+  const existingLock = lockKey ? inFlightVerificationLocks.get(lockKey) : null;
   if (existingLock) {
     logPaymentEvent('info', 'PAYMENT_CONCURRENT_LOCK_REUSED', { orderId: cleanOrderId, reference: cleanRef, source });
     return existingLock;
@@ -101,15 +107,43 @@ export async function processAuthoritativePaymentVerification({
       };
     }
 
-    // 1. Fetch current order state
-    const { data: order, error: orderErr } = await supabase
-      .from('orders')
-      .select('*')
-      .eq('id', cleanOrderId)
-      .maybeSingle();
+    // 1. Fetch current order state by ID, order_number, or payment_reference
+    let order: any = null;
+    if (cleanOrderId) {
+      const { data: orderById } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('id', cleanOrderId)
+        .maybeSingle();
+      order = orderById;
 
-    if (orderErr || !order) {
-      logPaymentEvent('warn', 'ORDER_NOT_FOUND', { orderId: cleanOrderId, error: orderErr?.message });
+      if (!order) {
+        const { data: orderByNum } = await supabase
+          .from('orders')
+          .select('*')
+          .eq('order_number', cleanOrderId)
+          .maybeSingle();
+        if (orderByNum) {
+          order = orderByNum;
+          cleanOrderId = orderByNum.id;
+        }
+      }
+    }
+
+    if (!order && cleanRef) {
+      const { data: orderByRef } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('payment_reference', cleanRef)
+        .maybeSingle();
+      if (orderByRef) {
+        order = orderByRef;
+        cleanOrderId = orderByRef.id;
+      }
+    }
+
+    if (!order) {
+      logPaymentEvent('warn', 'ORDER_NOT_FOUND', { orderId: cleanOrderId, reference: cleanRef });
       return {
         success: false,
         status: 'failed',
@@ -185,43 +219,43 @@ export async function processAuthoritativePaymentVerification({
     }
 
     // 5. Reference format & association check
-    // Reference format: ord_<orderId>_<random>
+    const normalizeId = (id: string | null | undefined) => String(id || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+    const normOrderId = normalizeId(cleanOrderId);
+    let referenceBelongsToOrder = false;
+
+    // A. Direct match with order's pre-stored payment_reference
+    if (order.payment_reference && order.payment_reference === cleanRef) {
+      referenceBelongsToOrder = true;
+    }
+
+    // B. Embedded order ID in reference (e.g. ord_<orderId>_<random>)
     if (cleanRef.startsWith('ord_')) {
       const parts = cleanRef.split('_');
-      if (parts.length >= 2 && parts[1] !== cleanOrderId) {
-        logPaymentEvent('error', 'PAYMENT_REFERENCE_ORDER_MISMATCH', {
-          orderId: cleanOrderId,
-          reference: cleanRef,
-          refOrderId: parts[1]
-        });
-        return {
-          success: false,
-          status: 'failed',
-          orderId: cleanOrderId,
-          message: 'Payment reference is not associated with this order'
-        };
+      if (parts.length >= 2 && normalizeId(parts[1]) === normOrderId) {
+        referenceBelongsToOrder = true;
       }
     }
 
-    // 6. Check reference uniqueness across orders (prevent reusing a reference from another paid order)
-    const { data: existingRefOrder } = await supabase
+    // 6. Check reference uniqueness across orders (prevent reusing a reference from another already-paid order)
+    const { data: existingPaidRefOrder } = await supabase
       .from('orders')
       .select('id, payment_status')
       .eq('payment_reference', cleanRef)
+      .eq('payment_status', 'success')
       .neq('id', cleanOrderId)
       .maybeSingle();
 
-    if (existingRefOrder) {
+    if (existingPaidRefOrder) {
       logPaymentEvent('error', 'DUPLICATE_PAYMENT_REFERENCE_ATTEMPT', {
         orderId: cleanOrderId,
         reference: cleanRef,
-        existingOrderId: existingRefOrder.id
+        existingOrderId: existingPaidRefOrder.id
       });
       return {
         success: false,
         status: 'failed',
         orderId: cleanOrderId,
-        message: 'This payment reference was already used for another order'
+        message: 'This payment reference was already used for another completed order'
       };
     }
 
@@ -279,13 +313,77 @@ export async function processAuthoritativePaymentVerification({
       };
     }
 
-    // 8. Validate Paystack verification status
-    if (!verifyData?.status || verifyData.data?.status !== 'success') {
-      const gatewayResponse = verifyData?.data?.gateway_response || verifyData?.message || 'Transaction not successful';
+    // 8. Validate Paystack verification response structure
+    if (!verifyData?.status) {
+      logPaymentEvent('warn', 'PAYSTACK_VERIFICATION_INVALID_DATA', {
+        orderId: cleanOrderId,
+        reference: cleanRef,
+        verifyData
+      });
+      return {
+        success: false,
+        status: 'pending',
+        orderId: cleanOrderId,
+        message: verifyData?.message || 'Transaction could not be verified yet. Left as pending.',
+        retryable: true
+      };
+    }
+
+    const gatewayStatus = String(verifyData.data?.status || '').toLowerCase();
+    const gatewayResponse = verifyData.data?.gateway_response || verifyData.message || 'Transaction in progress';
+
+    // ASYNCHRONOUS M-PESA CHECK:
+    // If transaction is still ongoing, pending, queued, or awaiting OTP / phone PIN:
+    if (['pending', 'ongoing', 'processing', 'queued', 'send_otp'].includes(gatewayStatus)) {
+      logPaymentEvent('info', 'PAYMENT_PENDING_ASYNC_GATEWAY', {
+        orderId: cleanOrderId,
+        reference: cleanRef,
+        gatewayStatus,
+        gatewayResponse
+      });
+
+      // Ensure reference is recorded on order without changing payment_status from pending
+      await supabase
+        .from('orders')
+        .update({
+          payment_reference: cleanRef,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', cleanOrderId)
+        .eq('payment_status', 'pending');
+
+      return {
+        success: false,
+        status: 'pending',
+        orderId: cleanOrderId,
+        message: 'Payment is being processed by Safaricom M-Pesa. Please check your phone and enter your PIN if prompted.',
+        retryable: true
+      };
+    }
+
+    // IF ABANDONED (e.g. user closed the modal before sending STK prompt):
+    if (gatewayStatus === 'abandoned') {
+      logPaymentEvent('info', 'PAYMENT_ABANDONED_OR_CLOSED', {
+        orderId: cleanOrderId,
+        reference: cleanRef,
+        gatewayResponse
+      });
+
+      return {
+        success: false,
+        status: 'abandoned',
+        orderId: cleanOrderId,
+        message: 'Payment window was closed. Your cart items are saved and you can retry payment whenever you are ready.',
+        retryable: true
+      };
+    }
+
+    // IF EXPLICIT FAILURE (e.g. failed, reversed, declined, cancelled):
+    if (gatewayStatus !== 'success') {
       logPaymentEvent('warn', 'PAYSTACK_VERIFICATION_FAILED', {
         orderId: cleanOrderId,
         reference: cleanRef,
-        gatewayStatus: verifyData?.data?.status,
+        gatewayStatus,
         gatewayResponse
       });
 
@@ -309,7 +407,128 @@ export async function processAuthoritativePaymentVerification({
         success: false,
         status: 'failed',
         orderId: cleanOrderId,
-        message: `Payment verification failed: ${gatewayResponse}`
+        message: `Payment failed: ${gatewayResponse}`,
+        retryable: false
+      };
+    }
+
+    // Check C: Match with Paystack transaction metadata and order notes
+    const normOrderNum = normalizeAlphanumeric(order.order_number);
+
+    // Safely parse Paystack metadata whether it's an object or a JSON string
+    let parsedMetadata: any = {};
+    const rawMetadata = verifyData.data?.metadata;
+    if (typeof rawMetadata === 'string' && rawMetadata.trim()) {
+      try {
+        parsedMetadata = JSON.parse(rawMetadata);
+      } catch {
+        parsedMetadata = {};
+      }
+    } else if (rawMetadata && typeof rawMetadata === 'object') {
+      parsedMetadata = rawMetadata;
+    }
+
+    // Safely parse order notes for stored references
+    let parsedNotes: any = {};
+    if (typeof order.notes === 'string' && order.notes.trim()) {
+      try {
+        parsedNotes = JSON.parse(order.notes);
+      } catch {
+        parsedNotes = {};
+      }
+    } else if (order.notes && typeof order.notes === 'object') {
+      parsedNotes = order.notes;
+    }
+
+    // Check previously stored references in notes
+    const pastRefs: string[] = Array.isArray(parsedNotes?.payment_references)
+      ? parsedNotes.payment_references
+      : [parsedNotes?.payment_reference].filter(Boolean);
+    if (pastRefs.some((r: string) => normalizeAlphanumeric(r) === normalizeAlphanumeric(cleanRef))) {
+      referenceBelongsToOrder = true;
+    }
+
+    const metaOrderId = parsedMetadata.order_id || parsedMetadata.orderId || parsedMetadata.orderID;
+    const metaOrderNum = parsedMetadata.order_number || parsedMetadata.orderNumber;
+
+    if (metaOrderId && (normalizeAlphanumeric(metaOrderId) === normOrderId || normalizeAlphanumeric(metaOrderId) === normOrderNum)) {
+      referenceBelongsToOrder = true;
+    }
+    if (metaOrderNum && normOrderNum && (normalizeAlphanumeric(metaOrderNum) === normOrderNum || normalizeAlphanumeric(metaOrderNum) === normOrderId)) {
+      referenceBelongsToOrder = true;
+    }
+    if (Array.isArray(parsedMetadata.custom_fields)) {
+      for (const field of parsedMetadata.custom_fields) {
+        const valNorm = normalizeAlphanumeric(field?.value);
+        if (valNorm && (valNorm === normOrderId || (normOrderNum && valNorm === normOrderNum))) {
+          referenceBelongsToOrder = true;
+          break;
+        }
+      }
+    }
+
+    // Check D: If not matched yet, check whether reference or metadata is explicitly from ANOTHER actual order
+    if (!referenceBelongsToOrder) {
+      let conflictingTarget: string | null = null;
+      if (cleanRef.startsWith('ord_')) {
+        const parts = cleanRef.split('_');
+        if (parts.length >= 2) {
+          const candidate = normalizeAlphanumeric(parts[1]);
+          if (candidate && candidate !== normOrderId && candidate !== normOrderNum) {
+            conflictingTarget = parts[1];
+          }
+        }
+      }
+      if (metaOrderId && normalizeAlphanumeric(metaOrderId) !== normOrderId && normalizeAlphanumeric(metaOrderId) !== normOrderNum) {
+        conflictingTarget = String(metaOrderId);
+      }
+
+      // If conflictingTarget is identified, verify if it actually corresponds to a distinct existing order
+      if (conflictingTarget) {
+        const cleanCandidate = normalizeUuid(conflictingTarget);
+        const { data: realOtherOrder } = await supabase
+          .from('orders')
+          .select('id, user_id')
+          .or(`id.eq.${cleanCandidate},order_number.eq.${conflictingTarget}`)
+          .neq('id', cleanOrderId)
+          .maybeSingle();
+
+        if (realOtherOrder) {
+          logPaymentEvent('error', 'PAYMENT_REFERENCE_ORDER_MISMATCH', {
+            orderId: cleanOrderId,
+            reference: cleanRef,
+            storedRef: order.payment_reference,
+            conflictingTarget,
+            realOtherOrderId: realOtherOrder.id
+          });
+          return {
+            success: false,
+            status: 'failed',
+            orderId: cleanOrderId,
+            message: 'Payment reference is not associated with this order'
+          };
+        }
+      }
+
+      // If no conflict with another real order exists, and no other paid order has claimed this reference
+      if (!existingPaidRefOrder) {
+        referenceBelongsToOrder = true;
+      }
+    }
+
+    // Final verification of reference association
+    if (!referenceBelongsToOrder) {
+      logPaymentEvent('error', 'PAYMENT_REFERENCE_ORDER_MISMATCH', {
+        orderId: cleanOrderId,
+        reference: cleanRef,
+        storedRef: order.payment_reference,
+        metaOrderId
+      });
+      return {
+        success: false,
+        status: 'failed',
+        orderId: cleanOrderId,
+        message: 'Payment reference is not associated with this order'
       };
     }
 
@@ -341,7 +560,7 @@ export async function processAuthoritativePaymentVerification({
         success: false,
         status: 'failed',
         orderId: cleanOrderId,
-        message: `Payment amount/currency mismatch. Expected ${expectedAmountSmallestUnit} KES kobo, got ${actualAmountSmallestUnit} ${actualCurrency}.`
+        message: `Payment amount/currency mismatch. Expected ${expectedAmountSmallestUnit} KES cents, got ${actualAmountSmallestUnit} ${actualCurrency}.`
       };
     }
 

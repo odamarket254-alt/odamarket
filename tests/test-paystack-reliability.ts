@@ -389,9 +389,87 @@ async function runAllTests() {
     const { data: dbOrder10 } = await adminSupabase.from('orders').select('*').eq('id', orderId10).single();
 
     assert(outageResult.retryable === true, 'Outage returns retryable = true');
-    assert(outageResult.status === 'pending', 'Order left in pending state instead of failing/marking paid');
-    assert(dbOrder10.payment_status === 'pending', 'Database order payment_status safely remains pending');
+    // -------------------------------------------------------------------------
+    // TEST 11: Asynchronous M-Pesa Pending Handling (Prompt sent to buyer phone)
+    // -------------------------------------------------------------------------
+    console.log('\n--- Test 11: Asynchronous M-Pesa Pending Handling ---');
+    const orderId11 = await createTestOrder(buyer1Id, 450);
+    const mpesaRef = `ord_${orderId11}_mpesa_ongoing`;
 
+    // Paystack returns 'ongoing' / 'pending' status while awaiting buyer PIN entry
+    global.fetch = async (url: any, opts: any): Promise<any> => {
+      if (typeof url === 'string' && url.includes('api.paystack.co/transaction/verify')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            status: true,
+            data: {
+              status: 'ongoing',
+              reference: mpesaRef,
+              amount: 45000,
+              currency: 'KES',
+              gateway_response: 'Pending customer authorization'
+            }
+          })
+        };
+      }
+      return originalFetch(url, opts);
+    };
+
+    const mpesaPendingResult = await processAuthoritativePaymentVerification({
+      orderId: orderId11,
+      reference: mpesaRef,
+      source: 'inline_checkout',
+      authenticatedUserId: buyer1Id
+    });
+
+    const { data: dbOrder11 } = await adminSupabase.from('orders').select('*').eq('id', orderId11).single();
+
+    assert(mpesaPendingResult.success === false, 'Pending M-Pesa returns success = false (not marked paid prematurely)');
+    assert(mpesaPendingResult.status === 'pending', 'Pending M-Pesa returns status = pending');
+    assert(mpesaPendingResult.retryable === true, 'Pending M-Pesa returns retryable = true for client polling');
+    assert(dbOrder11.payment_status === 'pending', 'Order payment_status is safely kept as pending (NEVER marked failed prematurely)');
+
+    // -------------------------------------------------------------------------
+    // TEST 12: Reference Format Tolerance (Hyphens stripped in reference)
+    // -------------------------------------------------------------------------
+    console.log('\n--- Test 12: Reference Format Tolerance (Stripped Hyphens) ---');
+    const orderId12 = await createTestOrder(buyer1Id, 600);
+    // Reference without hyphens in UUID: e.g. ord_02b39cf59acc4354b0d71b332904034c_...
+    const unhyphenatedOrderId = orderId12.replace(/-/g, '');
+    const strippedRef = `ord_${unhyphenatedOrderId}_timestamp123`;
+
+    global.fetch = async (url: any, opts: any): Promise<any> => {
+      if (typeof url === 'string' && url.includes('api.paystack.co/transaction/verify')) {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            status: true,
+            data: {
+              status: 'success',
+              reference: strippedRef,
+              amount: 60000,
+              currency: 'KES',
+              gateway_response: 'Successful'
+            }
+          })
+        };
+      }
+      return originalFetch(url, opts);
+    };
+
+    const toleranceResult = await processAuthoritativePaymentVerification({
+      orderId: orderId12, // standard UUID with hyphens
+      reference: strippedRef, // reference without hyphens
+      source: 'inline_checkout',
+      authenticatedUserId: buyer1Id
+    });
+
+    assert(toleranceResult.success === true && toleranceResult.status === 'paid', 'Unhyphenated reference successfully associates with UUID order without false mismatch');
+    const { data: dbOrder12 } = await adminSupabase.from('orders').select('*').eq('id', orderId12).single();
+    assert(dbOrder12.payment_status === 'success', 'Order correctly marked paid after unhyphenated reference verification');
   } finally {
     // Restore original fetch
     global.fetch = originalFetch;

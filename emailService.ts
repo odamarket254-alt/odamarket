@@ -4475,13 +4475,12 @@ export function buildPendingOrderReminderEmailHtml(
   const safeTotal = escapeHtml(formatCurrency(data.total));
   const safeSubtotal = escapeHtml(formatCurrency(data.subtotal));
   const safeDeliveryFee = data.deliveryFee > 0 ? escapeHtml(formatCurrency(data.deliveryFee)) : 'Free';
-  const safeAppUrl = escapeHtml(
-    (process.env.APP_URL || process.env.VITE_APP_URL || 'https://odamarket.co.ke').replace(/\/$/, '')
-  );
+  const publicSiteUrl = (process.env.PUBLIC_SITE_URL || 'https://odamarket.co.ke').replace(/\/$/, '');
+  const safeAppUrl = escapeHtml(publicSiteUrl);
   const safeOrderUrl =
     /^https?:\/\//i.test(secureOrderUrl)
       ? escapeHtml(secureOrderUrl)
-      : `${safeAppUrl}/buyer/dashboard/orders`;
+      : `${safeAppUrl}/checkout`;
 
   const items = data.items || [];
   const totalQuantity = items.reduce((sum, i) => sum + (Number(i.quantity) || 0), 0);
@@ -4628,10 +4627,10 @@ export function buildPendingOrderReminderEmailHtml(
           <tr>
             <td align="center" style="padding: 0 32px 32px 32px;">
               <a href="${safeOrderUrl}" target="_blank" style="display: inline-block; padding: 16px 36px; font-size: 16px; font-weight: 700; color: #FFFFFF; text-decoration: none; border-radius: 12px; background-color: #C65A28;">
-                View Order &amp; Complete Payment &rarr;
+                Complete Payment on ODA Market &rarr;
               </a>
               <p style="margin: 14px 0 0 0; color: #8B857D; font-size: 12px; line-height: 1.5;">
-                For your security, you will be asked to sign in to your ODA Market account before viewing your order details.
+                Clicking above opens <a href="${safeOrderUrl}" target="_blank" style="color: #D96A27; text-decoration: underline;">odamarket.co.ke</a> to securely sign in and complete payment for your order.
               </p>
             </td>
           </tr>
@@ -4663,7 +4662,7 @@ export function buildPendingOrderReminderEmailHtml(
     `Status: Pending Payment`,
     '',
     ...(itemLines.length > 0 ? ['Items:', ...itemLines, ''] : []),
-    'Sign in to your ODA Market account to view your order details and complete payment:',
+    'Sign in to your ODA Market account on odamarket.co.ke to complete payment for your order:',
     secureOrderUrl,
     '',
     'If you have already completed payment or need help, contact info@odamarket.co.ke or +254 792 867386.',
@@ -4834,9 +4833,9 @@ export async function sendPendingOrderPaymentReminder(params: {
       };
     }
 
-    // 5. Build secure authenticated buyer order link + ODA Market branded reminder HTML
-    const appUrl = (process.env.APP_URL || process.env.VITE_APP_URL || 'https://odamarket.co.ke').replace(/\/$/, '');
-    const secureOrderUrl = `${appUrl}/buyer/dashboard/orders?orderId=${encodeURIComponent(cleanOrderId)}`;
+    // 5. Build secure authenticated odamarket.co.ke checkout completion link + ODA Market branded reminder HTML
+    const publicSiteUrl = (process.env.PUBLIC_SITE_URL || 'https://odamarket.co.ke').replace(/\/$/, '');
+    const secureOrderUrl = `${publicSiteUrl}/checkout?orderId=${encodeURIComponent(cleanOrderId)}`;
     const { subject, html, text } = buildPendingOrderReminderEmailHtml(emailData, secureOrderUrl);
 
     const fromSender = resolveValidFromEmail(

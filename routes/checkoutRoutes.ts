@@ -261,7 +261,7 @@ router.post("/", async (req, res) => {
  */
 router.post("/initialize-payment", async (req, res) => {
   try {
-    const { orderId } = req.body;
+    const { orderId, shippingDetails, contactDetails } = req.body;
     if (!orderId) {
       return res.status(400).json({ error: "Missing orderId" });
     }
@@ -306,6 +306,10 @@ router.post("/initialize-payment", async (req, res) => {
       });
     }
 
+    if (String(order.status || '').toLowerCase() === 'cancelled') {
+      return res.status(400).json({ error: "Cannot complete payment for a cancelled order." });
+    }
+
     let pastRefs: string[] = [];
     let parsedNotes: any = {};
     try {
@@ -323,6 +327,12 @@ router.post("/initialize-payment", async (req, res) => {
     }
     parsedNotes.payment_reference = paymentReference;
     parsedNotes.payment_references = pastRefs;
+    if (shippingDetails && typeof shippingDetails === 'object') {
+      parsedNotes.shippingDetails = shippingDetails;
+    }
+    if (contactDetails && typeof contactDetails === 'object') {
+      parsedNotes.contactDetails = contactDetails;
+    }
 
     await supabase
       .from('orders')

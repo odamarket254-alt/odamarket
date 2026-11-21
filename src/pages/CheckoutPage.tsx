@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { Input } from "../components/ui/Input";
 import { Label } from "../components/ui/Label";
 import { Button } from "../components/ui/Button";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, Navigate, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useCartStore } from "../store/useCartStore";
 import { useAuthStore } from "../store/useAuthStore";
 import { ThermalPrinter } from "../components/receipt/ThermalPrinter";
@@ -50,8 +50,11 @@ export default function CheckoutPage() {
     getCartTotal, 
     clearCart 
   } = useCartStore();
-  const { user, profile } = useAuthStore();
+  const { user, profile, isLoading: isAuthLoading } = useAuthStore();
   const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const resumeOrderId = searchParams.get("orderId")?.trim() || null;
 
   const profileName = [profile?.first_name, profile?.last_name].filter(Boolean).join(" ").trim() || profile?.full_name || "";
   const fullName = profileName || user?.user_metadata?.full_name || user?.user_metadata?.first_name || "";
@@ -73,6 +76,10 @@ export default function CheckoutPage() {
   const [activePaymentReference, setActivePaymentReference] = useState<string | null>(null);
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [paymentPendingNotice, setPaymentPendingNotice] = useState<string | null>(null);
+  const [resumedOrder, setResumedOrder] = useState<any | null>(null);
+  const [resumedOrderItems, setResumedOrderItems] = useState<any[]>([]);
+  const [isLoadingResumedOrder, setIsLoadingResumedOrder] = useState<boolean>(Boolean(resumeOrderId));
+  const [resumedOrderError, setResumedOrderError] = useState<string | null>(null);
 
   // Real-time listener for authoritative order status transitions (e.g. background Paystack webhooks)
   useEffect(() => {
@@ -102,7 +109,7 @@ export default function CheckoutPage() {
             setIsSuccess(true);
             setPaymentError(null);
             setPaymentPendingNotice(null);
-            clearCart();
+            if (!resumedOrder) clearCart();
             toast.success("Payment verified! Your order has been placed.");
           }
         }
@@ -112,7 +119,7 @@ export default function CheckoutPage() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [activePendingOrderId, isSuccess, clearCart]);
+  }, [activePendingOrderId, isSuccess, clearCart, resumedOrder]);
 
   // Load Paystack Script safely
   useEffect(() => {
@@ -205,16 +212,154 @@ export default function CheckoutPage() {
     }));
   }, [user, profile]);
 
+  // Hydrate an existing pending order when navigated via ?orderId=<uuid> (e.g. from payment reminder email)
+  useEffect(() => {
+    if (!resumeOrderId) {
+      setResumedOrder(null);
+      setResumedOrderItems([]);
+      setResumedOrderError(null);
+      setIsLoadingResumedOrder(false);
+      return;
+    }
+
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(resumeOrderId)) {
+      setResumedOrderError("This order payment link is invalid.");
+      setIsLoadingResumedOrder(false);
+      return;
+    }
+
+    if (isAuthLoading || !user) return;
+
+    let cancelled = false;
+    const loadPendingOrder = async () => {
+      setIsLoadingResumedOrder(true);
+      setResumedOrderError(null);
+      try {
+        const { data: orderData, error: orderErr } = await supabase
+          .from("orders")
+          .select("*")
+          .eq("id", resumeOrderId)
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        if (cancelled) return;
+
+        if (orderErr || !orderData) {
+          setResumedOrderError("We could not find this order in your ODA Market account.");
+          setIsLoadingResumedOrder(false);
+          return;
+        }
+
+        const { data: orderItemsData } = await supabase
+          .from("order_items")
+          .select("*")
+          .eq("order_id", orderData.id);
+
+        if (cancelled) return;
+
+        if (orderData.payment_status === "success") {
+          setConfirmedOrder({
+            success: true,
+            status: "paid",
+            orderId: orderData.id,
+            order: orderData,
+            items: orderItemsData || []
+          });
+          setIsSuccess(true);
+          setIsLoadingResumedOrder(false);
+          return;
+        }
+
+        if (String(orderData.status || "").toLowerCase() === "cancelled") {
+          setResumedOrderError("This order has been cancelled and can no longer be paid.");
+          setIsLoadingResumedOrder(false);
+          return;
+        }
+
+        let parsedNotes: any = {};
+        try {
+          parsedNotes = typeof orderData.notes === "string" ? JSON.parse(orderData.notes) : (orderData.notes || {});
+        } catch {
+          parsedNotes = {};
+        }
+
+        if (parsedNotes?.shippingDetails) {
+          setShippingDetails(prev => ({
+            recipientName: parsedNotes.shippingDetails.recipientName || prev.recipientName,
+            recipientPhone: parsedNotes.shippingDetails.recipientPhone || prev.recipientPhone,
+            location: parsedNotes.shippingDetails.location || prev.location,
+            fullAddress: parsedNotes.shippingDetails.fullAddress || prev.fullAddress,
+          }));
+        }
+
+        if (parsedNotes?.contactDetails) {
+          setContactDetails(prev => ({
+            fullName: parsedNotes.contactDetails.fullName || prev.fullName,
+            userPhone: parsedNotes.contactDetails.userPhone || prev.userPhone,
+            userEmail: parsedNotes.contactDetails.userEmail || prev.userEmail,
+          }));
+        }
+
+        setResumedOrder(orderData);
+        setResumedOrderItems(orderItemsData || []);
+        setActivePendingOrderId(orderData.id);
+        setActivePaymentReference(orderData.payment_reference || null);
+      } catch (err) {
+        console.error("Failed to load pending order for payment completion:", err);
+        if (!cancelled) {
+          setResumedOrderError("Unable to load your pending order details. Please try again.");
+        }
+      } finally {
+        if (!cancelled) {
+          setIsLoadingResumedOrder(false);
+        }
+      }
+    };
+
+    loadPendingOrder();
+    return () => {
+      cancelled = true;
+    };
+  }, [resumeOrderId, isAuthLoading, user]);
+
   const subtotal = getCartSubtotal();
   const deliveryFee = getDeliveryFee();
   const cartTotal = getCartTotal();
 
-  // Redirect to cart if empty
+  const resumedNotes = (() => {
+    if (!resumedOrder?.notes) return null;
+    try {
+      return typeof resumedOrder.notes === "string" ? JSON.parse(resumedOrder.notes) : resumedOrder.notes;
+    } catch {
+      return null;
+    }
+  })();
+
+  const displayItems = resumedOrder
+    ? resumedOrderItems.map((oi) => ({
+        id: oi.product_id || oi.id,
+        name: oi.product_name || "Product",
+        price: String(oi.unit_price ?? 0),
+        image_url: oi.product_image || "",
+        quantity: Number(oi.quantity) || 1
+      }))
+    : items;
+
+  const resumedItemsSubtotal = resumedOrderItems.reduce(
+    (sum, oi) => sum + Number(oi.subtotal ?? oi.total_price ?? (Number(oi.unit_price || 0) * Number(oi.quantity || 1))),
+    0
+  );
+  const effectiveSubtotal = resumedOrder ? Number(resumedOrder.subtotal ?? resumedItemsSubtotal) : subtotal;
+  const effectiveDeliveryFee = resumedOrder ? Number(resumedOrder.delivery_fee ?? 0) : deliveryFee;
+  const effectiveTotal = resumedOrder ? Number(resumedOrder.total ?? (effectiveSubtotal + effectiveDeliveryFee)) : cartTotal;
+  const effectiveDeliveryMethod = resumedOrder ? (resumedNotes?.deliveryMethod || "standard") : deliveryMethod;
+
+  // Redirect to cart if empty (skip when resuming an existing order via ?orderId=)
   useEffect(() => {
-    if (items.length === 0 && !isSuccess && !isProcessing) {
+    if (!resumeOrderId && items.length === 0 && !isSuccess && !isProcessing) {
       navigate("/cart");
     }
-  }, [items, navigate, isSuccess, isProcessing]);
+  }, [resumeOrderId, items, navigate, isSuccess, isProcessing]);
 
   const handlePlaceOrder = async () => {
     setIsProcessing(true);
@@ -230,39 +375,53 @@ export default function CheckoutPage() {
         return;
       }
 
-      if (!items || items.length === 0) {
+      if (!resumedOrder && (!items || items.length === 0)) {
         toast.error("Your cart is empty. Please add items before placing an order.");
         setIsProcessing(false);
         return;
       }
 
-      setLoadingText("Validating inventory and processing...");
+      setLoadingText(resumedOrder ? "Preparing secure payment for your order..." : "Validating inventory and processing...");
       
       // Clean and validate existingOrderId as a UUID
       const cleanExistingOrderId = (activePendingOrderId && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(activePendingOrderId.trim()))
         ? activePendingOrderId.trim()
         : null;
 
-      const response = await fetch('/api/checkout', {
-        method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({
-          items: items.map(item => ({
-            product_id: item.id,
-            quantity: item.quantity
-          })),
-          shippingDetails: shippingDetails,
-          contactDetails: contactDetails,
-          paymentMethod: 'M-Pesa',
-          deliveryMethod: deliveryMethod,
-          deliveryFee: deliveryFee,
-          existingOrderId: cleanExistingOrderId
-        })
-      });
+      const response = resumedOrder
+        ? await fetch('/api/checkout/initialize-payment', {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`
+            },
+            body: JSON.stringify({
+              orderId: resumedOrder.id,
+              shippingDetails,
+              contactDetails
+            })
+          })
+        : await fetch('/api/checkout', {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${session.access_token}`
+            },
+            body: JSON.stringify({
+              items: items.map(item => ({
+                product_id: item.id,
+                quantity: item.quantity
+              })),
+              shippingDetails: shippingDetails,
+              contactDetails: contactDetails,
+              paymentMethod: 'M-Pesa',
+              deliveryMethod: deliveryMethod,
+              deliveryFee: deliveryFee,
+              existingOrderId: cleanExistingOrderId
+            })
+          });
 
       let data: any;
       const contentType = response.headers.get("content-type") || "";
@@ -300,7 +459,7 @@ export default function CheckoutPage() {
         });
         setIsProcessing(false);
         setIsSuccess(true);
-        clearCart();
+        if (!resumedOrder) clearCart();
         toast.success("Order has already been confirmed as paid!");
         return;
       }
@@ -345,7 +504,7 @@ export default function CheckoutPage() {
               setIsSuccess(true);
               setPaymentError(null);
               setPaymentPendingNotice(null);
-              clearCart();
+              if (!resumedOrder) clearCart();
               toast.success("Payment verified! Order placed successfully.");
               return;
             }
@@ -374,7 +533,7 @@ export default function CheckoutPage() {
               setIsSuccess(true);
               setPaymentError(null);
               setPaymentPendingNotice(null);
-              clearCart();
+              if (!resumedOrder) clearCart();
               toast.success("Payment verified! Order placed successfully.");
               return;
             }
@@ -435,7 +594,7 @@ export default function CheckoutPage() {
       // Format customer email safely
       const rawEmail = (contactDetails.userEmail || user?.email || profile?.email || "").trim();
       const validEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(rawEmail) ? rawEmail : "customer@odamarket.co.ke";
-      const cleanTotal = Math.max(1, Math.round((Number(cartTotal) || 0) * 100));
+      const cleanTotal = Math.max(1, Math.round((Number(data.amount ?? effectiveTotal) || 0) * 100));
 
       try {
         const handler = (window as any).PaystackPop.setup({
@@ -521,7 +680,7 @@ export default function CheckoutPage() {
         setIsSuccess(true);
         setPaymentError(null);
         setPaymentPendingNotice(null);
-        clearCart();
+        if (!resumedOrder) clearCart();
         toast.success("Payment verified! Your order has been placed.");
         return;
       }
@@ -547,7 +706,7 @@ export default function CheckoutPage() {
         setIsSuccess(true);
         setPaymentError(null);
         setPaymentPendingNotice(null);
-        clearCart();
+        if (!resumedOrder) clearCart();
         toast.success("Payment confirmed! Your order is being processed.");
         return;
       }
@@ -842,6 +1001,50 @@ export default function CheckoutPage() {
     );
   }
 
+  if (resumeOrderId && isAuthLoading) {
+    return (
+      <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center p-6">
+        <div className="w-14 h-14 border-4 border-[#E5E7EB] border-t-[#C65A28] rounded-full animate-spin mb-4" />
+        <p className="text-slate-700 font-semibold text-sm">Verifying your ODA Market session...</p>
+      </div>
+    );
+  }
+
+  if (resumeOrderId && !isAuthLoading && !user) {
+    return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+
+  if (resumeOrderId && isLoadingResumedOrder && !isSuccess) {
+    return (
+      <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center p-6">
+        <div className="w-14 h-14 border-4 border-[#E5E7EB] border-t-[#C65A28] rounded-full animate-spin mb-4" />
+        <p className="text-slate-700 font-semibold text-sm">Loading your pending order details...</p>
+      </div>
+    );
+  }
+
+  if (resumeOrderId && resumedOrderError && !isSuccess) {
+    return (
+      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center p-6">
+        <div className="max-w-md w-full bg-[#FFFDF8] border border-[#E5E7EB] rounded-[20px] p-8 text-center shadow-sm">
+          <div className="w-12 h-12 rounded-full bg-orange-50 border border-orange-200 text-[#C65A28] flex items-center justify-center mx-auto mb-4">
+            <Info className="w-6 h-6" />
+          </div>
+          <h2 className="text-xl font-bold text-slate-900 mb-2">Order Unavailable</h2>
+          <p className="text-sm text-[#6B7280] mb-6">{resumedOrderError}</p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            <Button onClick={() => navigate("/buyer/dashboard/orders")} className="bg-[#C65A28] hover:bg-[#A0451C] text-white">
+              View My Orders
+            </Button>
+            <Button variant="outline" onClick={() => navigate("/products")}>
+              Browse Products
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-[#F8FAFC] pt-8 pb-24 relative">
       
@@ -904,6 +1107,26 @@ export default function CheckoutPage() {
           {/* Left Column (70%) */}
           <div className="w-full lg:w-[70%] space-y-6">
             
+            {resumedOrder && (
+              <div className="bg-orange-50 border border-orange-200 rounded-[16px] p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-bold uppercase tracking-wider text-[#C65A28]">Pending Order Payment Reminder</p>
+                  <p className="text-slate-900 font-bold text-base mt-0.5">
+                    Order {resumedOrder.order_number || resumedOrder.id} &bull; Amount Due: Ksh {effectiveTotal.toLocaleString()}
+                  </p>
+                  <p className="text-xs text-slate-600 mt-0.5">
+                    Review your details below and click Complete Payment with M-Pesa to finalize your order.
+                  </p>
+                </div>
+                <Link
+                  to={`/buyer/dashboard/orders?orderId=${encodeURIComponent(resumedOrder.id)}`}
+                  className="text-xs font-semibold text-[#C65A28] hover:underline shrink-0"
+                >
+                  View in My Orders
+                </Link>
+              </div>
+            )}
+
             {/* Section 1: Contact Information */}
             <div className="bg-[#FFFDF8] rounded-[20px] shadow-sm border border-[#E5E7EB] p-6 md:p-8">
               <div className="flex justify-between items-center mb-6">
@@ -1080,22 +1303,24 @@ export default function CheckoutPage() {
                           <Truck className="w-5 h-5" /> Delivery Method
                         </div>
                         <p className="text-[slate-900] font-bold text-[16px]">
-                          {deliveryMethod === 'express' ? 'Express' : deliveryMethod === 'pickup' ? 'Pickup' : 'Standard Delivery'}
+                          {effectiveDeliveryMethod === 'express' ? 'Express' : effectiveDeliveryMethod === 'pickup' ? 'Pickup' : 'Standard Delivery'}
                         </p>
                         <p className="text-[#6B7280] text-[14px] mt-1">
-                          {deliveryMethod === 'express' ? 'Estimated Today' : deliveryMethod === 'pickup' ? 'Pickup at store' : 'Estimated Tomorrow'}
+                          {effectiveDeliveryMethod === 'express' ? 'Estimated Today' : effectiveDeliveryMethod === 'pickup' ? 'Pickup at store' : 'Estimated Tomorrow'}
                         </p>
                       </div>
                       <div className="text-right flex flex-col items-end">
-                        <span className={deliveryFee > 0 ? "text-[slate-900] font-bold text-[16px] mb-1" : "text-[#C65A28] font-bold text-[16px] mb-1"}>
-                          {deliveryFee > 0 ? `Ksh ${deliveryFee.toLocaleString()}` : "FREE"}
+                        <span className={effectiveDeliveryFee > 0 ? "text-[slate-900] font-bold text-[16px] mb-1" : "text-[#C65A28] font-bold text-[16px] mb-1"}>
+                          {effectiveDeliveryFee > 0 ? `Ksh ${effectiveDeliveryFee.toLocaleString()}` : "FREE"}
                         </span>
-                        <button 
-                          onClick={() => setIsEditingDeliveryMethod(true)}
-                          className="text-[slate-900] font-bold text-[14px] hover:underline"
-                        >
-                          Change
-                        </button>
+                        {!resumedOrder && (
+                          <button 
+                            onClick={() => setIsEditingDeliveryMethod(true)}
+                            className="text-[slate-900] font-bold text-[14px] hover:underline"
+                          >
+                            Change
+                          </button>
+                        )}
                       </div>
                     </>
                   ) : (
@@ -1297,10 +1522,10 @@ export default function CheckoutPage() {
             ) : (
               <button 
                 onClick={handlePlaceOrder}
-                disabled={items.length === 0 || isProcessing}
+                disabled={displayItems.length === 0 || isProcessing}
                 className="w-full h-[64px] bg-[#C65A28] hover:bg-[#C65A28] text-white rounded-[16px] font-bold text-[20px] flex items-center justify-center gap-3 transition-colors shadow-lg shadow-[#C65A28]/20 hover:scale-[1.01] transform duration-300 disabled:opacity-70 disabled:hover:scale-100"
               >
-                <Lock className="w-6 h-6" /> {activePendingOrderId ? "Retry Payment with M-Pesa" : "Place Order with M-Pesa"}
+                <Lock className="w-6 h-6" /> {resumedOrder ? "Complete Payment with M-Pesa" : activePendingOrderId ? "Retry Payment with M-Pesa" : "Place Order with M-Pesa"}
               </button>
             )}
 
@@ -1316,7 +1541,7 @@ export default function CheckoutPage() {
                 
                 {/* Product List Mini */}
                 <div className="space-y-4 mb-6 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-                  {items.map(item => (
+                  {displayItems.map(item => (
                     <div key={item.id} className="flex gap-4">
                       <div className="w-16 h-16 bg-[#F8FAFC] border border-[#E5E7EB] rounded-[12px] shrink-0 p-1 flex items-center justify-center overflow-hidden">
                         <OptimizedImage src={item.image_url} alt={item.name} imgClassName="max-w-full max-h-full object-contain" className="w-full h-full flex items-center justify-center bg-transparent" />
@@ -1334,28 +1559,30 @@ export default function CheckoutPage() {
                   ))}
                 </div>
 
-                <div className="mb-6 flex">
-                  <input 
-                    type="text" 
-                    placeholder="Coupon Code" 
-                    value={coupon}
-                    onChange={(e) => setCoupon(e.target.value)}
-                    className="flex-1 h-[44px] px-3 border border-[#E5E7EB] border-r-0 rounded-l-[10px] outline-none focus:border-[slate-900] transition-colors text-[13px] text-[#3A2418] dark:text-[#3A2418] placeholder:text-[#8B857D] caret-slate-900"
-                  />
-                  <button className="h-[44px] px-4 bg-[slate-900] text-white font-bold text-[13px] rounded-r-[10px] hover:bg-[slate-900]/90 transition-colors shrink-0">
-                    Apply
-                  </button>
-                </div>
+                {!resumedOrder && (
+                  <div className="mb-6 flex">
+                    <input 
+                      type="text" 
+                      placeholder="Coupon Code" 
+                      value={coupon}
+                      onChange={(e) => setCoupon(e.target.value)}
+                      className="flex-1 h-[44px] px-3 border border-[#E5E7EB] border-r-0 rounded-l-[10px] outline-none focus:border-[slate-900] transition-colors text-[13px] text-[#3A2418] dark:text-[#3A2418] placeholder:text-[#8B857D] caret-slate-900"
+                    />
+                    <button className="h-[44px] px-4 bg-[slate-900] text-white font-bold text-[13px] rounded-r-[10px] hover:bg-[slate-900]/90 transition-colors shrink-0">
+                      Apply
+                    </button>
+                  </div>
+                )}
 
                 <div className="space-y-3 mb-6 border-t border-[#E5E7EB] pt-6">
                   <div className="flex justify-between items-center text-[14px]">
                     <span className="text-[#6B7280]">Subtotal</span>
-                    <span className="text-[slate-900] font-bold">Ksh {subtotal.toLocaleString()}</span>
+                    <span className="text-[slate-900] font-bold">Ksh {effectiveSubtotal.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between items-center text-[14px]">
                     <span className="text-[#6B7280]">Delivery</span>
-                    <span className={deliveryFee > 0 ? "text-[slate-900] font-bold" : "text-[#C65A28] font-bold"}>
-                      {deliveryFee > 0 ? `Ksh ${deliveryFee.toLocaleString()}` : "FREE"}
+                    <span className={effectiveDeliveryFee > 0 ? "text-[slate-900] font-bold" : "text-[#C65A28] font-bold"}>
+                      {effectiveDeliveryFee > 0 ? `Ksh ${effectiveDeliveryFee.toLocaleString()}` : "FREE"}
                     </span>
                   </div>
                   <div className="flex justify-between items-center text-[14px]">
@@ -1367,11 +1594,11 @@ export default function CheckoutPage() {
                 <div className="border-t border-[#E5E7EB] pt-5 mb-6">
                   <div className="flex justify-between items-end">
                     <span className="text-[slate-900] font-bold text-[18px]">Total</span>
-                    <span className="text-[#C65A28] font-black text-[28px] leading-none">Ksh {cartTotal.toLocaleString()}</span>
+                    <span className="text-[#C65A28] font-black text-[28px] leading-none">Ksh {effectiveTotal.toLocaleString()}</span>
                   </div>
                 </div>
 
-                {deliveryFee === 0 ? (
+                {effectiveDeliveryFee === 0 ? (
                   <div className="bg-[#ECFDF5] border border-[#A7F3D0] rounded-[12px] p-3 text-center mb-2 flex items-center justify-center gap-2">
                     <PackageCheck className="w-5 h-5 text-[#C65A28]" />
                     <span className="text-[slate-900] font-bold text-[14px]">🎉 You're getting FREE Delivery</span>
@@ -1379,7 +1606,7 @@ export default function CheckoutPage() {
                 ) : (
                   <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-[12px] p-3 text-center mb-2 flex items-center justify-center gap-2">
                     <Truck className="w-5 h-5 text-[#C65A28]" />
-                    <span className="text-[slate-900] font-bold text-[14px]">⚡ Express Delivery (Ksh {deliveryFee.toLocaleString()})</span>
+                    <span className="text-[slate-900] font-bold text-[14px]">⚡ Express Delivery (Ksh {effectiveDeliveryFee.toLocaleString()})</span>
                   </div>
                 )}
               </div>

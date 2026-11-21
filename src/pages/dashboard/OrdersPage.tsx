@@ -306,7 +306,10 @@ export default function OrdersPage() {
               
               <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
                 {order.payment_status !== 'success' && order.status !== 'cancelled' && (
-                  <Button onClick={() => handleBuyAgain(order)} className="w-full sm:w-auto bg-[#C65A28] text-white hover:bg-[#C65A28]/90">
+                  <Button
+                    onClick={() => navigate(`/checkout?orderId=${encodeURIComponent(order.id)}`)}
+                    className="w-full sm:w-auto bg-[#C65A28] text-white hover:bg-[#C65A28]/90"
+                  >
                     <Clock className="w-4 h-4 mr-2" /> Complete Payment
                   </Button>
                 )}

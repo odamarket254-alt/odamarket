@@ -56,7 +56,16 @@ export default function LoginPage() {
     }
   }, [isEmailConfirmed]);
 
-  const from = (location.state as any)?.from?.pathname || "/dashboard";
+  const rawFromState = (location.state as any)?.from;
+  const candidateRedirect = rawFromState?.pathname
+    ? `${rawFromState.pathname}${rawFromState.search || ""}`
+    : (searchParams.get("redirect") || "/dashboard");
+  const from =
+    typeof candidateRedirect === "string" &&
+    candidateRedirect.startsWith("/") &&
+    !candidateRedirect.startsWith("//")
+      ? candidateRedirect
+      : "/dashboard";
 
   // Sync timers with active pendingOtpChallenge (survives page reload & multi-tab)
   useEffect(() => {

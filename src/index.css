@@ -68,6 +68,20 @@ html, body {
     --color-card: var(--card);
     --color-foreground: var(--foreground);
     --color-background: var(--background);
+
+    --color-grayscale-1: var(--grayscale-1);
+    --color-grayscale-2: var(--grayscale-2);
+    --color-grayscale-3: var(--grayscale-3);
+    --color-grayscale-4: var(--grayscale-4);
+    --color-grayscale-5: var(--grayscale-5);
+    --color-grayscale-6: var(--grayscale-6);
+    --color-grayscale-7: var(--grayscale-7);
+    --color-grayscale-8: var(--grayscale-8);
+    --color-grayscale-9: var(--grayscale-9);
+    --color-grayscale-10: var(--grayscale-10);
+    --color-grayscale-11: var(--grayscale-11);
+    --color-grayscale-12: var(--grayscale-12);
+    --color-green-9: var(--green-9);
     
     --radius-sm: calc(var(--radius) * 0.6);
     --radius-md: calc(var(--radius) * 0.8);
@@ -79,6 +93,19 @@ html, body {
 }
 
 :root {
+    --grayscale-1: #ffffff;
+    --grayscale-2: #f9f9fb;
+    --grayscale-3: #f0f0f3;
+    --grayscale-4: #e8e8ec;
+    --grayscale-5: #e0e0e4;
+    --grayscale-6: #d9d9de;
+    --grayscale-7: #cdced6;
+    --grayscale-8: #8d8f9a;
+    --grayscale-9: #72747f;
+    --grayscale-10: #62646f;
+    --grayscale-11: #4c4e57;
+    --grayscale-12: #18191b;
+    --green-9: #30a46c;
     /* Light Theme (Earth Tones) */
     --background: #FAF5EC;
     --foreground: #3A2418;
@@ -115,6 +142,22 @@ html, body {
     --sidebar-accent-foreground: #3A2418;
     --sidebar-border: #E8DCC9;
     --sidebar-ring: #C65A28;
+}
+
+.dark {
+    --grayscale-1: #111113;
+    --grayscale-2: #18191b;
+    --grayscale-3: #212225;
+    --grayscale-4: #27282d;
+    --grayscale-5: #2e3035;
+    --grayscale-6: #36373e;
+    --grayscale-7: #43444d;
+    --grayscale-8: #585966;
+    --grayscale-9: #6d6e7c;
+    --grayscale-10: #7c7d8c;
+    --grayscale-11: #b4b7c5;
+    --grayscale-12: #eeeeee;
+    --green-9: #30a46c;
 }
 
 @layer base {

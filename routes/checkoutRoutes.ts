@@ -7,7 +7,10 @@ import {
 } from "./paymentVerificationService.js";
 import {
   sendOrderConfirmationEmailForOrder,
-  sendOrderStatusEmailForOrder
+  sendOrderStatusEmailForOrder,
+  sendPendingOrderPaymentReminder,
+  getOrderPaymentRemindersForOrder,
+  getOrderPaymentReminderSummaries
 } from "../emailService.js";
 
 const router = Router();
@@ -568,4 +571,173 @@ router.post("/admin/resend-confirmation-email", async (req, res) => {
   }
 });
 
+const ADMIN_REMINDER_ALLOWED_ROLES = ['admin', 'super_admin', 'moderator', 'support_agent'];
+const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+async function verifyAdminRequest(req: any, res: any): Promise<{
+  supabase: any;
+  adminUser: { id: string; email: string | null; name: string };
+} | null> {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    res.status(401).json({ success: false, error: "Unauthorized: Missing authentication token." });
+    return null;
+  }
+
+  const token = authHeader.replace(/^Bearer\s+/i, "").trim();
+  if (!token) {
+    res.status(401).json({ success: false, error: "Unauthorized: Invalid authentication token." });
+    return null;
+  }
+
+  const supabaseUrl = (process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || "").trim().replace(/^["']|["']$/g, "");
+  const supabaseServiceKey = (process.env.SUPABASE_SERVICE_ROLE_KEY || "").trim().replace(/^["']|["']$/g, "");
+
+  if (!supabaseUrl || !supabaseServiceKey) {
+    res.status(500).json({ success: false, error: "Server database configuration missing." });
+    return null;
+  }
+
+  const supabase = createClient(supabaseUrl, supabaseServiceKey);
+  const { data: { user }, error: userError } = await supabase.auth.getUser(token);
+
+  if (userError || !user) {
+    res.status(401).json({ success: false, error: "Invalid or expired session token." });
+    return null;
+  }
+
+  if (user.app_metadata?.is_deleted || user.user_metadata?.is_deleted) {
+    res.status(403).json({ success: false, error: "Account is deactivated." });
+    return null;
+  }
+
+  const { data: profile, error: profileErr } = await supabase
+    .from('profiles')
+    .select('id, role, first_name, last_name, email')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  if (profileErr || !profile || !ADMIN_REMINDER_ALLOWED_ROLES.includes(String(profile.role || '').toLowerCase())) {
+    res.status(403).json({ success: false, error: "Forbidden: Administrator privileges required." });
+    return null;
+  }
+
+  const adminName =
+    `${profile.first_name || ''} ${profile.last_name || ''}`.trim() ||
+    String(user.user_metadata?.full_name || '').trim() ||
+    profile.email ||
+    user.email ||
+    'Administrator';
+
+  return {
+    supabase,
+    adminUser: {
+      id: user.id,
+      email: profile.email || user.email || null,
+      name: adminName
+    }
+  };
+}
+
+/**
+ * GET /api/checkout/admin/order-reminders
+ * Admin-only endpoint to retrieve payment reminder summaries and history.
+ */
+router.get("/admin/order-reminders", async (req, res) => {
+  try {
+    const adminCtx = await verifyAdminRequest(req, res);
+    if (!adminCtx) return;
+
+    const singleOrderId = typeof req.query.orderId === 'string' ? req.query.orderId.trim() : '';
+    const orderIdsParam = typeof req.query.orderIds === 'string' ? req.query.orderIds : '';
+
+    if (singleOrderId) {
+      if (!UUID_REGEX.test(singleOrderId)) {
+        return res.status(400).json({ success: false, error: "Invalid orderId parameter." });
+      }
+      const summary = await getOrderPaymentRemindersForOrder(singleOrderId, {
+        supabaseClient: adminCtx.supabase
+      });
+      return res.status(200).json({
+        success: true,
+        orderId: singleOrderId,
+        summary
+      });
+    }
+
+    const orderIds = orderIdsParam
+      .split(',')
+      .map((s) => s.trim())
+      .filter((s) => UUID_REGEX.test(s))
+      .slice(0, 250);
+
+    const summaries = await getOrderPaymentReminderSummaries(orderIds, {
+      supabaseClient: adminCtx.supabase
+    });
+
+    return res.status(200).json({
+      success: true,
+      summaries
+    });
+  } catch (err: any) {
+    console.error("[Admin Order Reminders GET] Error:", err);
+    return res.status(500).json({ success: false, error: err.message || "Failed to retrieve reminder history." });
+  }
+});
+
+/**
+ * POST /api/checkout/admin/send-payment-reminder
+ * Admin-only endpoint to send a pending order payment reminder email via Resend
+ * with 24-hour cooldown and full audit history tracking.
+ */
+router.post("/admin/send-payment-reminder", async (req, res) => {
+  try {
+    const adminCtx = await verifyAdminRequest(req, res);
+    if (!adminCtx) return;
+
+    const { orderId } = req.body || {};
+    if (!orderId || typeof orderId !== 'string' || !UUID_REGEX.test(orderId.trim())) {
+      return res.status(400).json({ success: false, error: "A valid orderId is required." });
+    }
+
+    const result = await sendPendingOrderPaymentReminder({
+      orderId: orderId.trim(),
+      adminUser: adminCtx.adminUser,
+      supabaseClient: adminCtx.supabase
+    });
+
+    if (!result.success) {
+      return res.status(result.statusCode || 400).json({
+        success: false,
+        error: result.error || "Failed to send payment reminder.",
+        orderId: result.orderId,
+        orderNumber: result.orderNumber,
+        cooldownActive: Boolean(result.cooldownActive),
+        nextEligibleAt: result.nextEligibleAt || null,
+        remainingMs: result.remainingMs || 0,
+        record: result.record,
+        summary: result.summary
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: `Payment reminder sent to ${result.recipient}`,
+      orderId: result.orderId,
+      orderNumber: result.orderNumber,
+      recipient: result.recipient,
+      resendId: result.resendId,
+      sentAt: result.sentAt,
+      cooldownActive: result.cooldownActive,
+      nextEligibleAt: result.nextEligibleAt,
+      record: result.record,
+      summary: result.summary
+    });
+  } catch (err: any) {
+    console.error("[Admin Send Payment Reminder] Error:", err);
+    return res.status(500).json({ success: false, error: err.message || "Failed to send payment reminder." });
+  }
+});
+
 export default router;
+

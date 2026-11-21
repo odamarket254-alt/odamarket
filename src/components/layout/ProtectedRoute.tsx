@@ -1,4 +1,4 @@
-import { Navigate, Outlet } from "react-router-dom";
+import { Navigate, Outlet, useLocation } from "react-router-dom";
 import { useAuthStore } from "../../store/useAuthStore";
 import { Loader2 } from "lucide-react";
 
@@ -8,6 +8,7 @@ interface ProtectedRouteProps {
 
 export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
   const { user, profile, isLoading, pendingOtpChallenge } = useAuthStore();
+  const location = useLocation();
 
   /*
    * Handle the loading state while the Session and Profile are being fetched.
@@ -24,7 +25,7 @@ export default function ProtectedRoute({ allowedRoles }: ProtectedRouteProps) {
    * Redirect users who are not signed in or who have an unverified OTP login challenge.
    */
   if (!user || !profile || pendingOtpChallenge) {
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
   /*

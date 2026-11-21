@@ -2,6 +2,8 @@ import { Resend } from 'resend';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import fs from 'fs';
 import path from 'path';
+import os from 'os';
+import crypto from 'crypto';
 import { logEmailDiagnostics } from './src/lib/emailDiagnostics.js';
 
 // Lazy initialized Resend client with automatic failover if a domain-restricted key (e.g. old Vercel Integration key) fails
@@ -4118,3 +4120,847 @@ export async function sendLoginOtpEmail(params: {
     };
   }
 }
+
+/**
+ * 10. PENDING ORDER PAYMENT REMINDER EMAIL & COOLDOWN HISTORY (ADMIN-TRIGGERED)
+ */
+
+export const REMINDER_COOLDOWN_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+export interface OrderPaymentReminderRecord {
+  id: string;
+  order_id: string;
+  buyer_id: string | null;
+  buyer_email: string;
+  status: 'sent' | 'failed';
+  resend_email_id: string | null;
+  error_message: string | null;
+  sent_by_admin_id: string;
+  sent_by_admin_email: string | null;
+  sent_by_admin_name: string | null;
+  sent_at: string;
+  created_at: string;
+}
+
+export interface OrderReminderSummary {
+  orderId: string;
+  totalAttempts: number;
+  sentCount: number;
+  failedCount: number;
+  lastRemindedAt: string | null;
+  lastAttemptAt: string | null;
+  lastStatus: 'sent' | 'failed' | null;
+  lastResendEmailId: string | null;
+  lastAdminName: string | null;
+  lastAdminEmail: string | null;
+  cooldownActive: boolean;
+  nextEligibleAt: string | null;
+  reminders: OrderPaymentReminderRecord[];
+}
+
+export interface ReminderAdminActor {
+  id: string;
+  email?: string | null;
+  name?: string | null;
+}
+
+export interface SendPendingOrderReminderResult {
+  success: boolean;
+  statusCode: number;
+  orderId: string;
+  orderNumber?: string;
+  recipient?: string;
+  resendId?: string;
+  sentAt?: string;
+  cooldownActive?: boolean;
+  nextEligibleAt?: string | null;
+  remainingMs?: number;
+  record?: OrderPaymentReminderRecord;
+  summary?: OrderReminderSummary;
+  error?: string;
+}
+
+const inFlightReminderLocks = new Map<string, Promise<SendPendingOrderReminderResult>>();
+
+export function escapeHtml(val: unknown): string {
+  return String(val ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function isMissingTableError(err: any): boolean {
+  if (!err) return false;
+  const code = String(err.code || '').toUpperCase();
+  const msg = String(err.message || '').toLowerCase();
+  return (
+    code === '42P01' ||
+    code === 'PGRST205' ||
+    msg.includes('does not exist') ||
+    msg.includes('could not find the table')
+  );
+}
+
+function getDefaultReminderFallbackPath(): string {
+  return path.join(os.tmpdir(), 'oda-market-order-reminders.json');
+}
+
+function readFallbackReminderStore(filePath: string): OrderPaymentReminderRecord[] {
+  try {
+    if (!fs.existsSync(filePath)) return [];
+    const raw = fs.readFileSync(filePath, 'utf-8');
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeFallbackReminderStore(filePath: string, records: OrderPaymentReminderRecord[]): void {
+  const dir = path.dirname(filePath);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+  const tmpPath = `${filePath}.${crypto.randomUUID()}.tmp`;
+  fs.writeFileSync(tmpPath, JSON.stringify(records, null, 2), 'utf-8');
+  fs.renameSync(tmpPath, filePath);
+}
+
+/**
+ * Validates server-side that an order is strictly pending and unpaid before any reminder email can be sent.
+ * Never approves paid, confirmed, processing, shipped, delivered, completed, cancelled, or refunded orders.
+ */
+export function validateOrderEligibleForPaymentReminder(
+  order: any,
+  parsedNotes?: any
+): { eligible: boolean; reason?: string } {
+  if (!order) {
+    return { eligible: false, reason: 'Order not found.' };
+  }
+
+  let notesObj = parsedNotes;
+  if (!notesObj && order.notes) {
+    try {
+      notesObj = typeof order.notes === 'string' ? JSON.parse(order.notes) : order.notes;
+    } catch {
+      notesObj = {};
+    }
+  }
+
+  const dbStatus = String(order.status || 'pending').toLowerCase().trim();
+  const subStatus = String(notesObj?.sub_status || dbStatus).toLowerCase().trim();
+  const paymentStatus = String(order.payment_status || 'pending').toLowerCase().trim();
+
+  if (['success', 'paid', 'completed', 'settled'].includes(paymentStatus)) {
+    return {
+      eligible: false,
+      reason: `Cannot send payment reminder: order payment is already marked as ${paymentStatus}.`
+    };
+  }
+
+  if (paymentStatus === 'refunded') {
+    return {
+      eligible: false,
+      reason: 'Cannot send payment reminder: order payment has been refunded.'
+    };
+  }
+
+  const blockedStatuses = [
+    'paid',
+    'confirmed',
+    'processing',
+    'packed',
+    'ready',
+    'ready_for_pickup',
+    'out_for_delivery',
+    'shipped',
+    'delivered',
+    'completed',
+    'cancelled',
+    'refunded'
+  ];
+
+  if (blockedStatuses.includes(dbStatus) || blockedStatuses.includes(subStatus)) {
+    const displayStatus = blockedStatuses.includes(subStatus) ? subStatus : dbStatus;
+    return {
+      eligible: false,
+      reason: `Cannot send payment reminder for an order with status "${displayStatus.replace(/_/g, ' ')}". Reminders are only allowed for pending orders.`
+    };
+  }
+
+  if (dbStatus !== 'pending' || subStatus !== 'pending') {
+    return {
+      eligible: false,
+      reason: `Cannot send payment reminder: order status is "${subStatus || dbStatus}".`
+    };
+  }
+
+  return { eligible: true };
+}
+
+export function buildOrderReminderSummary(
+  orderId: string,
+  records: OrderPaymentReminderRecord[],
+  nowMs: number = Date.now()
+): OrderReminderSummary {
+  const sorted = [...records].sort(
+    (a, b) => new Date(b.sent_at || b.created_at).getTime() - new Date(a.sent_at || a.created_at).getTime()
+  );
+  const sentRecords = sorted.filter((r) => r.status === 'sent');
+  const failedRecords = sorted.filter((r) => r.status === 'failed');
+  const latestSent = sentRecords[0] || null;
+  const latestAttempt = sorted[0] || null;
+
+  let cooldownActive = false;
+  let nextEligibleAt: string | null = null;
+
+  if (latestSent) {
+    const lastSentMs = new Date(latestSent.sent_at || latestSent.created_at).getTime();
+    if (!Number.isNaN(lastSentMs) && nowMs - lastSentMs < REMINDER_COOLDOWN_MS) {
+      cooldownActive = true;
+      nextEligibleAt = new Date(lastSentMs + REMINDER_COOLDOWN_MS).toISOString();
+    }
+  }
+
+  return {
+    orderId,
+    totalAttempts: sorted.length,
+    sentCount: sentRecords.length,
+    failedCount: failedRecords.length,
+    lastRemindedAt: latestSent ? (latestSent.sent_at || latestSent.created_at) : null,
+    lastAttemptAt: latestAttempt ? (latestAttempt.sent_at || latestAttempt.created_at) : null,
+    lastStatus: latestAttempt ? latestAttempt.status : null,
+    lastResendEmailId: latestSent?.resend_email_id || null,
+    lastAdminName: (latestSent || latestAttempt)?.sent_by_admin_name || null,
+    lastAdminEmail: (latestSent || latestAttempt)?.sent_by_admin_email || null,
+    cooldownActive,
+    nextEligibleAt,
+    reminders: sorted.slice(0, 20)
+  };
+}
+
+async function fetchReminderRecordsForOrderIds(
+  supabase: SupabaseClient,
+  orderIds: string[],
+  fallbackFilePath?: string
+): Promise<OrderPaymentReminderRecord[]> {
+  const filePath = fallbackFilePath || getDefaultReminderFallbackPath();
+  if (orderIds.length === 0) return [];
+
+  try {
+    const { data, error } = await supabase
+      .from('order_payment_reminders')
+      .select('*')
+      .in('order_id', orderIds)
+      .order('sent_at', { ascending: false });
+
+    if (!error && Array.isArray(data)) {
+      return data as OrderPaymentReminderRecord[];
+    }
+    if (error && !isMissingTableError(error)) {
+      console.warn('[Order Reminders] Query warning:', error.message);
+    }
+  } catch (err: any) {
+    console.warn('[Order Reminders] Query exception:', err?.message || err);
+  }
+
+  const allFallback = readFallbackReminderStore(filePath);
+  const idSet = new Set(orderIds);
+  return allFallback
+    .filter((r) => idSet.has(r.order_id))
+    .sort((a, b) => new Date(b.sent_at || b.created_at).getTime() - new Date(a.sent_at || a.created_at).getTime());
+}
+
+async function insertReminderRecord(
+  supabase: SupabaseClient,
+  record: Omit<OrderPaymentReminderRecord, 'id' | 'created_at'>,
+  fallbackFilePath?: string
+): Promise<OrderPaymentReminderRecord> {
+  const filePath = fallbackFilePath || getDefaultReminderFallbackPath();
+  const fullFallbackRecord: OrderPaymentReminderRecord = {
+    id: crypto.randomUUID(),
+    ...record,
+    created_at: record.sent_at
+  };
+
+  try {
+    const { data, error } = await supabase
+      .from('order_payment_reminders')
+      .insert({
+        order_id: record.order_id,
+        buyer_id: record.buyer_id,
+        buyer_email: record.buyer_email,
+        status: record.status,
+        resend_email_id: record.resend_email_id,
+        error_message: record.error_message,
+        sent_by_admin_id: record.sent_by_admin_id,
+        sent_by_admin_email: record.sent_by_admin_email,
+        sent_by_admin_name: record.sent_by_admin_name,
+        sent_at: record.sent_at
+      })
+      .select('*')
+      .single();
+
+    if (!error && data) {
+      return data as OrderPaymentReminderRecord;
+    }
+
+    if (error && !isMissingTableError(error)) {
+      console.warn('[Order Reminders] Insert warning:', error.message);
+    }
+  } catch (err: any) {
+    console.warn('[Order Reminders] Insert exception:', err?.message || err);
+  }
+
+  // Fallback server-only storage when order_payment_reminders migration has not been run yet
+  const existing = readFallbackReminderStore(filePath);
+  existing.unshift(fullFallbackRecord);
+  writeFallbackReminderStore(filePath, existing);
+  return fullFallbackRecord;
+}
+
+export async function getOrderPaymentRemindersForOrder(
+  orderId: string,
+  options: { supabaseClient?: SupabaseClient; fallbackFilePath?: string; nowMs?: number } = {}
+): Promise<OrderReminderSummary> {
+  const supabase = options.supabaseClient || getSupabaseAdmin();
+  if (!supabase) {
+    return buildOrderReminderSummary(orderId, [], options.nowMs);
+  }
+  const records = await fetchReminderRecordsForOrderIds(supabase, [orderId], options.fallbackFilePath);
+  return buildOrderReminderSummary(orderId, records, options.nowMs);
+}
+
+export async function getOrderPaymentReminderSummaries(
+  orderIds: string[],
+  options: { supabaseClient?: SupabaseClient; fallbackFilePath?: string; nowMs?: number } = {}
+): Promise<Record<string, OrderReminderSummary>> {
+  const cleanIds = [...new Set(orderIds.map((id) => String(id || '').trim()).filter(Boolean))];
+  const result: Record<string, OrderReminderSummary> = {};
+  if (cleanIds.length === 0) return result;
+
+  const supabase = options.supabaseClient || getSupabaseAdmin();
+  if (!supabase) {
+    for (const id of cleanIds) {
+      result[id] = buildOrderReminderSummary(id, [], options.nowMs);
+    }
+    return result;
+  }
+
+  const records = await fetchReminderRecordsForOrderIds(supabase, cleanIds, options.fallbackFilePath);
+  const grouped = new Map<string, OrderPaymentReminderRecord[]>();
+  for (const id of cleanIds) {
+    grouped.set(id, []);
+  }
+  for (const rec of records) {
+    const arr = grouped.get(rec.order_id);
+    if (arr) arr.push(rec);
+  }
+  for (const id of cleanIds) {
+    result[id] = buildOrderReminderSummary(id, grouped.get(id) || [], options.nowMs);
+  }
+  return result;
+}
+
+export function buildPendingOrderReminderEmailHtml(
+  data: OrderEmailData,
+  secureOrderUrl: string
+): { subject: string; html: string; text: string } {
+  const safeOrderNumber = escapeHtml(data.orderNumber);
+  const safeCustomerName = escapeHtml(data.customerName || 'Valued Customer');
+  const safeOrderDate = escapeHtml(data.orderDate);
+  const safeDeliveryAddress = escapeHtml(data.deliveryAddress || 'Nairobi, Kenya');
+  const safeTotal = escapeHtml(formatCurrency(data.total));
+  const safeSubtotal = escapeHtml(formatCurrency(data.subtotal));
+  const safeDeliveryFee = data.deliveryFee > 0 ? escapeHtml(formatCurrency(data.deliveryFee)) : 'Free';
+  const safeAppUrl = escapeHtml(
+    (process.env.APP_URL || process.env.VITE_APP_URL || 'https://odamarket.co.ke').replace(/\/$/, '')
+  );
+  const safeOrderUrl =
+    /^https?:\/\//i.test(secureOrderUrl)
+      ? escapeHtml(secureOrderUrl)
+      : `${safeAppUrl}/buyer/dashboard/orders`;
+
+  const items = data.items || [];
+  const totalQuantity = items.reduce((sum, i) => sum + (Number(i.quantity) || 0), 0);
+
+  const itemsHtml =
+    items.length > 0
+      ? items
+          .map(
+            (item) => `
+    <tr>
+      <td style="padding: 12px 0; border-bottom: 1px solid #F0E6D8; vertical-align: top;">
+        <table border="0" cellpadding="0" cellspacing="0" width="100%">
+          <tr>
+            <td style="vertical-align: top;">
+              <p style="margin: 0 0 4px 0; font-size: 14px; font-weight: 700; color: #3A2418; line-height: 1.4;">
+                ${escapeHtml(item.name)}
+              </p>
+              <p style="margin: 0; font-size: 13px; color: #8B857D; line-height: 1.4;">
+                Quantity: <strong style="color: #3A2418;">${Number(item.quantity) || 1}</strong> &times; ${escapeHtml(formatCurrency(item.unitPrice))}
+              </p>
+            </td>
+            <td align="right" style="vertical-align: top; white-space: nowrap; padding-left: 12px;">
+              <span style="font-size: 14px; font-weight: 700; color: #3A2418;">
+                ${escapeHtml(formatCurrency(item.lineTotal))}
+              </span>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>`
+          )
+          .join('')
+      : `
+    <tr>
+      <td style="padding: 12px 0; color: #5F5A54; font-size: 14px;">
+        Your selected ODA Market items are reserved and awaiting payment confirmation.
+      </td>
+    </tr>`;
+
+  const subject = `Payment Reminder for Pending Order ${data.orderNumber} - ODA Market`;
+
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>${escapeHtml(subject)}</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #FAF5EC; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+  <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #FAF5EC; padding: 30px 12px 40px 12px;">
+    <tr>
+      <td align="center">
+        <table border="0" cellpadding="0" cellspacing="0" width="100%" style="max-width: 600px; background-color: #FFFFFF; border-radius: 16px; overflow: hidden; border: 1px solid #E8DCC9; box-shadow: 0 10px 30px rgba(58, 36, 24, 0.08);">
+          <tr>
+            <td style="height: 6px; background: linear-gradient(90deg, #C65A28 0%, #F49C64 100%); background-color: #C65A28;"></td>
+          </tr>
+          <tr>
+            <td align="center" style="padding: 32px 24px 20px 24px; text-align: center;">
+              <a href="${safeAppUrl}" target="_blank" style="text-decoration: none;">
+                <h1 style="margin: 0; color: #D96A27; font-size: 28px; font-weight: 800; letter-spacing: -0.5px;">ODA MARKET</h1>
+              </a>
+              <p style="margin: 5px 0 0 0; color: #8B857D; font-size: 11px; font-weight: 700; letter-spacing: 1.5px; text-transform: uppercase;">Pending Order Payment Reminder</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 0 32px 24px 32px;">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #FFF7ED; border: 1px solid #FED7AA; border-radius: 12px; padding: 20px; text-align: center;">
+                <tr>
+                  <td align="center">
+                    <div style="display: inline-block; width: 44px; height: 44px; line-height: 44px; background-color: #C65A28; color: #FFFFFF; border-radius: 50%; font-size: 20px; font-weight: bold; margin-bottom: 8px;">
+                      &#9203;
+                    </div>
+                    <h2 style="margin: 4px 0 6px 0; color: #9A3412; font-size: 21px; font-weight: 800;">Complete Your Pending Order</h2>
+                    <p style="margin: 0; color: #C65A28; font-size: 14px; font-weight: 600;">Order ${safeOrderNumber} &bull; Amount Due: ${safeTotal}</p>
+                  </td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 0 32px 20px 32px;">
+              <p style="margin: 0 0 12px 0; color: #3A2418; font-size: 16px; font-weight: 600;">Hello ${safeCustomerName},</p>
+              <p style="margin: 0; color: #5F5A54; font-size: 15px; line-height: 1.6;">
+                This is a friendly reminder that your ODA Market order <strong>${safeOrderNumber}</strong> is still pending payment. Sign in to your ODA Market account using the secure button below to review your order details and complete payment so we can begin preparing your items.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 0 32px 24px 32px;">
+              <div style="background-color: #FFFDF8; border: 1px solid #E8DCC9; border-radius: 12px; padding: 18px 20px;">
+                <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                  <tr>
+                    <td style="padding: 5px 0; font-size: 13px; color: #8B857D; width: 42%;">Order Number:</td>
+                    <td align="right" style="padding: 5px 0; font-size: 13px; font-weight: 700; color: #D96A27; font-family: monospace;">${safeOrderNumber}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 5px 0; font-size: 13px; color: #8B857D;">Order Date:</td>
+                    <td align="right" style="padding: 5px 0; font-size: 13px; font-weight: 600; color: #3A2418;">${safeOrderDate}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 5px 0; font-size: 13px; color: #8B857D;">Order Status:</td>
+                    <td align="right" style="padding: 5px 0; font-size: 13px; font-weight: 700; color: #B45309; text-transform: uppercase;">Pending Payment</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 5px 0; font-size: 13px; color: #8B857D;">Delivery Address:</td>
+                    <td align="right" style="padding: 5px 0; font-size: 13px; font-weight: 600; color: #3A2418;">${safeDeliveryAddress}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0 0 0; font-size: 15px; font-weight: 800; color: #C65A28; border-top: 1px solid #E8DCC9;">Total Amount Due:</td>
+                    <td align="right" style="padding: 8px 0 0 0; font-size: 16px; font-weight: 800; color: #C65A28; border-top: 1px solid #E8DCC9;">${safeTotal}</td>
+                  </tr>
+                </table>
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 0 32px 20px 32px;">
+              <h3 style="margin: 0 0 12px 0; font-size: 15px; font-weight: 700; color: #3A2418; border-bottom: 2px solid #E8DCC9; padding-bottom: 8px;">
+                Order Summary (${totalQuantity || 1} ${(totalQuantity || 1) === 1 ? 'Item' : 'Items'})
+              </h3>
+              <table border="0" cellpadding="0" cellspacing="0" width="100%">
+                ${itemsHtml}
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 0 32px 24px 32px;">
+              <table border="0" cellpadding="0" cellspacing="0" width="100%" style="background-color: #FAF5EC; border-radius: 12px; padding: 16px 20px; border: 1px solid #E8DCC9;">
+                <tr>
+                  <td style="padding: 4px 0; font-size: 13px; color: #5F5A54;">Subtotal:</td>
+                  <td align="right" style="padding: 4px 0; font-size: 13px; font-weight: 600; color: #3A2418;">${safeSubtotal}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 4px 0; font-size: 13px; color: #5F5A54;">Delivery Fee:</td>
+                  <td align="right" style="padding: 4px 0; font-size: 13px; font-weight: 600; color: #3A2418;">${safeDeliveryFee}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 10px 0 0 0; font-size: 16px; font-weight: 800; color: #C65A28; border-top: 1px solid #E8DCC9;">Amount Due:</td>
+                  <td align="right" style="padding: 10px 0 0 0; font-size: 17px; font-weight: 800; color: #C65A28; border-top: 1px solid #E8DCC9;">${safeTotal}</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+          <tr>
+            <td align="center" style="padding: 0 32px 32px 32px;">
+              <a href="${safeOrderUrl}" target="_blank" style="display: inline-block; padding: 16px 36px; font-size: 16px; font-weight: 700; color: #FFFFFF; text-decoration: none; border-radius: 12px; background-color: #C65A28;">
+                View Order &amp; Complete Payment &rarr;
+              </a>
+              <p style="margin: 14px 0 0 0; color: #8B857D; font-size: 12px; line-height: 1.5;">
+                For your security, you will be asked to sign in to your ODA Market account before viewing your order details.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color: #FAF5EC; padding: 24px 30px; text-align: center; border-top: 1px solid #E8DCC9;">
+              <p style="margin: 0 0 6px 0; color: #3A2418; font-size: 12px; font-weight: 700;">&copy; ${new Date().getFullYear()} ODA Market. All rights reserved.</p>
+              <p style="margin: 0; color: #8B857D; font-size: 12px;">Need help with payment? Contact <a href="mailto:info@odamarket.co.ke" style="color: #D96A27; text-decoration: none; font-weight: 600;">info@odamarket.co.ke</a> or call/WhatsApp +254 792 867386</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  const itemLines = items.map(
+    (i) => `- ${i.name} (Qty: ${i.quantity} x ${formatCurrency(i.unitPrice)}) = ${formatCurrency(i.lineTotal)}`
+  );
+
+  const text = [
+    `Hello ${data.customerName || 'Valued Customer'},`,
+    '',
+    `This is a reminder from ODA Market that your order ${data.orderNumber} is still pending payment.`,
+    '',
+    `Order Number: ${data.orderNumber}`,
+    `Order Date: ${data.orderDate}`,
+    `Amount Due: ${formatCurrency(data.total)}`,
+    `Status: Pending Payment`,
+    '',
+    ...(itemLines.length > 0 ? ['Items:', ...itemLines, ''] : []),
+    'Sign in to your ODA Market account to view your order details and complete payment:',
+    secureOrderUrl,
+    '',
+    'If you have already completed payment or need help, contact info@odamarket.co.ke or +254 792 867386.',
+    '',
+    'Team ODA Market'
+  ].join('\n');
+
+  return { subject, html, text };
+}
+
+/**
+ * Dispatches an admin-triggered pending order payment reminder email via Resend.
+ * Enforces:
+ * 1. Valid UUID orderId and admin actor attribution
+ * 2. Strict order status & payment_status validation (pending & unpaid only)
+ * 3. Per-order concurrency lock + 24-hour cooldown check against successful sends
+ * 4. Strict buyer email validation
+ * 5. Full reminder audit history recording (never modifying orders.payment_status)
+ */
+export async function sendPendingOrderPaymentReminder(params: {
+  orderId: string;
+  adminUser: ReminderAdminActor;
+  supabaseClient?: SupabaseClient;
+  sendEmailFn?: (emailParams: {
+    from: string;
+    to: string;
+    replyTo?: string;
+    subject: string;
+    html: string;
+    text?: string;
+    idempotencyKey?: string;
+  }) => Promise<{ success: boolean; resendId?: string; error?: string }>;
+  fallbackFilePath?: string;
+  nowMs?: number;
+}): Promise<SendPendingOrderReminderResult> {
+  const cleanOrderId = String(params.orderId || '').trim();
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cleanOrderId)) {
+    return {
+      success: false,
+      statusCode: 400,
+      orderId: cleanOrderId,
+      error: 'Invalid order ID format.'
+    };
+  }
+
+  if (!params.adminUser?.id) {
+    return {
+      success: false,
+      statusCode: 403,
+      orderId: cleanOrderId,
+      error: 'Administrator authentication required.'
+    };
+  }
+
+  // Per-order concurrency lock prevents accidental double-click duplicate dispatches
+  if (inFlightReminderLocks.has(cleanOrderId)) {
+    return inFlightReminderLocks.get(cleanOrderId)!;
+  }
+
+  const task = (async (): Promise<SendPendingOrderReminderResult> => {
+    const supabase = params.supabaseClient || getSupabaseAdmin();
+    if (!supabase) {
+      return {
+        success: false,
+        statusCode: 500,
+        orderId: cleanOrderId,
+        error: 'Database configuration unavailable on server.'
+      };
+    }
+
+    const nowMs = params.nowMs ?? Date.now();
+    const nowIso = new Date(nowMs).toISOString();
+
+    // 1. Load authoritative order, buyer profile/auth, and items from Supabase
+    const ctx = await loadOrderEmailContext(supabase, cleanOrderId);
+    if (ctx.error || !ctx.order || !ctx.emailData) {
+      return {
+        success: false,
+        statusCode: 404,
+        orderId: cleanOrderId,
+        error: ctx.error || 'Order not found.'
+      };
+    }
+
+    const { order, parsedNotes, emailData } = ctx;
+
+    // 2. Validate order status & payment_status strictly (never send for paid, cancelled, or completed orders)
+    const eligibility = validateOrderEligibleForPaymentReminder(order, parsedNotes);
+    if (!eligibility.eligible) {
+      return {
+        success: false,
+        statusCode: 400,
+        orderId: cleanOrderId,
+        orderNumber: emailData.orderNumber,
+        error: eligibility.reason || 'Order is not eligible for a payment reminder.'
+      };
+    }
+
+    // 3. Enforce 24-hour cooldown per order based on prior successful reminder sends
+    const existingRecords = await fetchReminderRecordsForOrderIds(
+      supabase,
+      [cleanOrderId],
+      params.fallbackFilePath
+    );
+    const existingSummary = buildOrderReminderSummary(cleanOrderId, existingRecords, nowMs);
+    if (existingSummary.cooldownActive && existingSummary.nextEligibleAt) {
+      const nextMs = new Date(existingSummary.nextEligibleAt).getTime();
+      const remainingMs = Math.max(0, nextMs - nowMs);
+      const remainingHours = Math.max(1, Math.ceil(remainingMs / (60 * 60 * 1000)));
+      return {
+        success: false,
+        statusCode: 429,
+        orderId: cleanOrderId,
+        orderNumber: emailData.orderNumber,
+        cooldownActive: true,
+        nextEligibleAt: existingSummary.nextEligibleAt,
+        remainingMs,
+        summary: existingSummary,
+        error: `A reminder was already sent recently for ${emailData.orderNumber}. Please wait ~${remainingHours}h (until ${new Date(
+          existingSummary.nextEligibleAt
+        ).toLocaleString()}) before sending another reminder.`
+      };
+    }
+
+    // 4. Validate buyer email address (check raw fallback on order if loadOrderEmailContext filtered an invalid address)
+    const rawCandidateEmail =
+      emailData.customerEmail ||
+      parsedNotes?.contactDetails?.userEmail ||
+      (order as any).customer_email ||
+      '';
+
+    if (!isValidCustomerEmail(emailData.customerEmail)) {
+      const failedReason = rawCandidateEmail
+        ? `Invalid buyer email address: ${rawCandidateEmail}`
+        : 'Buyer email address is missing for this order.';
+
+      const failedRec = await insertReminderRecord(
+        supabase,
+        {
+          order_id: cleanOrderId,
+          buyer_id: order.user_id || null,
+          buyer_email: String(rawCandidateEmail || 'unavailable').trim(),
+          status: 'failed',
+          resend_email_id: null,
+          error_message: failedReason,
+          sent_by_admin_id: params.adminUser.id,
+          sent_by_admin_email: params.adminUser.email || null,
+          sent_by_admin_name: params.adminUser.name || null,
+          sent_at: nowIso
+        },
+        params.fallbackFilePath
+      );
+
+      const updatedSummary = buildOrderReminderSummary(
+        cleanOrderId,
+        [failedRec, ...existingRecords],
+        nowMs
+      );
+
+      return {
+        success: false,
+        statusCode: 400,
+        orderId: cleanOrderId,
+        orderNumber: emailData.orderNumber,
+        record: failedRec,
+        summary: updatedSummary,
+        error: failedReason
+      };
+    }
+
+    // 5. Build secure authenticated buyer order link + ODA Market branded reminder HTML
+    const appUrl = (process.env.APP_URL || process.env.VITE_APP_URL || 'https://odamarket.co.ke').replace(/\/$/, '');
+    const secureOrderUrl = `${appUrl}/buyer/dashboard/orders?orderId=${encodeURIComponent(cleanOrderId)}`;
+    const { subject, html, text } = buildPendingOrderReminderEmailHtml(emailData, secureOrderUrl);
+
+    const fromSender = resolveValidFromEmail(
+      process.env.RESEND_FROM_EMAIL,
+      'ODA Market <orders@odamarket.co.ke>'
+    );
+
+    const dispatchFn = params.sendEmailFn || sendResendHtmlEmailWithFailover;
+    if (!params.sendEmailFn && !getResendClient()) {
+      const configErr = 'RESEND_API_KEY is not configured on server.';
+      const failedRec = await insertReminderRecord(
+        supabase,
+        {
+          order_id: cleanOrderId,
+          buyer_id: order.user_id || null,
+          buyer_email: emailData.customerEmail.trim().toLowerCase(),
+          status: 'failed',
+          resend_email_id: null,
+          error_message: configErr,
+          sent_by_admin_id: params.adminUser.id,
+          sent_by_admin_email: params.adminUser.email || null,
+          sent_by_admin_name: params.adminUser.name || null,
+          sent_at: nowIso
+        },
+        params.fallbackFilePath
+      );
+      return {
+        success: false,
+        statusCode: 500,
+        orderId: cleanOrderId,
+        orderNumber: emailData.orderNumber,
+        record: failedRec,
+        summary: buildOrderReminderSummary(cleanOrderId, [failedRec, ...existingRecords], nowMs),
+        error: configErr
+      };
+    }
+
+    const sendRes = await dispatchFn({
+      from: fromSender,
+      to: emailData.customerEmail.trim().toLowerCase(),
+      replyTo: 'info@odamarket.co.ke',
+      subject,
+      html,
+      text,
+      idempotencyKey: `oda-order-reminder-${cleanOrderId}-${nowMs}-${crypto.randomUUID().slice(0, 8)}`
+    });
+
+    if (!sendRes.success) {
+      const errorMsg = sendRes.error || 'Failed to deliver reminder email via Resend.';
+      const failedRec = await insertReminderRecord(
+        supabase,
+        {
+          order_id: cleanOrderId,
+          buyer_id: order.user_id || null,
+          buyer_email: emailData.customerEmail.trim().toLowerCase(),
+          status: 'failed',
+          resend_email_id: null,
+          error_message: errorMsg,
+          sent_by_admin_id: params.adminUser.id,
+          sent_by_admin_email: params.adminUser.email || null,
+          sent_by_admin_name: params.adminUser.name || null,
+          sent_at: nowIso
+        },
+        params.fallbackFilePath
+      );
+      return {
+        success: false,
+        statusCode: 502,
+        orderId: cleanOrderId,
+        orderNumber: emailData.orderNumber,
+        recipient: emailData.customerEmail,
+        record: failedRec,
+        summary: buildOrderReminderSummary(cleanOrderId, [failedRec, ...existingRecords], nowMs),
+        error: errorMsg
+      };
+    }
+
+    const sentRec = await insertReminderRecord(
+      supabase,
+      {
+        order_id: cleanOrderId,
+        buyer_id: order.user_id || null,
+        buyer_email: emailData.customerEmail.trim().toLowerCase(),
+        status: 'sent',
+        resend_email_id: sendRes.resendId || null,
+        error_message: null,
+        sent_by_admin_id: params.adminUser.id,
+        sent_by_admin_email: params.adminUser.email || null,
+        sent_by_admin_name: params.adminUser.name || null,
+        sent_at: nowIso
+      },
+      params.fallbackFilePath
+    );
+
+    const updatedSummary = buildOrderReminderSummary(
+      cleanOrderId,
+      [sentRec, ...existingRecords],
+      nowMs
+    );
+
+    console.log(
+      `[Resend Reminder] ✅ Sent pending payment reminder to ${emailData.customerEmail} for ${emailData.orderNumber} by admin ${params.adminUser.email || params.adminUser.id} (Resend ID: ${sentRec.resend_email_id})`
+    );
+
+    return {
+      success: true,
+      statusCode: 200,
+      orderId: cleanOrderId,
+      orderNumber: emailData.orderNumber,
+      recipient: emailData.customerEmail,
+      resendId: sentRec.resend_email_id || undefined,
+      sentAt: sentRec.sent_at,
+      cooldownActive: updatedSummary.cooldownActive,
+      nextEligibleAt: updatedSummary.nextEligibleAt,
+      record: sentRec,
+      summary: updatedSummary
+    };
+  })();
+
+  inFlightReminderLocks.set(cleanOrderId, task);
+  try {
+    return await task;
+  } finally {
+    inFlightReminderLocks.delete(cleanOrderId);
+  }
+}
+

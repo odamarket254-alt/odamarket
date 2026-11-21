@@ -9,6 +9,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { useCartStore } from "../store/useCartStore";
 import { useAuthStore } from "../store/useAuthStore";
 import { ThermalPrinter } from "../components/receipt/ThermalPrinter";
+import { ReceiptPrinterAnimation } from "../components/receipt/ReceiptPrinterAnimation";
 import { OrderReceiptData } from "../components/receipt/OrderReceipt";
 import { downloadDigitalReceiptPdf } from "../utils/receiptPdf";
 import { generateWhatsAppMessage, getWhatsAppUrl, WhatsAppOrderData } from "../lib/whatsapp";
@@ -817,9 +818,9 @@ export default function CheckoutPage() {
     const receiptData = getReceiptData();
 
     return (
-      <div className="min-h-screen bg-[#ECEEF2] py-8 sm:py-12 px-3 sm:px-4 flex flex-col items-center justify-start">
+      <div className="min-h-screen bg-[#ECEEF2] dark:bg-neutral-950 py-8 sm:py-12 px-3 sm:px-4 flex flex-col items-center justify-start">
         {receiptData ? (
-          <ThermalPrinter
+          <ReceiptPrinterAnimation
             receiptData={receiptData}
             onDownloadPdf={handleDownloadPdf}
             onPrintReceipt={handlePrintReceipt}

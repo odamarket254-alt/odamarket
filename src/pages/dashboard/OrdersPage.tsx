@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useAuthStore } from "../../store/useAuthStore";
 import { useCartStore } from "../../store/useCartStore";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "../../lib/supabase";
 import { Package, Star, X, Search, ExternalLink, RefreshCcw, Download, Clock, Truck, CheckCircle2, ChevronRight, Check } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -18,6 +18,9 @@ export default function OrdersPage() {
   const [downloadingOrderId, setDownloadingOrderId] = useState<string | null>(null);
   const { addItem } = useCartStore();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const focusedOrderId = searchParams.get("orderId");
+  const [focusedOrderItems, setFocusedOrderItems] = useState<any[]>([]);
   
   // Rate Products State
   const [ratingOrder, setRatingOrder] = useState<any | null>(null);
@@ -31,6 +34,26 @@ export default function OrdersPage() {
   useEffect(() => {
     fetchOrders();
   }, [user]);
+
+  useEffect(() => {
+    if (!user || !focusedOrderId || orders.length === 0) return;
+    const matched = orders.find((o) => o.id === focusedOrderId);
+    if (!matched) return;
+
+    const loadFocusedItems = async () => {
+      const { data } = await supabase
+        .from("order_items")
+        .select("*")
+        .eq("order_id", matched.id);
+      if (data) setFocusedOrderItems(data);
+    };
+    loadFocusedItems();
+
+    setTimeout(() => {
+      const el = document.getElementById(`buyer-order-${matched.id}`);
+      el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 150);
+  }, [user, focusedOrderId, orders]);
 
   const fetchOrders = async () => {
     if (!user) return;
@@ -211,8 +234,22 @@ export default function OrdersPage() {
       </div>
 
       <div className="space-y-4">
-        {filteredOrders.length > 0 ? filteredOrders.map(order => (
-          <Card key={order.id} className="p-0 overflow-hidden">
+        {filteredOrders.length > 0 ? filteredOrders.map(order => {
+          const isFocused = focusedOrderId === order.id;
+          return (
+          <Card
+            id={`buyer-order-${order.id}`}
+            key={order.id}
+            className={`p-0 overflow-hidden ${isFocused ? 'ring-2 ring-[#C65A28] border-[#C65A28]' : ''}`}
+          >
+            {isFocused && (
+              <div className="bg-orange-50 border-b border-orange-200 px-4 md:px-6 py-2 flex items-center justify-between text-xs font-semibold text-[#C65A28]">
+                <span>Viewing selected order {order.order_number || order.id}</span>
+                {order.payment_status !== 'success' && order.status !== 'cancelled' && (
+                  <span>Awaiting Payment</span>
+                )}
+              </div>
+            )}
             <div className="bg-muted/30 px-4 md:px-6 py-4 border-b border-border flex flex-wrap justify-between items-center gap-4">
               <div className="flex flex-wrap items-center gap-6">
                 <div>
@@ -283,8 +320,29 @@ export default function OrdersPage() {
                 )}
               </div>
             </div>
+
+            {isFocused && focusedOrderItems.length > 0 && (
+              <div className="px-4 md:px-6 pb-4 pt-2 border-t border-border/60 bg-orange-50/20">
+                <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                  Order Items ({focusedOrderItems.length})
+                </p>
+                <div className="divide-y divide-border/50">
+                  {focusedOrderItems.map((item) => (
+                    <div key={item.id} className="py-2 flex items-center justify-between text-sm">
+                      <span className="font-medium text-foreground">
+                        {item.product_name} <span className="text-muted-foreground">&times; {item.quantity}</span>
+                      </span>
+                      <span className="font-semibold">
+                        KSh {Number(item.subtotal ?? item.total_price ?? item.unit_price * item.quantity).toLocaleString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </Card>
-        )) : (
+          );
+        }) : (
           <div className="text-center py-12 bg-card border border-dashed border-border rounded-xl">
             <Package className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
             <h3 className="text-lg font-semibold mb-2">No orders found</h3>
